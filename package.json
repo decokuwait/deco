@@ -14,6 +14,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "e2e": "tsx scripts/e2e.ts",
     "shots": "tsx scripts/shots.ts",
+    "thumbs": "tsx scripts/thumbs.ts",
     "qa": "npm run typecheck && npm test && npm run build && npm run smoke && npm run e2e"
   },
   "dependencies": {

@@ -29,8 +29,34 @@ async function shot(browser: Browser, url: string, file: string, viewport: { wid
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
     await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => {});
+    // Full-page captures never scroll, so lazy images below the fold would stay blank: force them eager,
+    // scroll through the page once (triggers observers/animations), then wait for every image to settle.
+    await page
+      .evaluate(async () => {
+        const imgs = Array.from(document.querySelectorAll("img"));
+        for (const i of imgs) i.loading = "eager";
+        const step = window.innerHeight;
+        for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
+          window.scrollTo(0, y);
+          await new Promise((r) => setTimeout(r, 60));
+        }
+        window.scrollTo(0, 0);
+        await Promise.all(
+          imgs.map(
+            (i) =>
+              new Promise<void>((resolve) => {
+                if (i.complete) return resolve();
+                const done = () => resolve();
+                i.addEventListener("load", done, { once: true });
+                i.addEventListener("error", done, { once: true });
+                setTimeout(done, 12000);
+              }),
+          ),
+        );
+      })
+      .catch(() => {});
     await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(OUT, file), fullPage, timeout: 60000 });
     const h = await page.evaluate(() => ({ scrollW: document.documentElement.scrollWidth, clientW: document.documentElement.clientWidth, height: document.documentElement.scrollHeight }));
     await ctx.close();

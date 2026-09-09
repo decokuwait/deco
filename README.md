@@ -60,7 +60,10 @@ Local mode uses an embedded PGlite Postgres in `./.data/pglite` and stores uploa
 ```bash
 npm run typecheck   # tsc
 npm test            # vitest: routing, attribution, marketing payloads, database (PGlite), registry, rendering of all 60 templates
-npm run build && npm run smoke   # boots the production build and exercises pages, tenant routing, tracking APIs and auth guards
+npm run build && npm run smoke   # boots the production build and exercises pages, tenant routing, tracking APIs, robots/sitemap, auth guards, admin pages
+npm run e2e         # Playwright: real browser flows (visitor id + WhatsApp click, admin login, stage marking with signal delivery, content/list editors, project + media upload, pixels, settings, super admin site creation, template switch, domains, users)
+npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; `tsx scripts/contact-sheet.ts` builds per-category contact sheets
+npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .github/workflows/ci.yml)
 ```
 
 ## Production setup

@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/admin/ui";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
 import { templatesFor } from "@/templates/registry";
 import { FONTS } from "@/templates/fonts";
+import { TemplateThumb } from "@/templates/Thumb";
 
 export default async function SuperTemplatesPage() {
   const ctx = await requireSuper();
@@ -19,19 +20,17 @@ export default async function SuperTemplatesPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {templatesFor(cat).map((tpl) => (
               <div key={tpl.code} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="p-4" style={{ background: tpl.tokens.bg, color: tpl.tokens.text, fontFamily: FONTS[tpl.tokens.headingFont].css }}>
-                  <div className="flex items-center justify-between">
-                    <span className="rounded px-2 py-0.5 text-[10px] font-black" style={{ background: tpl.tokens.primary, color: tpl.tokens.primaryFg }}>
-                      {tpl.code}
-                    </span>
-                    <span className="flex gap-1">
-                      {[tpl.tokens.primary, tpl.tokens.secondary, tpl.tokens.accent, tpl.tokens.surface2].map((c, i) => (
-                        <span key={i} className="h-4 w-4 rounded-full ring-1 ring-black/10" style={{ background: c }} />
-                      ))}
-                    </span>
-                  </div>
-                  <div className="mt-3 text-2xl font-black leading-tight">{tpl.name[locale]}</div>
-                  <div className="text-xs opacity-70">{tpl.description[locale]}</div>
+                <TemplateThumb def={tpl}>
+                  <span className="absolute start-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-black text-white">{tpl.code}</span>
+                  <span className="absolute end-3 top-3 flex gap-1">
+                    {[tpl.tokens.primary, tpl.tokens.secondary, tpl.tokens.accent].map((c, i) => (
+                      <span key={i} className="h-3.5 w-3.5 rounded-full ring-1 ring-white/60" style={{ background: c }} />
+                    ))}
+                  </span>
+                </TemplateThumb>
+                <div className="px-3 pt-3" style={{ fontFamily: FONTS[tpl.tokens.headingFont].css }}>
+                  <div className="text-xl font-black leading-tight text-slate-900">{tpl.name[locale]}</div>
+                  <div className="text-xs text-slate-500">{tpl.description[locale]}</div>
                 </div>
                 <div className="flex items-center justify-between gap-2 p-3 text-xs">
                   <span className="text-slate-500">

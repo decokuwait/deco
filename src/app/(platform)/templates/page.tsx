@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
 import { templatesFor } from "@/templates/registry";
-import { FONTS } from "@/templates/fonts";
+import { TemplateThumb } from "@/templates/Thumb";
 import { APP_NAME } from "@/lib/config";
 
 export const dynamic = "force-static";
@@ -37,26 +37,14 @@ export default function TemplatesGallery() {
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {templatesFor(cat).map((t) => (
                 <Link key={t.code} href={`/template/${t.code}`} className="group overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:-translate-y-1 hover:border-amber-300/60">
-                  <div className="relative h-40 p-4" style={{ background: t.tokens.bg, color: t.tokens.text, fontFamily: FONTS[t.tokens.headingFont].css }}>
-                    <div className="flex items-center justify-between">
-                      <span className="rounded px-2 py-0.5 text-[10px] font-bold" style={{ background: t.tokens.primary, color: t.tokens.primaryFg }}>
-                        {t.code}
-                      </span>
-                      <div className="flex gap-1">
-                        {[t.tokens.primary, t.tokens.secondary, t.tokens.accent, t.tokens.surface2].map((c, i) => (
-                          <span key={i} className="h-4 w-4 rounded-full ring-1 ring-black/10" style={{ background: c }} />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mt-4 text-2xl font-black leading-tight">{t.name.ar}</div>
-                    <div className="text-xs opacity-70" style={{ fontFamily: FONTS[t.tokens.bodyFont].css }}>
-                      {t.name.en} · {FONTS[t.tokens.headingFont].family}
-                    </div>
-                    <div className="absolute inset-x-4 bottom-3 flex gap-2">
-                      <span className="h-6 flex-1 rounded" style={{ background: t.tokens.secondary, borderRadius: t.tokens.radius === "full" ? 999 : undefined }} />
-                      <span className="h-6 w-16 rounded" style={{ background: t.tokens.accent }} />
-                    </div>
-                  </div>
+                  <TemplateThumb def={t} className="transition group-hover:opacity-95">
+                    <span className="absolute start-3 top-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-black text-white">{t.code}</span>
+                    <span className="absolute end-3 top-3 flex gap-1">
+                      {[t.tokens.primary, t.tokens.secondary, t.tokens.accent].map((c, i) => (
+                        <span key={i} className="h-3.5 w-3.5 rounded-full ring-1 ring-white/60" style={{ background: c }} />
+                      ))}
+                    </span>
+                  </TemplateThumb>
                   <div className="p-4">
                     <div className="flex items-center justify-between">
                       <span className="font-bold">
