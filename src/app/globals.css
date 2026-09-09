@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+/* Template design tokens are injected at runtime as --t-* CSS variables on the template root.
+   `@theme inline` maps them to Tailwind utilities (bg-primary, text-fg, font-heading, rounded-card ...). */
+@theme inline {
+  --color-primary: var(--t-primary);
+  --color-primary-fg: var(--t-primary-fg);
+  --color-secondary: var(--t-secondary);
+  --color-secondary-fg: var(--t-secondary-fg);
+  --color-accent: var(--t-accent);
+  --color-accent-fg: var(--t-accent-fg);
+  --color-bg: var(--t-bg);
+  --color-surface: var(--t-surface);
+  --color-surface-2: var(--t-surface-2);
+  --color-fg: var(--t-text);
+  --color-muted: var(--t-muted);
+  --color-line: var(--t-border);
+  --font-heading: var(--t-font-heading);
+  --font-body: var(--t-font-body);
+  --radius-card: var(--t-radius);
+}
+
+:root {
+  --t-primary: #0f766e;
+  --t-primary-fg: #ffffff;
+  --t-secondary: #0f172a;
+  --t-secondary-fg: #ffffff;
+  --t-accent: #d4a017;
+  --t-accent-fg: #111111;
+  --t-bg: #ffffff;
+  --t-surface: #f8fafc;
+  --t-surface-2: #f1f5f9;
+  --t-text: #0f172a;
+  --t-muted: #64748b;
+  --t-border: #e2e8f0;
+  --t-font-heading: "Cairo", system-ui, sans-serif;
+  --t-font-body: "Tajawal", system-ui, sans-serif;
+  --t-radius: 12px;
+  --t-pattern: none;
+  --t-pattern-size: auto;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--t-font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+.tpl {
+  font-family: var(--t-font-body);
+  background: var(--t-bg);
+  color: var(--t-text);
+  overflow-x: clip;
+}
+
+.tpl h1,
+.tpl h2,
+.tpl h3,
+.tpl h4,
+.tpl .font-heading {
+  font-family: var(--t-font-heading);
+}
+
+.pattern-bg {
+  background-image: var(--t-pattern);
+  background-size: var(--t-pattern-size);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.snap-x-mandatory {
+  scroll-snap-type: x mandatory;
+}
+.snap-item {
+  scroll-snap-align: center;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.7s ease-out both;
+}
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+.animate-float {
+  animation: float-y 5s ease-in-out infinite;
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+@keyframes ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+.animate-ken-burns {
+  animation: ken-burns 12s ease-in-out infinite alternate;
+}
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-float,
+  .animate-marquee,
+  .animate-ken-burns,
+  .animate-pulse-ring {
+    animation: none;
+  }
+}
+
+/* Admin panel base */
+.admin {
+  font-family: "Cairo", "Tajawal", system-ui, sans-serif;
+  background: #f4f6f8;
+  color: #0f172a;
+  min-height: 100dvh;
+}
+.admin input,
+.admin textarea,
+.admin select {
+  font-family: inherit;
+}
