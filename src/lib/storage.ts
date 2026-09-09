@@ -71,6 +71,8 @@ export async function createUploadTarget(input: { siteId: string; filename: stri
     const uploadUrl = await getSignedUrl(client, cmd, { expiresIn: 60 * 10 });
     return { mode: "put", uploadUrl, publicUrl: publicUrlFor(key), key, headers: { "Content-Type": input.contentType } };
   }
+  // Local disk is only a development convenience; serverless file systems are ephemeral and read-only.
+  if (process.env.VERCEL) throw new Error("storage_not_configured");
   return { mode: "post", uploadUrl: `/api/upload/local?key=${encodeURIComponent(key)}`, publicUrl: publicUrlFor(key), key };
 }
 

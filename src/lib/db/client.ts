@@ -93,6 +93,10 @@ export function getDb(): Promise<DbClient> {
   const g = globalThis as Globals;
   if (!g.__dkDbPromise) {
     const url = process.env.DATABASE_URL?.trim();
+    if (!url && (process.env.VERCEL || process.env.DK_REQUIRE_DATABASE_URL === "true")) {
+      // Serverless file systems are read-only and ephemeral: the embedded database is for local use only.
+      return Promise.reject(new Error("DATABASE_URL is not set. Configure the Supabase connection string in the Vercel project environment variables."));
+    }
     g.__dkDbPromise = url ? createPostgres(url) : createPglite();
     g.__dkDbPromise.catch(() => {
       g.__dkDbPromise = undefined;

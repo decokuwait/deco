@@ -52,11 +52,8 @@ body {
   overflow-x: hidden;
 }
 
-img,
-video {
-  max-width: 100%;
-  height: auto;
-}
+/* Note: no unlayered img/video reset here. Tailwind's preflight already applies max-width:100%/height:auto
+   inside the base layer; an unlayered rule would override every h-* utility on images. */
 
 .tpl {
   font-family: var(--t-font-body);

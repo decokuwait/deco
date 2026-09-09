@@ -6,13 +6,14 @@ import { FONTS, isFontKey, type FontKey } from "./fonts";
 import { patternCss } from "./decor/patterns";
 import type { DesignTokens, RenderCtx, TemplateDef } from "./types";
 
+/** Card/frame radius per token. "full" stays a generous rounding for cards; pill shapes are for buttons only. */
 const RADIUS: Record<DesignTokens["radius"], string> = {
   none: "0px",
   sm: "6px",
   md: "12px",
-  lg: "20px",
-  xl: "32px",
-  full: "999px",
+  lg: "18px",
+  xl: "26px",
+  full: "36px",
 };
 
 /** Apply per-site theme overrides (admin colour/font choices) on top of template tokens. */

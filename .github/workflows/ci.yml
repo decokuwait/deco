@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_ROOT_DOMAIN: localhost:3000
+      SUPER_ADMIN_EMAILS: owner@example.com
+      SUPER_ADMIN_PASSWORD: Owner123!
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests (routing, attribution, marketing payloads, database, registry, rendering of all 60 templates)
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Smoke test (production server, tenant routing, tracking APIs, auth guards, admin pages)
+        run: npm run smoke
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Browser end-to-end flows (visitor, admin, super admin)
+        run: npm run e2e
+      - name: Upload e2e screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: .qa/e2e
+          if-no-files-found: ignore

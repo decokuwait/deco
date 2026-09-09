@@ -18,6 +18,7 @@ import { CONTACT } from "../sections/contact";
 import { FOOTER } from "../sections/footer";
 import { FloatingWhatsApp } from "../sections/shared/FloatingWhatsApp";
 import { ScrollTop } from "../ui/client/ScrollTop";
+import { HtmlLang } from "../ui/client/HtmlLang";
 
 function pick(ctx: RenderCtx, key: SectionKey): ComponentType<SectionProps> {
   const l = ctx.def.layout;
@@ -58,6 +59,7 @@ export function TemplateRenderer({ ctx }: { ctx: RenderCtx }) {
   return (
     <div className="tpl min-h-dvh" style={tokensToStyle(tokens)} dir={ctx.dir} lang={ctx.locale} data-template={ctx.def.code}>
       <link rel="stylesheet" href={googleFontsHref(fontKeysOf(tokens))} precedence="fonts" />
+      <HtmlLang locale={ctx.locale} />
       <Nav ctx={ctx} />
       <main>
         {order.map((key) => {

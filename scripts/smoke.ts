@@ -200,6 +200,12 @@ async function main() {
     const superAsAdmin = await fetch(`http://${ROOT}/super`, { headers: { cookie: `dk_session=${adminToken}` }, redirect: "manual" });
     check([302, 303, 307, 308].includes(superAsAdmin.status), "non-super user is redirected away from /super");
 
+    const robotsTenant = await (await fetch(`http://${ROOT}/robots.txt`, { headers: { "x-forwarded-host": tenantHost } })).text();
+    check(robotsTenant.includes("Disallow: /admin") && robotsTenant.includes("sitemap.xml"), "tenant robots.txt hides /admin and points to its sitemap");
+    const sitemapTenant = await fetch(`http://${ROOT}/sitemap.xml`, { headers: { "x-forwarded-host": tenantHost } });
+    check(sitemapTenant.status === 200 && (await sitemapTenant.text()).includes("<urlset"), "tenant sitemap.xml renders");
+    const sitemapRoot = await (await fetch(`http://${ROOT}/sitemap.xml`)).text();
+    check(sitemapRoot.includes("/template/101") && sitemapRoot.includes("/template/415"), "platform sitemap lists every template preview");
     check((await fetch(`http://${ROOT}/super`, { headers: { "x-forwarded-host": tenantHost } })).status === 404, "platform routes are hidden on tenant hosts");
     check((await fetch(`http://${ROOT}/`, { headers: { "x-forwarded-host": `unknown.${ROOT}` } })).status === 404, "unknown subdomain -> 404");
   } finally {
