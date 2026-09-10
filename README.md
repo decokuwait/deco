@@ -3,7 +3,7 @@
 A SaaS-style platform (Next.js 16 + Supabase Postgres + Cloudflare R2, deployed on Vercel) that serves
 **60 ready website templates** (15 each for gypsum board decor, aluminum, partitions, ceramic), each with a
 mobile-first admin panel, 6-digit visitor IDs that travel into the first WhatsApp message, lead-stage
-marking, and server-side conversion signals to Meta, TikTok, Snapchat and Google.
+marking, and server-side conversion signals to Meta, TikTok, Snapchat, Google and X (Twitter).
 
 ## What is inside
 
@@ -15,6 +15,7 @@ marking, and server-side conversion signals to Meta, TikTok, Snapchat and Google
 | Tenant admin panel | `<site host>/admin` |
 | Tracking APIs | `POST /api/track` (visit), `POST /api/track/event` (WhatsApp / call click) |
 | Uploads | `POST /api/upload` → presigned R2 PUT (local-disk fallback in development) |
+| Legal | `<site host>/privacy` (editable privacy policy, linked from every footer) |
 
 ### Visitor ID and WhatsApp
 Every visitor to a tenant host receives a 6-digit ID (`dk_vid` cookie, set by `src/proxy.ts`). The ID is
@@ -34,6 +35,16 @@ Browser pixels fire the same events with a shared `event_id` for deduplication.
 Providers: Meta Conversions API, TikTok Events API, Snapchat Conversions API v3, Google Analytics 4
 Measurement Protocol (mark the events as conversions in GA4 and import them into Google Ads), and the
 X (Twitter) Conversion API (OAuth 1.0a; each stage maps to an Event ID created in X Events Manager).
+
+### What the site admin can change
+Every visible part of a site is editable from `/admin` on a phone: brand (name, tagline, logo, favicon),
+hero (variant content, images), services, about, stats, process steps, testimonials, FAQ, CTA, contact
+details (WhatsApp number, phone, address, map, hours, social links), SEO (title, description, OG image),
+theme (primary/accent/background/surface/text colours, fonts, corner radius, button style, background
+pattern), the order of sections, every UI label and button text (`labels` section), the privacy policy
+(`legal` section), the WhatsApp message template, the floating WhatsApp button and language toggle
+(`settings`), plus the three project types. The super admin can switch a site to any template of its
+category at any time; content is template-independent.
 
 ### Project types
 Finished projects (images + videos), before/after (draggable comparison, side-by-side, tabs, hover),
@@ -104,6 +115,26 @@ npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .gith
 See `.env.example`. Authentication is self-contained: passwords are scrypt-hashed and sessions are
 revocable tokens stored in the database, so no external auth provider is required.
 
+### Security notes
+* Login is throttled (10 failed attempts per 15 minutes per email and per IP) and the password check is
+  timing-safe; sessions are revocable database rows with an absolute expiry.
+* Ad-platform tokens (Meta/TikTok/Snapchat access tokens, GA4 API secret, X consumer/access secrets) are
+  encrypted at rest with `PIXEL_SECRET_KEY` (AES-256-GCM) and never rendered back to the browser.
+* Tracking endpoints only honour the visitor's own cookie (a code supplied in the request body is
+  ignored), are rate limited per IP, and deduplicate repeated clicks.
+* Uploads are restricted to images/videos (SVG refused), size-capped, and keys are validated; the local
+  disk fallback is disabled on Vercel.
+* Admin and super admin pages send `X-Frame-Options: DENY` / `frame-ancestors 'none'` (clickjacking); public sites stay embeddable for the platform preview.
+
+### Marketing credentials per platform
+| Platform | Needed in admin → marketing |
+| --- | --- |
+| Meta | Pixel ID, Conversions API access token (optional test event code) |
+| TikTok | Pixel code, Events API access token |
+| Snapchat | Pixel ID, Conversions API token |
+| Google | GA4 Measurement ID (G-…), API secret; optionally Google Ads ID (AW-…) and the conversion label of the contact action |
+| X (Twitter) | Pixel ID, Consumer key/secret and Access token/secret (OAuth 1.0a); one Event ID per stage from Events Manager |
+
 ## Project structure
 
 ```
@@ -112,10 +143,10 @@ src/app/(platform)/              root domain pages (home, /templates, /template/
 src/app/tenant/[host]/           tenant site page and /admin/** panel
 src/app/api/                     track, track/event, upload, files
 src/lib/db/                      SQL data layer (postgres.js on Supabase, PGlite locally)
-src/lib/marketing/               event mapping, target selection, Meta/TikTok/Snapchat/Google providers, dispatcher
+src/lib/marketing/               event mapping, target selection, Meta/TikTok/Snapchat/Google/X providers, dispatcher
 src/lib/visitor/                 6-digit code + attribution detection
 src/templates/                   design engine: tokens, fonts, patterns, section variants, 60 template definitions
 supabase/migrations/             schema
-scripts/                         migrate, seed, smoke
+scripts/                         migrate, seed, smoke, e2e, shots, contact sheets, thumbnails
 tests/                           vitest suites
 ```
