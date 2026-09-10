@@ -81,10 +81,11 @@ export async function createSite(input: {
   category: Category;
   templateCode: string;
   content?: Partial<SiteContent> | SiteContent;
+  status?: "active" | "paused";
 }): Promise<SiteRecord> {
   const r = await one<SiteRow>(
-    `insert into sites (slug, name, category, template_code, content) values ($1, $2, $3, $4, $5::jsonb) returning *`,
-    [input.slug.toLowerCase(), input.name, input.category, input.templateCode, json(input.content ?? {})],
+    `insert into sites (slug, name, category, template_code, content, status) values ($1, $2, $3, $4, $5::jsonb, $6) returning *`,
+    [input.slug.toLowerCase(), input.name, input.category, input.templateCode, json(input.content ?? {}), input.status ?? "active"],
   );
   return mapSite(r!);
 }
@@ -112,12 +113,20 @@ export async function setSiteContent(id: string, content: SiteContent): Promise<
   return r ? mapSite(r) : null;
 }
 
-/** Deep-merge a partial patch into the stored content (arrays replace). */
+/**
+ * Deep-merge a partial patch into the stored content (arrays replace). Optimistic concurrency: the write
+ * only succeeds if nobody changed the row in between, otherwise the merge is retried on fresh data.
+ */
 export async function patchSiteContent(id: string, patch: unknown): Promise<SiteRecord | null> {
-  const site = await getSiteById(id);
-  if (!site) return null;
-  const merged = deepMerge(site.content, patch);
-  return setSiteContent(id, merged);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const row = await one<SiteRow>(`select * from sites where id = $1`, [id]);
+    if (!row) return null;
+    const current = normalizeContent(parseJson(row.content, {}));
+    const merged = deepMerge(current, patch);
+    const updated = await one<SiteRow>(`update sites set content = $2::jsonb, updated_at = now() where id = $1 and updated_at = $3::timestamptz returning *`, [id, json(merged), iso(row.updated_at)]);
+    if (updated) return mapSite(updated);
+  }
+  throw new Error("concurrent_update");
 }
 
 export async function deleteSite(id: string) {

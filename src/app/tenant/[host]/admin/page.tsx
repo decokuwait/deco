@@ -4,12 +4,12 @@ import { Card, PageHeader, LinkButton, EmptyState, Badge, Flash } from "@/compon
 import { visitorStats } from "@/lib/db/visitors";
 import { listRecentEvents } from "@/lib/db/events";
 import { siteUrl } from "@/lib/config";
-import { STAGES, STAGE_LABELS, type SourcePlatform, type Stage } from "@/lib/types";
+import { PLATFORMS, STAGES, STAGE_LABELS, type SourcePlatform, type Stage } from "@/lib/types";
 import { EVENT_KEY_LABELS } from "@/lib/marketing/mapping";
 import { DeliverySummary, DeliveryList, sourceLabel, StageBadge } from "./_components/badges";
 import { fmtDateTime, fmtMoney } from "./_lib/format";
 
-const SOURCES: SourcePlatform[] = ["meta", "tiktok", "snapchat", "google", "direct", "other"];
+const SOURCES: SourcePlatform[] = [...PLATFORMS, "direct", "other"];
 
 function Bars({ rows, total }: { rows: Array<{ key: string; label: string; n: number; badge?: React.ReactNode }>; total: number }) {
   if (!rows.length) return <p className="text-sm text-slate-500">—</p>;

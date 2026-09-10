@@ -95,10 +95,55 @@ export async function deleteUser(userId: string) {
   await q(`delete from users where id = $1`, [userId]);
 }
 
-export async function authenticate(email: string, password: string): Promise<User | null> {
+const MAX_FAILURES = 10;
+const FAILURE_WINDOW_MIN = 15;
+// Constant-time-ish fallback so a missing account costs the same as a wrong password.
+const DUMMY_HASH = hashPassword("dummy-password-for-timing");
+
+export class TooManyAttemptsError extends Error {
+  constructor() {
+    super("too_many_attempts");
+    this.name = "TooManyAttemptsError";
+  }
+}
+
+async function attemptsFor(key: string): Promise<number> {
+  const r = await one<{ failures: number; first_failure_at: unknown }>(`select failures, first_failure_at from login_attempts where key = $1`, [key]);
+  if (!r) return 0;
+  const first = new Date(iso(r.first_failure_at)).getTime();
+  if (Date.now() - first > FAILURE_WINDOW_MIN * 60 * 1000) return 0;
+  return Number(r.failures);
+}
+
+async function recordFailure(key: string) {
+  await q(
+    `insert into login_attempts (key, failures, first_failure_at, last_failure_at) values ($1, 1, now(), now())
+     on conflict (key) do update set
+       failures = case when login_attempts.first_failure_at < now() - interval '${FAILURE_WINDOW_MIN} minutes' then 1 else login_attempts.failures + 1 end,
+       first_failure_at = case when login_attempts.first_failure_at < now() - interval '${FAILURE_WINDOW_MIN} minutes' then now() else login_attempts.first_failure_at end,
+       last_failure_at = now()`,
+    [key],
+  );
+}
+
+async function clearFailures(keys: string[]) {
+  await q(`delete from login_attempts where key = any($1::text[])`, [keys]);
+}
+
+/**
+ * Verifies credentials. Throws TooManyAttemptsError after MAX_FAILURES failed attempts within
+ * FAILURE_WINDOW_MIN minutes for the same email or the same client IP.
+ */
+export async function authenticate(email: string, password: string, ip?: string | null): Promise<User | null> {
+  const keys = [`email:${normalizeEmail(email)}`, ...(ip ? [`ip:${ip}`] : [])];
+  for (const k of keys) if ((await attemptsFor(k)) >= MAX_FAILURES) throw new TooManyAttemptsError();
   const u = await getUserByEmail(email);
-  if (!u) return null;
-  if (!verifyPassword(password, u.passwordHash)) return null;
+  const ok = u ? verifyPassword(password, u.passwordHash) : (verifyPassword(password, DUMMY_HASH), false);
+  if (!u || !ok) {
+    for (const k of keys) await recordFailure(k);
+    return null;
+  }
+  await clearFailures(keys);
   await q(`update users set last_login_at = now() where id = $1`, [u.id]);
   const { passwordHash: _ph, ...user } = u;
   void _ph;
@@ -107,6 +152,8 @@ export async function authenticate(email: string, password: string): Promise<Use
 
 /** Creates a session and returns the raw token to put in the cookie. */
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  // Opportunistic housekeeping so the sessions table cannot grow without bound.
+  await q(`delete from sessions where expires_at < now() - interval '1 day'`).catch(() => undefined);
   const token = randomToken(32);
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE * 1000);
   await q(`insert into sessions (user_id, token_hash, expires_at) values ($1, $2, $3)`, [userId, sha256Hex(token), expiresAt.toISOString()]);

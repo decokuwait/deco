@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import type { LText } from "@/lib/types";
+import type { Locale, LText } from "@/lib/types";
+import { ADMIN_UI, ta, type AdminUiKey } from "@/lib/i18n/admin";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -154,13 +155,14 @@ export function BilingualInput({
     <div>
       {label && <span className="mb-1.5 block text-sm font-bold text-slate-700">{label}</span>}
       <div className="grid gap-2 sm:grid-cols-2">
-        <div className="relative">
+        {/* Each wrapper takes the input's direction so the language chip always sits at the text end. */}
+        <div className="relative" dir="rtl">
           <span className="pointer-events-none absolute top-2 end-2 rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-500">AR</span>
-          <C name={`${name}.ar`} defaultValue={value?.ar ?? ""} dir="rtl" required={required} placeholder={placeholderAr} />
+          <C name={`${name}.ar`} defaultValue={value?.ar ?? ""} dir="rtl" required={required} placeholder={placeholderAr} className="pe-10" />
         </div>
-        <div className="relative">
+        <div className="relative" dir="ltr">
           <span className="pointer-events-none absolute top-2 end-2 rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-500">EN</span>
-          <C name={`${name}.en`} defaultValue={value?.en ?? ""} dir="ltr" placeholder={placeholderEn} />
+          <C name={`${name}.en`} defaultValue={value?.en ?? ""} dir="ltr" placeholder={placeholderEn} className="pe-10" />
         </div>
       </div>
     </div>
@@ -190,9 +192,26 @@ export function readNum(fd: FormData, name: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function Flash({ saved, error, savedText, errorText }: { saved?: string; error?: string; savedText: string; errorText: string }) {
-  if (saved) return <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{savedText}</div>;
-  if (error) return <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">{errorText}: {error}</div>;
+/** Translates internal error codes (from actions, uploads, delivery skips) into the admin language. */
+export function translateCode(locale: Locale, code: string): string {
+  const key = `err_${code}` as AdminUiKey;
+  if (key in ADMIN_UI) return ta(locale, key);
+  return code;
+}
+
+export function Flash({ saved, error, savedText, errorText, locale = "ar" }: { saved?: string; error?: string; savedText: string; errorText: string; locale?: Locale }) {
+  if (saved)
+    return (
+      <div role="status" aria-live="polite" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+        {savedText}
+      </div>
+    );
+  if (error)
+    return (
+      <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
+        {errorText}: {translateCode(locale, error)}
+      </div>
+    );
   return null;
 }
 

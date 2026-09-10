@@ -87,6 +87,13 @@ export const SUPER_UI = {
   yes: { ar: "نعم", en: "Yes" },
   no: { ar: "لا", en: "No" },
   changing_slug_hint: { ar: "تغيير النطاق الفرعي ينقل الموقع إلى العنوان الجديد فوراً", en: "Changing the subdomain moves the site to the new address immediately" },
+  too_many: { ar: "محاولات كثيرة، حاول مرة أخرى بعد 15 دقيقة", en: "Too many attempts, try again in 15 minutes" },
+  seed_demo: { ar: "تعبئة الموقع بمحتوى تجريبي (خدمات، مشاريع، آراء) ليبدأ العميل من نموذج جاهز", en: "Fill the site with demo content (services, projects, testimonials) so the client starts from a ready sample" },
+  start_paused: { ar: "بدء الموقع متوقفاً (صفحة «قريباً» حتى يُفعّل)", en: "Start paused (a “coming soon” page until activated)" },
+  domain_taken: { ar: "هذا النطاق مستخدم في موقع آخر", en: "This domain is used by another site" },
+  template_category_mismatch: { ar: "القالب المختار لا يطابق نوع النشاط", en: "The chosen template does not match the category" },
+  coming_soon: { ar: "قريباً", en: "Coming soon" },
+  this_is_you: { ar: "هذا حسابك", en: "This is you" },
   change_template_hint: { ar: "تغيير القالب يطبَّق فوراً على المحتوى الحالي", en: "Changing the template applies instantly to the existing content" },
 } satisfies Record<string, LText>;
 

@@ -100,7 +100,7 @@ function ctx(p: PixelConfig, over: Partial<SendContext> = {}): SendContext {
 
 describe("provider payloads", () => {
   it("Meta CAPI payload", () => {
-    const { url, init, redacted } = buildMeta(ctx(pixel("meta", { testEventCode: "TEST1" })));
+    const { url, init, redacted } = buildMeta(ctx(pixel("meta", { testEventCode: "TEST1" }), { test: true }));
     expect(url).toBe("https://graph.facebook.com/v21.0/meta-pixel/events");
     const body = JSON.parse(String(init.body));
     expect(body.access_token).toBe("token");
@@ -193,16 +193,38 @@ describe("dispatchEvent", () => {
     expect(by.snapchat.error).toContain("network down");
     expect(by.google.ok).toBe(true);
   });
-  it("skips platforms with missing credentials", async () => {
-    const fetchImpl = vi.fn() as unknown as typeof fetch;
-    const res = await dispatchEvent({
+  it("excludes pixels without server credentials and falls back to the ready ones", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 })) as unknown as typeof fetch;
+    const none = await dispatchEvent({
       activePixels: [pixel("meta", { accessToken: null }), pixel("google", { extra: {} })],
       visitor: { ...testVisitor(), sourcePlatform: "direct" },
       eventKey: "contacted",
       fetchImpl,
     });
-    expect(res.deliveries.every((d) => d.skipped)).toBe(true);
+    expect(none.targets).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
+    // Visitor came from Meta but the Meta pixel has no token: the signal goes to the other ready pixels instead of nowhere.
+    const fallback = await dispatchEvent({
+      activePixels: [pixel("meta", { accessToken: null }), pixel("tiktok"), pixel("snapchat")],
+      visitor: { ...visitor, sourcePlatform: "meta" },
+      eventKey: "contacted",
+      fetchImpl,
+    });
+    expect(fallback.targets).toEqual(["tiktok", "snapchat"]);
+  });
+  it("only attaches test event codes and validation endpoints in test mode", () => {
+    const prodMeta = JSON.parse(String(buildMeta(ctx(pixel("meta", { testEventCode: "T1" }))).init.body));
+    expect(prodMeta.test_event_code).toBeUndefined();
+    const testMeta = JSON.parse(String(buildMeta(ctx(pixel("meta", { testEventCode: "T1" }), { test: true })).init.body));
+    expect(testMeta.test_event_code).toBe("T1");
+    expect(buildSnapchat(ctx(pixel("snapchat", { testEventCode: "T1" }))).url).not.toContain("/validate");
+    const prodTikTok = JSON.parse(String(buildTikTok(ctx(pixel("tiktok", { testEventCode: "T1" }))).init.body));
+    expect(prodTikTok.test_event_code).toBeUndefined();
+  });
+  it("sends Purchase with value 0 when the admin marks a payment stage without an amount", () => {
+    const body = JSON.parse(String(buildMeta(ctx(pixel("meta"), { value: null })).init.body));
+    expect(body.data[0].custom_data.value).toBe(0);
+    expect(body.data[0].custom_data.currency).toBe("KWD");
   });
 });
 
@@ -238,9 +260,9 @@ describe("X (Twitter) conversion API", () => {
     expect(c.event_id).toBe("tw-o8vjt-oa7ve");
     expect(c.conversion_id).toBe("evt-1");
     expect(c.conversion_time).toBe(new Date(1700000000 * 1000).toISOString());
-    expect(c.identifiers).toEqual(expect.arrayContaining([{ twclid: "23opevjt" }, { hashed_phone_number: sha256("+96550000000") }]));
+    expect(c.identifiers).toEqual(expect.arrayContaining([{ twclid: "23opevjt" }, { hashed_phone_number: sha256("+96550000000") }, { ip_address: "1.2.3.4", user_agent: "UA" }]));
     expect(c.value).toBe("250");
-    expect(c.currency).toBe("KWD");
+    expect(c.price_currency).toBe("KWD");
     expect(JSON.stringify(redacted)).not.toContain("access-token");
   });
   it("reads twclid from the _twclid cookie when the click id is missing", () => {

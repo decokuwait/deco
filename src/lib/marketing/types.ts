@@ -26,6 +26,8 @@ export interface SendContext {
 export type Provider = {
   build: (ctx: SendContext) => { url: string; init: RequestInit; redacted: unknown };
   send: (ctx: SendContext) => Promise<Delivery>;
+  /** True when the pixel has the server-side credentials needed to deliver events. */
+  ready: (pixel: PixelConfig) => boolean;
 };
 
 export const FETCH_TIMEOUT_MS = 8000;

@@ -9,24 +9,33 @@ import { getActivePixels } from "@/lib/db/pixels";
 import { createEvent } from "@/lib/db/events";
 import { dispatchEvent } from "@/lib/marketing/dispatch";
 import { stageToEventKey } from "@/lib/marketing/mapping";
+import { siteUrl } from "@/lib/config";
 import { STAGES, type Stage } from "@/lib/types";
 
 const VALUE_STAGES: Stage[] = ["ordered", "first_payment", "order_complete"];
+/** Purchase-type stages must carry an amount so the ad platforms receive a valid value/currency. */
+const VALUE_REQUIRED: Stage[] = ["first_payment", "order_complete"];
 
 function isStage(v: string): v is Stage {
   return (STAGES as string[]).includes(v);
 }
 
-/** Core feature: set the visitor's stage and fire the matching conversion signal to the ad platforms. */
+/**
+ * Core feature: set the visitor's stage and fire the matching conversion signal to the ad platforms.
+ * Re-marking the current stage is ignored unless the admin explicitly asks to resend the signal.
+ */
 export async function markStage(host: string, code: string, fd: FormData) {
   const { site, user } = await requireSiteAdmin(host);
   const back = `/admin/visitors/${code}`;
   const visitor = await getVisitorByCode(site.id, code);
   if (!visitor) redirect("/admin/visitors?error=not_found");
 
-  const stage = readStr(fd, "stage", 40);
+  const resend = readStr(fd, "resend", 40);
+  const stage = resend || readStr(fd, "stage", 40);
   if (!isStage(stage)) redirect(withQuery(back, { error: "invalid_stage" }));
+  if (!resend && visitor.stage === stage && stage !== "new") redirect(withQuery(back, { saved: "same" }));
   const value = VALUE_STAGES.includes(stage) ? readNum(fd, "value") : null;
+  if (VALUE_REQUIRED.includes(stage) && (value == null || value < 0)) redirect(withQuery(back, { error: "value_required" }));
 
   let outcome: "saved" | "sent" | "partial" | "failed" | "nosignal" = "saved";
   try {
@@ -42,7 +51,7 @@ export async function markStage(host: string, code: string, fd: FormData) {
         currency: "KWD",
         stage,
         signalMode: site.content.settings.signalMode,
-        sourceUrl: updated.landingUrl,
+        sourceUrl: updated.landingUrl || siteUrl(host),
       });
       await createEvent({
         visitorId: updated.id,

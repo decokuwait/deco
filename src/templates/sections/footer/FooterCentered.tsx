@@ -1,6 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, SocialIcon, VisitorChip, socialLinks } from "../../ui/primitives";
-import { navLinks } from "../shared/helpers";
+import { legalLinks, navLinks } from "../shared/helpers";
 
 /** Centred footer on surface-2 with pattern: logo/brand, tagline, links row, socials, copyright. */
 export function FooterCentered({ ctx }: SectionProps) {
@@ -56,6 +56,11 @@ export function FooterCentered({ ctx }: SectionProps) {
         <div className="mt-10 flex flex-col items-center gap-3 text-xs text-muted">
           <span>
             © {year} {name} — {ctx.ui("rights")}
+            {legalLinks(ctx).map((l) => (
+              <a key={l.href} href={l.href} className="ms-3 underline underline-offset-2 hover:text-primary">
+                {l.label}
+              </a>
+            ))}
           </span>
           <VisitorChip ctx={ctx} />
         </div>

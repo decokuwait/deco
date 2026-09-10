@@ -2,6 +2,7 @@ import type { SectionProps } from "../../types";
 import { Container, PhoneIcon, Section, SectionHeading, SocialIcon, WhatsAppIcon, buttonClass, socialLinks } from "../../ui/primitives";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 import { formatPhone } from "../shared/helpers";
+import { safeMapEmbed } from "@/lib/safe-url";
 
 /** Contact details + big WhatsApp/call buttons beside an optional map embed. */
 export function ContactSplit({ ctx }: SectionProps) {
@@ -11,7 +12,7 @@ export function ContactSplit({ ctx }: SectionProps) {
   return (
     <Section id="contact" tone="surface" pattern>
       <Container>
-        <SectionHeading title={ctx.ui("nav_contact")} subtitle={ctx.ui("free_visit")} />
+        <SectionHeading title={ctx.text(c.title) || ctx.ui("nav_contact")} subtitle={ctx.text(c.subtitle)} />
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="rounded-card border border-line bg-bg p-6 sm:p-8">
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -69,8 +70,8 @@ export function ContactSplit({ ctx }: SectionProps) {
             )}
           </div>
           <div className="overflow-hidden rounded-card border border-line bg-surface-2 min-h-[280px]">
-            {c.mapEmbedUrl ? (
-              <iframe src={c.mapEmbedUrl} className="h-full min-h-[320px] w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" title={ctx.ui("our_location")} />
+            {safeMapEmbed(c.mapEmbedUrl) ? (
+              <iframe src={safeMapEmbed(c.mapEmbedUrl)} className="h-full min-h-[320px] w-full" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer-when-downgrade" title={ctx.ui("our_location")} />
             ) : (
               <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 p-8 text-center text-muted">
                 <svg viewBox="0 0 24 24" className="h-12 w-12 text-primary" fill="none" stroke="currentColor" strokeWidth="1.5">

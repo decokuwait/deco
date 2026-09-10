@@ -75,7 +75,7 @@ export interface ProcessStep {
 }
 
 export interface SiteContent {
-  brand: { name: LText; tagline: LText; logoUrl?: string };
+  brand: { name: LText; tagline: LText; logoUrl?: string; faviconUrl?: string };
   contact: {
     whatsapp: string;
     phone?: string;
@@ -84,7 +84,13 @@ export interface SiteContent {
     hours: LText;
     mapEmbedUrl?: string;
     whatsappMessage: LText;
+    /** Contact section heading/subtitle (empty = default label / hidden). */
+    title: LText;
+    subtitle: LText;
   };
+  /** Overrides for the site chrome strings (nav labels, buttons, footer texts). Empty = default dictionary text. */
+  ui: Record<string, LText>;
+  legal: { privacy: LText; privacyTitle: LText };
   socials: {
     instagram?: string;
     tiktok?: string;
@@ -116,14 +122,20 @@ export interface SiteContent {
   };
   testimonials: { title: LText; subtitle: LText; items: Testimonial[] };
   faq: { title: LText; subtitle: LText; items: Faq[] };
-  cta: { title: LText; subtitle: LText; buttonText: LText };
+  cta: { title: LText; subtitle: LText; buttonText: LText; eyebrow: LText };
   seo: { title: LText; description: LText; ogImageUrl?: string; keywords?: string };
   theme: {
     primary?: string;
     secondary?: string;
     accent?: string;
+    bg?: string;
+    surface?: string;
+    text?: string;
     headingFont?: string;
     bodyFont?: string;
+    radius?: string;
+    buttonStyle?: string;
+    pattern?: string;
   };
   sections: {
     about: boolean;
@@ -133,6 +145,8 @@ export interface SiteContent {
     testimonials: boolean;
     faq: boolean;
     cta: boolean;
+    /** Custom section order (section keys); empty = template order. */
+    order: string[];
   };
   settings: {
     defaultLocale: Locale;

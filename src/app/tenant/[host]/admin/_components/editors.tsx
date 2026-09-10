@@ -1,6 +1,7 @@
 import type { LText } from "@/lib/types";
 import { BilingualInput, Field, Input, Select, Textarea } from "@/components/admin/ui";
 import { Uploader } from "@/components/admin/Uploader";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import type { FieldSpec, SectionSpec } from "../content/_lib/spec";
 import { getPath } from "../content/_lib/spec";
 import type { T } from "../_lib/guard";
@@ -9,11 +10,21 @@ import type { T } from "../_lib/guard";
 export function FieldInput({ f, name, value, t, siteId }: { f: FieldSpec; name: string; value: unknown; t: T; siteId: string }) {
   switch (f.kind) {
     case "ltext":
-      return <BilingualInput name={name} value={(value as LText) ?? null} label={t(f.label)} textarea={f.textarea} required={f.required} />;
+      return (
+        <BilingualInput
+          name={name}
+          value={(value as LText) ?? null}
+          label={f.labelText ?? t(f.label)}
+          textarea={f.textarea}
+          required={f.required}
+          placeholderAr={f.placeholderText?.ar}
+          placeholderEn={f.placeholderText?.en}
+        />
+      );
     case "text":
       return (
         <Field label={t(f.label)} hint={f.hint ? t(f.hint) : undefined}>
-          <Input name={name} type={f.type ?? "text"} defaultValue={(value as string) ?? ""} dir={f.dir} placeholder={f.placeholder} />
+          <Input name={name} type={f.type ?? "text"} defaultValue={(value as string) ?? ""} dir={f.dir} placeholder={f.placeholder} required={f.required} />
         </Field>
       );
     case "number":
@@ -65,9 +76,12 @@ export function FlatFields({ spec, content, t, siteId }: { spec: SectionSpec; co
   );
 }
 
+const rowBtn = "inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold disabled:opacity-40 sm:min-h-8";
+
 /**
- * Editable list rows. Each row has hidden id, a delete checkbox and move buttons that submit the
- * whole form with an `op` value; a trailing "new row" block appends an item when filled.
+ * Editable list rows. Each row has hidden id, move buttons and a confirmed delete that submit the whole
+ * form with an `op` value (and skip HTML validation so reordering never depends on other rows);
+ * a trailing "new row" block appends an item when filled.
  */
 export function ListEditor({ spec, content, t, siteId }: { spec: SectionSpec; content: unknown; t: T; siteId: string }) {
   const list = spec.list;
@@ -86,16 +100,16 @@ export function ListEditor({ spec, content, t, siteId }: { spec: SectionSpec; co
             <input type="hidden" name={`${prefix}.id`} value={id} />
             <div className="mb-3 flex items-center justify-between gap-2">
               <span className="text-xs font-black text-slate-500">#{i + 1}</span>
-              <div className="flex items-center gap-1.5">
-                <button type="submit" name="op" value={`move:${i}:up`} disabled={i === 0} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold disabled:opacity-40">
+              <div className="flex items-center gap-2">
+                <button type="submit" name="op" value={`move:${i}:up`} disabled={i === 0} formNoValidate className={rowBtn} aria-label={t("move_up")}>
                   ↑ {t("move_up")}
                 </button>
-                <button type="submit" name="op" value={`move:${i}:down`} disabled={i === rows.length - 1} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-bold disabled:opacity-40">
+                <button type="submit" name="op" value={`move:${i}:down`} disabled={i === rows.length - 1} formNoValidate className={rowBtn} aria-label={t("move_down")}>
                   ↓ {t("move_down")}
                 </button>
-                <button type="submit" name="op" value={`delete:${i}`} className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-bold text-red-700">
+                <ConfirmButton message={t("confirm_delete_row")} name="op" value={`delete:${i}`} className="ms-2 min-h-10 sm:min-h-8">
                   {t("delete")}
-                </button>
+                </ConfirmButton>
               </div>
             </div>
             <div className="grid gap-3">

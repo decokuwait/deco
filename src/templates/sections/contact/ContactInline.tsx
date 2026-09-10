@@ -16,7 +16,7 @@ export function ContactInline({ ctx }: SectionProps) {
       <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-30" />
       <Container wide className="relative flex flex-col gap-6 py-8 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
-          <h2 className="font-heading text-xl font-extrabold sm:border-e sm:border-primary-fg/25 sm:pe-6">{ctx.ui("nav_contact")}</h2>
+          <h2 className="font-heading text-xl font-extrabold sm:border-e sm:border-primary-fg/25 sm:pe-6">{ctx.text(c.title) || ctx.ui("nav_contact")}</h2>
           <ul className="flex flex-col gap-3 text-sm font-semibold sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:[&>li+li]:border-s sm:[&>li+li]:border-primary-fg/25 sm:[&>li+li]:ps-6">
             {address && (
               <li className="flex items-center gap-2">

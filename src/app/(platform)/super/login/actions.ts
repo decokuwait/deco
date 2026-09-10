@@ -16,9 +16,18 @@ export async function superLogin(fd: FormData) {
 
   const users = await listUsers();
   if (users.length === 0 && superAdminEmails().includes(email) && password.length >= 8) {
-    await upsertSuperAdmin(email, password, "Owner");
+    // Bootstrap is only allowed with the password configured in the environment (when one is set),
+    // so the empty-database window cannot be claimed by a stranger who knows the owner's email.
+    const expected = process.env.SUPER_ADMIN_PASSWORD?.trim();
+    if (!expected || expected === password) await upsertSuperAdmin(email, password, "Owner");
   }
-  const user = await signInWithPassword(email, password);
+  let user: Awaited<ReturnType<typeof signInWithPassword>> = null;
+  try {
+    user = await signInWithPassword(email, password);
+  } catch (e) {
+    if (e instanceof Error && e.name === "TooManyAttemptsError") redirect("/super/login?error=too_many");
+    throw e;
+  }
   if (!user) redirect("/super/login?error=invalid");
   if (!user.isSuper) {
     await signOut();

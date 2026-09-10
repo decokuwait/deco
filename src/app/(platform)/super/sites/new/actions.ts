@@ -3,12 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireSuper, errMsg, withQuery } from "../../_lib/guard";
-import { readStr } from "@/components/admin/ui";
+import { readBool, readStr } from "@/components/admin/ui";
 import { isValidSlug, isValidHostname, normalizeHostname } from "@/lib/tenant";
 import { CATEGORIES, type Category } from "@/lib/types";
-import { isTemplateCode, getTemplate, defaultTemplateFor } from "@/templates/registry";
+import { isTemplateCode, getTemplate } from "@/templates/registry";
 import { provisionSite, slugAvailable } from "@/lib/provision";
-import { addDomain, updateDomainStatus } from "@/lib/db/domains";
+import { addDomain, findDomain, updateDomainStatus } from "@/lib/db/domains";
 import { addDomainToVercel, vercelConfigured } from "@/lib/vercel";
 import { createUser, getUserByEmail } from "@/lib/db/users";
 import { addMember } from "@/lib/db/members";
@@ -27,24 +27,36 @@ export async function createSiteAction(fd: FormData) {
   const whatsapp = readStr(fd, "whatsapp", 20).replace(/[^\d]/g, "");
   const adminEmail = readStr(fd, "adminEmail", 200).toLowerCase();
   const adminPassword = String(fd.get("adminPassword") ?? "");
+  const seedDemo = readBool(fd, "seedDemo");
+  const startPaused = readBool(fd, "startPaused");
   const back = withQuery("/super/sites/new", { cat: category, template: templateCode });
 
   if (!name) redirect(withQuery(back, { error: "required" }));
   if (!isCategory(category)) redirect(withQuery(back, { error: "required" }));
+  if (!isTemplateCode(templateCode)) redirect(withQuery(back, { error: "invalid_template" }));
+  const template = getTemplate(templateCode)!;
+  if (template.category !== category) redirect(withQuery(back, { error: "template_category_mismatch" }));
   if (!isValidSlug(slug)) redirect(withQuery(back, { error: "invalid_slug" }));
   if (!(await slugAvailable(slug))) redirect(withQuery(back, { error: "slug_taken" }));
   if (customDomain && !isValidHostname(customDomain)) redirect(withQuery(back, { error: "invalid_domain" }));
+  if (customDomain && (await findDomain(customDomain))) redirect(withQuery(back, { error: "domain_taken" }));
   if (adminEmail) {
     const existing = await getUserByEmail(adminEmail);
     if (!existing && adminPassword.length < 8) redirect(withQuery(back, { error: "password_short" }));
   }
 
-  let template = isTemplateCode(templateCode) ? getTemplate(templateCode)! : defaultTemplateFor(category);
-  if (template.category !== category) template = defaultTemplateFor(category);
-
   let siteId = "";
   try {
-    const { site } = await provisionSite({ slug, name, category, templateCode: template.code, whatsapp: whatsapp || undefined });
+    const { site } = await provisionSite({
+      slug,
+      name,
+      category,
+      templateCode: template.code,
+      whatsapp: whatsapp || undefined,
+      seedProjects: seedDemo,
+      demoContent: seedDemo,
+      status: startPaused ? "paused" : "active",
+    });
     siteId = site.id;
     if (customDomain) {
       const row = await addDomain({ siteId, hostname: customDomain, kind: "custom" });
@@ -58,7 +70,9 @@ export async function createSiteAction(fd: FormData) {
       await addMember(siteId, user.id);
     }
   } catch (e) {
-    redirect(withQuery(back, { error: errMsg(e) }));
+    const msg = errMsg(e);
+    if (msg.includes("NEXT_REDIRECT")) throw e;
+    redirect(withQuery(back, { error: msg }));
   }
   revalidatePath("/", "layout");
   redirect(withQuery(`/super/sites/${siteId}`, { saved: "1" }));

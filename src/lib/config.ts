@@ -2,6 +2,7 @@ export const ROOT_DOMAIN = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:30
 export const IS_PROD = process.env.NODE_ENV === "production";
 export const SESSION_COOKIE = "dk_session";
 export const VISITOR_COOKIE = "dk_vid";
+export const VISITOR_FRESH_COOKIE = "dk_vid_new";
 export const LOCALE_COOKIE = "dk_lang";
 export const VISITOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;

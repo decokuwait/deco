@@ -2,11 +2,11 @@ import { requireSiteAdmin, sp1, withQuery, type SearchParams } from "../_lib/gua
 import { Panel } from "../_components/Panel";
 import { Card, PageHeader, Input, Select, Button, EmptyState, LinkButton, Flash } from "@/components/admin/ui";
 import { searchVisitors, type VisitorSearch } from "@/lib/db/visitors";
-import { STAGES, STAGE_LABELS, type SourcePlatform, type Stage } from "@/lib/types";
+import { PLATFORMS, STAGES, STAGE_LABELS, type SourcePlatform, type Stage } from "@/lib/types";
 import { SourceBadge, StageBadge, sourceLabel } from "../_components/badges";
 import { fmtDateTime } from "../_lib/format";
 
-const SOURCES: SourcePlatform[] = ["meta", "tiktok", "snapchat", "google", "direct", "other"];
+const SOURCES: SourcePlatform[] = [...PLATFORMS, "direct", "other"];
 const LIMIT = 30;
 
 function isStageFilter(v: string): v is Stage | "leads" {

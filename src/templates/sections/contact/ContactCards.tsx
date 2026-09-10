@@ -17,7 +17,7 @@ export function ContactCards({ ctx }: SectionProps) {
   return (
     <Section id="contact" tone="bg">
       <Container>
-        <SectionHeading title={ctx.ui("nav_contact")} subtitle={ctx.ui("free_visit")} />
+        <SectionHeading title={ctx.text(c.title) || ctx.ui("nav_contact")} subtitle={ctx.text(c.subtitle)} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {wa && (
             <WhatsAppLink href={ctx.whatsappHref} className={card + " bg-primary text-primary-fg shadow-xl shadow-primary/25 hover:-translate-y-1"}>

@@ -51,7 +51,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
                     {u.email}
                   </span>
                   {u.isSuper && <Badge tone="amber">{t("is_super")}</Badge>}
-                  {u.id === me.id && <Badge tone="green">{t("yes")} — {me.email === u.email ? "you" : ""}</Badge>}
+                  {u.id === me.id && <Badge tone="green">{t("this_is_you")}</Badge>}
                 </div>
                 <div className="text-xs text-slate-500">
                   {u.name || ""} · {t("created")}: {fmt(u.createdAt, locale)} · {t("last_login")}: {fmt(u.lastLoginAt, locale)}

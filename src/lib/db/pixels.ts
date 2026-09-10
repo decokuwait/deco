@@ -1,5 +1,6 @@
 import { q, one, json, parseJson } from "./client";
 import type { EventKey, PixelConfig, Platform } from "@/lib/types";
+import { decryptSecret, encryptSecret } from "@/lib/secrets";
 
 interface Row {
   id: string;
@@ -13,14 +14,24 @@ interface Row {
   event_map: unknown;
 }
 
+const SECRET_EXTRA = ["apiSecret", "consumerSecret", "tokenSecret"] as const;
+
+function encryptExtra(extra: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...extra };
+  for (const k of SECRET_EXTRA) if (typeof out[k] === "string" && out[k]) out[k] = encryptSecret(out[k] as string);
+  return out;
+}
+
 function map(r: Row): PixelConfig {
+  const extra = parseJson<Record<string, string | undefined>>(r.extra, {});
+  for (const k of SECRET_EXTRA) if (extra[k]) extra[k] = decryptSecret(extra[k]) ?? undefined;
   return {
     id: r.id,
     siteId: r.site_id,
     platform: r.platform,
     pixelId: r.pixel_id,
-    accessToken: r.access_token,
-    extra: parseJson(r.extra, {}),
+    accessToken: decryptSecret(r.access_token),
+    extra,
     testEventCode: r.test_event_code,
     active: !!r.active,
     eventMap: parseJson<Partial<Record<EventKey, string>>>(r.event_map, {}),
@@ -70,7 +81,7 @@ export async function upsertPixel(
        pixel_id = excluded.pixel_id, access_token = excluded.access_token, extra = excluded.extra,
        test_event_code = excluded.test_event_code, active = excluded.active, event_map = excluded.event_map, updated_at = now()
      returning *`,
-    [siteId, platform, merged.pixelId, merged.accessToken, json(merged.extra), merged.testEventCode, merged.active, json(merged.eventMap)],
+    [siteId, platform, merged.pixelId, encryptSecret(merged.accessToken), json(encryptExtra(merged.extra)), merged.testEventCode, merged.active, json(merged.eventMap)],
   );
   return map(r!);
 }

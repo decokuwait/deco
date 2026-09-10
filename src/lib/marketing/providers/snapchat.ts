@@ -1,6 +1,11 @@
+import type { PixelConfig } from "@/lib/types";
 import type { Provider, SendContext } from "../types";
 import { postJson } from "../types";
 import { hashExternalId, hashPhone } from "../hash";
+
+export function snapchatReady(pixel: PixelConfig): boolean {
+  return !!(pixel.pixelId && pixel.accessToken);
+}
 
 export function buildSnapchat(ctx: SendContext) {
   const { pixel, visitor } = ctx;
@@ -32,7 +37,8 @@ export function buildSnapchat(ctx: SendContext) {
   if (url) event.event_source_url = url;
 
   const body = { data: [event] };
-  const validate = ctx.test || !!pixel.testEventCode;
+  // The validate endpoint only checks the payload; real traffic must always hit /events.
+  const validate = !!ctx.test;
   const endpoint = `https://tr.snapchat.com/v3/${encodeURIComponent(pixel.pixelId)}/events${validate ? "/validate" : ""}?access_token=${encodeURIComponent(
     pixel.accessToken || "",
   )}`;
@@ -42,6 +48,7 @@ export function buildSnapchat(ctx: SendContext) {
 
 export const snapchatProvider: Provider = {
   build: buildSnapchat,
+  ready: snapchatReady,
   async send(ctx) {
     if (!ctx.pixel.accessToken) {
       return { platform: "snapchat", ok: false, eventName: ctx.eventName, skipped: "missing_access_token" };

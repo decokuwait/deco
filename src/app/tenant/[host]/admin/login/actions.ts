@@ -13,7 +13,13 @@ export async function loginAction(host: string, fd: FormData) {
   const password = String(fd.get("password") ?? "");
   if (!email || !password) redirect("/admin/login?error=invalid");
 
-  const user = await signInWithPassword(email, password);
+  let user: Awaited<ReturnType<typeof signInWithPassword>> = null;
+  try {
+    user = await signInWithPassword(email, password);
+  } catch (e) {
+    if (e instanceof Error && e.name === "TooManyAttemptsError") redirect("/admin/login?error=too_many");
+    throw e;
+  }
   if (!user) redirect("/admin/login?error=invalid");
 
   const allowed = user.isSuper || (await isSiteMember(site.id, user.id));

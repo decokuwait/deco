@@ -1,4 +1,4 @@
-import { Badge } from "@/components/admin/ui";
+import { Badge, translateCode } from "@/components/admin/ui";
 import { STAGE_LABELS, type Delivery, type Locale, type Platform, type SourcePlatform, type Stage } from "@/lib/types";
 import { ta } from "@/lib/i18n/admin";
 import { shortJson } from "../_lib/format";
@@ -52,7 +52,7 @@ export function DeliveryList({ deliveries, locale, compact = false }: { deliveri
       {deliveries.map((d, i) => {
         const tone = d.skipped ? "amber" : d.ok ? "green" : "red";
         const label = d.skipped ? ta(locale, "skipped") : d.ok ? ta(locale, "ok") : ta(locale, "failed");
-        const detail = d.skipped || d.error || (d.ok ? "" : shortJson(d.response, compact ? 80 : 200));
+        const detail = d.skipped ? translateCode(locale, d.skipped) : d.error ? translateCode(locale, d.error) : d.ok ? "" : shortJson(d.response, compact ? 80 : 200);
         return (
           <li key={`${d.platform}-${i}`} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
             <span className="font-bold text-slate-800">{PLATFORM_SHORT[d.platform] ?? d.platform}</span>

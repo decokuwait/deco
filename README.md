@@ -44,14 +44,14 @@ enable switch; a type only renders on the site when it is enabled and has publis
 
 ```bash
 npm install
-cp .env.example .env          # keep DATABASE_URL and R2_* empty for local mode
-npm run db:seed               # creates the super admin + 4 demo sites in ./.data/pglite
+cp .env.example .env          # keep DATABASE_URL and R2_* empty for local mode; set SUPER_ADMIN_EMAILS + SUPER_ADMIN_PASSWORD
+npm run db:seed:demo          # creates the super admin + 4 demo sites in ./.data/pglite (prints the demo admin password once)
 npm run dev
 ```
 
 * Platform: http://localhost:3000 — templates at http://localhost:3000/templates
 * Super admin: http://localhost:3000/super (login with `SUPER_ADMIN_EMAILS[0]` / `SUPER_ADMIN_PASSWORD`)
-* Demo tenant: http://demo-gypsum.localhost:3000 (admin at `/admin`, login `admin@example.com` / `Admin123!`)
+* Demo tenant: http://demo-gypsum.localhost:3000 (admin at `/admin`, login `admin@example.com` with the password printed by the seed, or set `DEMO_ADMIN_PASSWORD`)
 
 Local mode uses an embedded PGlite Postgres in `./.data/pglite` and stores uploads in `./.data/uploads`.
 
@@ -70,11 +70,15 @@ npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .gith
 
 ### 1. Supabase (database)
 1. Create a project. Copy the **Transaction pooler** connection string (port 6543) into `DATABASE_URL`.
-2. Apply the schema: `DATABASE_URL=... npm run db:migrate` (or paste `supabase/migrations/0001_init.sql`
-   into the SQL editor). Set `AUTO_MIGRATE=true` on Vercel if you prefer migrations to run on boot.
+2. Apply the schema: `DATABASE_URL=... npm run db:migrate`. This applies every file in
+   `supabase/migrations` in order and records them; re-run it after every update that adds a migration.
+   (If you must use the SQL editor instead, paste every file in order.) Setting `AUTO_MIGRATE=true` on
+   Vercel runs pending migrations on boot under an advisory lock, but running them at deploy time is preferred.
 3. Seed the owner account: `DATABASE_URL=... SUPER_ADMIN_EMAILS=you@x.com SUPER_ADMIN_PASSWORD=... npm run db:seed`
-   (or simply open `/super/login` on the first deploy — the first login with an address listed in
-   `SUPER_ADMIN_EMAILS` creates the owner account).
+   (or open `/super/login` on the first deploy: while the users table is empty, the first login with an
+   address listed in `SUPER_ADMIN_EMAILS` and the password from `SUPER_ADMIN_PASSWORD` creates the owner).
+   Demo sites (`npm run db:seed:demo`) are for local evaluation; in production they are refused unless
+   `DEMO_ADMIN_PASSWORD` is set explicitly.
 
 ### 2. Cloudflare R2 (media)
 1. Create a bucket, an API token (Object Read & Write) and enable public access (custom domain or r2.dev).

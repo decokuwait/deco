@@ -24,7 +24,13 @@ export default async function EditProjectPage({ params, searchParams }: { params
   const addMedia = addMediaAction.bind(null, host, id);
   const del = deleteProjectAction.bind(null, host, id);
   const roleLabel = (r: MediaRole) => (r === "gallery" ? t("gallery") : r === "before" ? t("before") : r === "after" ? t("after") : t("step"));
+  // Only roles that make sense for the project type are offered.
+  const roles: MediaRole[] = project.type === "progress" ? ["step"] : project.type === "before_after" ? ["before", "after"] : ["gallery"];
+  const isProgress = project.type === "progress";
   const defaultRole: MediaRole = project.type === "progress" ? "step" : project.type === "before_after" ? (project.media.some((m) => m.role === "before") ? "after" : "before") : "gallery";
+  const hasBefore = project.media.some((m) => m.role === "before");
+  const hasAfter = project.media.some((m) => m.role === "after");
+  const warning = project.type === "before_after" && !(hasBefore && hasAfter) ? t("incomplete_before_after") : project.type === "progress" && !project.media.some((m) => m.role === "step") ? t("no_steps") : "";
   const error = sp1(sp.error);
   const errorText = error === "title_required" ? t("required") : error === "media_required" ? t("media_required") : error;
 
@@ -37,7 +43,12 @@ export default async function EditProjectPage({ params, searchParams }: { params
             {t("edit_project")} <Badge tone="violet">{t(LABEL[project.type])}</Badge>
           </span>
         }
-        subtitle={t(HINT[project.type])}
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {t(HINT[project.type])}
+            {warning && <Badge tone="amber">{warning}</Badge>}
+          </span>
+        }
         actions={
           <form action={del}>
             <ConfirmButton message={t("confirm_delete")}>{t("delete")}</ConfirmButton>
@@ -92,24 +103,26 @@ export default async function EditProjectPage({ params, searchParams }: { params
                       <div className="grid gap-3">
                         <div className="grid gap-3 sm:grid-cols-3">
                           <Field label={t("role")}>
-                            <Select name="role" defaultValue={m.role}>
-                              {ROLES.map((r) => (
+                            <Select name="role" defaultValue={roles.includes(m.role) ? m.role : roles[0]}>
+                              {roles.map((r) => (
                                 <option key={r} value={r}>
                                   {roleLabel(r)}
                                 </option>
                               ))}
                             </Select>
                           </Field>
-                          <Field label={t("step_date")}>
-                            <Input name="stepDate" type="date" defaultValue={m.stepDate ?? ""} dir="ltr" />
-                          </Field>
+                          {isProgress && (
+                            <Field label={t("step_date")}>
+                              <Input name="stepDate" type="date" defaultValue={m.stepDate ?? ""} dir="ltr" />
+                            </Field>
+                          )}
                           {m.kind === "video" && (
                             <Field label={t("poster")}>
                               <Uploader name="posterUrl" siteId={site.id} value={m.posterUrl ?? ""} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
                             </Field>
                           )}
                         </div>
-                        <BilingualInput name="stepLabel" value={m.stepLabel ?? null} label={t("step_label")} />
+                        {isProgress && <BilingualInput name="stepLabel" value={m.stepLabel ?? null} label={t("step_label")} />}
                         <BilingualInput name="caption" value={m.caption ?? null} label={t("caption")} />
                         <div className="flex flex-wrap items-center gap-1.5">
                           <SubmitButton pendingText={t("saving")} className="px-3 py-1.5 text-xs">
@@ -151,19 +164,21 @@ export default async function EditProjectPage({ params, searchParams }: { params
               <div className="grid gap-3">
                 <Field label={t("role")}>
                   <Select name="role" defaultValue={defaultRole}>
-                    {ROLES.map((r) => (
+                    {roles.map((r) => (
                       <option key={r} value={r}>
                         {roleLabel(r)}
                       </option>
                     ))}
                   </Select>
                 </Field>
-                <Field label={t("step_date")}>
-                  <Input name="stepDate" type="date" dir="ltr" />
-                </Field>
+                {isProgress && (
+                  <Field label={t("step_date")}>
+                    <Input name="stepDate" type="date" dir="ltr" />
+                  </Field>
+                )}
               </div>
             </div>
-            <BilingualInput name="stepLabel" label={t("step_label")} placeholderAr={locale === "ar" ? "اليوم الأول" : undefined} placeholderEn="Day 1" />
+            {isProgress && <BilingualInput name="stepLabel" label={t("step_label")} placeholderAr={locale === "ar" ? "اليوم الأول" : undefined} placeholderEn="Day 1" />}
             <BilingualInput name="caption" label={t("caption")} />
             <div>
               <SubmitButton pendingText={t("saving")}>{t("add")}</SubmitButton>

@@ -1,8 +1,14 @@
+import type { PixelConfig } from "@/lib/types";
 import type { Provider, SendContext } from "../types";
 import { postJson } from "../types";
 import { hashExternalId, hashPhone } from "../hash";
 
 const GRAPH_VERSION = "v21.0";
+const VALUE_EVENTS = new Set(["Purchase", "InitiateCheckout", "AddPaymentInfo"]);
+
+export function metaReady(pixel: PixelConfig): boolean {
+  return !!(pixel.pixelId && pixel.accessToken);
+}
 
 export function buildMeta(ctx: SendContext) {
   const { pixel, visitor } = ctx;
@@ -21,6 +27,10 @@ export function buildMeta(ctx: SendContext) {
   if (ctx.value != null) {
     customData.value = ctx.value;
     customData.currency = ctx.currency || "KWD";
+  } else if (VALUE_EVENTS.has(ctx.eventName)) {
+    // Purchase-type events must carry value + currency; send 0 rather than an invalid payload.
+    customData.value = 0;
+    customData.currency = ctx.currency || "KWD";
   }
 
   const event: Record<string, unknown> = {
@@ -35,10 +45,8 @@ export function buildMeta(ctx: SendContext) {
   if (url) event.event_source_url = url;
 
   const body: Record<string, unknown> = { data: [event] };
-  if (pixel.testEventCode && (ctx.test || true)) {
-    // Meta ignores test_event_code in production traffic only if it is stale; sending it while set is the expected workflow.
-    body.test_event_code = pixel.testEventCode;
-  }
+  // Test event codes route events to the Test Events tab only; never send them with real traffic.
+  if (ctx.test && pixel.testEventCode) body.test_event_code = pixel.testEventCode;
 
   const endpoint = `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pixel.pixelId)}/events`;
   const init: RequestInit = {
@@ -51,6 +59,7 @@ export function buildMeta(ctx: SendContext) {
 
 export const metaProvider: Provider = {
   build: buildMeta,
+  ready: metaReady,
   async send(ctx) {
     if (!ctx.pixel.accessToken) {
       return { platform: "meta", ok: false, eventName: ctx.eventName, skipped: "missing_access_token" };

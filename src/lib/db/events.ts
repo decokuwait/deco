@@ -82,6 +82,15 @@ export async function listRecentEvents(siteId: string, limit = 20): Promise<(Vis
   return rows.map((r) => ({ ...map(r), visitorCode: r.visitor_code }));
 }
 
+/** True when the visitor already has an event of this type within the last `minutes` (click dedupe). */
+export async function hasRecentEvent(visitorId: string, eventType: EventKey, minutes: number): Promise<boolean> {
+  const r = await one<{ ok: number }>(
+    `select 1 as ok from visitor_events where visitor_id = $1 and event_type = $2 and created_at > now() - ($3::int * interval '1 minute') limit 1`,
+    [visitorId, eventType, minutes],
+  );
+  return !!r;
+}
+
 export async function getEvent(id: string): Promise<VisitorEvent | null> {
   const r = await one<Row>(`select * from visitor_events where id = $1`, [id]);
   return r ? map(r) : null;

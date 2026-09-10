@@ -83,6 +83,13 @@ describe("sites, domains, members", () => {
     await removeDomain(d!.id);
     expect(await findDomain("elite-decor.com")).toBeNull();
   });
+  it("never re-assigns a hostname that belongs to another site", async () => {
+    const other = await createSite({ slug: "rival", name: "Rival", category: "aluminum", templateCode: "201" });
+    await addDomain({ siteId: other.id, hostname: "taken.com", kind: "custom" });
+    await expect(addDomain({ siteId, hostname: "taken.com", kind: "custom" })).rejects.toThrow("domain_taken");
+    expect((await findDomain("taken.com"))?.siteId).toBe(other.id);
+    await deleteSite(other.id);
+  });
   it("updates site fields and patches content deeply", async () => {
     await updateSite(siteId, { name: "Elite 2", status: "paused", templateCode: "105" });
     const s = await getSiteById(siteId);
@@ -188,6 +195,22 @@ describe("visitors & events", () => {
     expect(again.visitor.visits).toBe(2);
     expect(again.visitor.cookies._ttp).toBe("x");
   });
+  it("a fresh proxy code that collides with an existing visitor gets a new code instead of merging", async () => {
+    const r = await trackVisit({ siteId, code: "555555", fresh: true, landingUrl: "https://elite.decokuwait.com/" });
+    expect(r.created).toBe(true);
+    expect(r.visitor.code).not.toBe("555555");
+    const original = await getVisitorByCode(siteId, "555555");
+    expect(original?.visits).toBe(2);
+  });
+  it("updates last-touch attribution when a returning visitor arrives from a new campaign click", async () => {
+    const back = await trackVisit({ siteId, code: "555555", landingUrl: "https://elite.decokuwait.com/?sc_click_id=SNAP1", referrer: "https://snapchat.com/" });
+    expect(back.created).toBe(false);
+    expect(back.visitor.sourcePlatform).toBe("snapchat");
+    expect(back.visitor.clickIds.sc_click_id).toBe("SNAP1");
+    expect(back.visitor.clickIds.ttclid).toBe("T");
+    const plain = await trackVisit({ siteId, code: "555555", landingUrl: "https://elite.decokuwait.com/about" });
+    expect(plain.visitor.sourcePlatform).toBe("snapchat");
+  });
   it("codes are unique per site and a collision allocates a new one", async () => {
     const other = await createSite({ slug: "other", name: "Other", category: "ceramic", templateCode: "401" });
     const r = await trackVisit({ siteId: other.id, code: "555555" });
@@ -214,13 +237,14 @@ describe("visitors & events", () => {
     expect(byCode.items.some((x) => x.code === code)).toBe(true);
     const leads = await searchVisitors(siteId, { stage: "leads" });
     expect(leads.total).toBe(1);
-    const bySource = await searchVisitors(siteId, { source: "tiktok" });
+    const bySource = await searchVisitors(siteId, { source: "snapchat" });
     expect(bySource.items[0].code).toBe("555555");
     const stats = await visitorStats(siteId);
-    expect(stats.total).toBe(2);
+    expect(stats.total).toBe(3);
     expect(stats.leads).toBe(1);
     expect(stats.whatsappClicks).toBe(1);
     expect(stats.bySource.meta).toBe(1);
+    expect(stats.bySource.snapchat).toBe(1);
     expect(stats.byStage.first_payment).toBe(1);
   });
 });

@@ -6,6 +6,7 @@ import { requireSiteAdmin, errMsg, withQuery } from "../../_lib/guard";
 import { readBool, readLText, readStr } from "@/components/admin/ui";
 import { addMedia, deleteMedia, deleteProject, getMedia, getProject, moveMedia, updateMedia, updateProject } from "@/lib/db/projects";
 import type { MediaRole } from "@/lib/types";
+import { deleteObject, keyFromUrl } from "@/lib/storage";
 
 const ROLES: MediaRole[] = ["gallery", "before", "after", "step"];
 function isRole(v: string): v is MediaRole {
@@ -86,7 +87,21 @@ export async function saveMediaAction(host: string, id: string, mediaId: string,
   try {
     if (op === "delete") {
       await deleteMedia(mediaId);
+      // Best-effort cleanup of the stored file (R2 or local disk) when it is ours.
+      for (const u of [m.url, m.posterUrl]) {
+        const key = keyFromUrl(u);
+        if (key) await deleteObject(key).catch(() => undefined);
+      }
     } else if (op === "up" || op === "down") {
+      // Persist the row's edits first so reordering never discards what the admin typed.
+      const roleRaw = readStr(fd, "role", 20);
+      await updateMedia(mediaId, {
+        role: isRole(roleRaw) ? roleRaw : undefined,
+        caption: readLText(fd, "caption"),
+        stepLabel: readLText(fd, "stepLabel"),
+        stepDate: readStr(fd, "stepDate", 10) || null,
+        posterUrl: m.kind === "video" ? readStr(fd, "posterUrl", 2000) || null : undefined,
+      });
       await moveMedia(mediaId, op);
     } else {
       const roleRaw = readStr(fd, "role", 20);

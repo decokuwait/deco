@@ -50,10 +50,30 @@ function pick(ctx: RenderCtx, key: SectionKey): ComponentType<SectionProps> {
   }
 }
 
+/** Site chrome (theme wrapper, fonts, nav, footer, floating WhatsApp) around any inner page such as /privacy. */
+export function TemplateShell({ ctx, children }: { ctx: RenderCtx; children: React.ReactNode }) {
+  const tokens = effectiveTokens(ctx.def, ctx.site);
+  const Nav = NAV[ctx.def.layout.nav];
+  const Footer = FOOTER[ctx.def.layout.footer];
+  return (
+    <div className="tpl min-h-dvh" style={tokensToStyle(tokens)} dir={ctx.dir} lang={ctx.locale} data-template={ctx.def.code}>
+      <link rel="stylesheet" href={googleFontsHref(fontKeysOf(tokens))} precedence="fonts" />
+      <HtmlLang locale={ctx.locale} />
+      <Nav ctx={ctx} />
+      <main>{children}</main>
+      <Footer ctx={ctx} />
+      <FloatingWhatsApp ctx={ctx} />
+    </div>
+  );
+}
+
 /** Composes a full site page from the template layout, tokens and site content. Pure. */
 export function TemplateRenderer({ ctx }: { ctx: RenderCtx }) {
   const tokens = effectiveTokens(ctx.def, ctx.site);
-  const order = ctx.def.layout.order ?? DEFAULT_ORDER;
+  const templateOrder = ctx.def.layout.order ?? DEFAULT_ORDER;
+  const custom = (ctx.site.content.sections.order || []).filter((k): k is SectionKey => (DEFAULT_ORDER as string[]).includes(k));
+  // A site-level order wins when it is a complete permutation; otherwise fall back to the template order.
+  const order = custom.length === DEFAULT_ORDER.length && new Set(custom).size === DEFAULT_ORDER.length ? custom : templateOrder;
   const Nav = NAV[ctx.def.layout.nav];
   const Footer = FOOTER[ctx.def.layout.footer];
   return (

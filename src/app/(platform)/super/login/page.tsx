@@ -15,7 +15,7 @@ export default async function SuperLoginPage({ searchParams }: { searchParams: S
   const locale = await getAdminLocale();
   const t = (k: Parameters<typeof ts>[1]) => ts(locale, k);
   const error = sp1(sp.error);
-  const errorText = error === "not_super" ? t("not_super") : error ? t("invalid_login") : "";
+  const errorText = error === "not_super" ? t("not_super") : error === "too_many" ? t("too_many") : error ? t("invalid_login") : "";
   return (
     <div className="admin flex min-h-dvh flex-col" dir={locale === "ar" ? "rtl" : "ltr"} lang={locale}>
       <div className="flex items-center justify-between px-4 py-3">

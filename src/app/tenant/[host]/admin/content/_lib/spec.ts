@@ -2,10 +2,13 @@ import type { AdminUiKey } from "@/lib/i18n/admin";
 import type { SiteContent } from "@/lib/types";
 import { ICON_KEYS } from "@/templates/ui/icons";
 import { readLText, readStr, readNum } from "@/components/admin/ui";
+import { safeUrl, safeMediaUrl } from "@/lib/safe-url";
+import { SITE_UI, type SiteUiKey } from "@/lib/i18n/site";
+import { EDITABLE_UI_KEYS } from "@/templates/ctx";
 
 export type FieldSpec =
-  | { kind: "ltext"; key: string; label: AdminUiKey; textarea?: boolean; required?: boolean; hint?: AdminUiKey }
-  | { kind: "text"; key: string; label: AdminUiKey; type?: "text" | "email" | "url" | "tel"; dir?: "ltr"; hint?: AdminUiKey; placeholder?: string }
+  | { kind: "ltext"; key: string; label: AdminUiKey; textarea?: boolean; required?: boolean; hint?: AdminUiKey; labelText?: string; placeholderText?: { ar: string; en: string } }
+  | { kind: "text"; key: string; label: AdminUiKey; type?: "text" | "email" | "url" | "tel"; dir?: "ltr"; hint?: AdminUiKey; placeholder?: string; required?: boolean }
   | { kind: "upload"; key: string; label: AdminUiKey; media?: "image" | "video"; hint?: AdminUiKey }
   | { kind: "select"; key: string; label: AdminUiKey; options: { value: string; label: string }[] }
   | { kind: "number"; key: string; label: AdminUiKey; min?: number; max?: number; hint?: AdminUiKey };
@@ -20,7 +23,7 @@ export interface SectionSpec {
   list?: { path: string; fields: FieldSpec[]; idPrefix: string; primaryKey: string };
 }
 
-export const CONTENT_SECTIONS = ["general", "hero", "about", "services", "stats", "process", "testimonials", "faq", "cta", "seo", "theme", "sections"] as const;
+export const CONTENT_SECTIONS = ["general", "hero", "about", "services", "stats", "process", "testimonials", "faq", "cta", "labels", "legal", "seo", "theme", "sections"] as const;
 export type ContentSection = (typeof CONTENT_SECTIONS)[number];
 
 export function isContentSection(v: string): v is ContentSection {
@@ -28,6 +31,15 @@ export function isContentSection(v: string): v is ContentSection {
 }
 
 const ICON_OPTIONS = ICON_KEYS.map((k) => ({ value: k, label: k }));
+
+/** Site chrome labels the admin may override; the default dictionary text is shown as placeholder. */
+const LABEL_FIELDS: FieldSpec[] = EDITABLE_UI_KEYS.map((k: SiteUiKey) => ({
+  kind: "ltext",
+  key: `ui.${k}`,
+  label: "labels",
+  labelText: `${SITE_UI[k].ar} / ${SITE_UI[k].en}`,
+  placeholderText: SITE_UI[k],
+}));
 
 export const SPECS: Record<ContentSection, SectionSpec> = {
   general: {
@@ -38,19 +50,22 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
       { kind: "ltext", key: "brand.name", label: "site_name", required: true },
       { kind: "ltext", key: "brand.tagline", label: "tagline" },
       { kind: "upload", key: "brand.logoUrl", label: "logo" },
-      { kind: "text", key: "contact.whatsapp", label: "whatsapp_number", type: "tel", dir: "ltr", placeholder: "96555555555" },
+      { kind: "upload", key: "brand.faviconUrl", label: "favicon", hint: "optional" },
+      { kind: "text", key: "contact.whatsapp", label: "whatsapp_number", type: "tel", dir: "ltr", placeholder: "96555555555", required: true },
       { kind: "ltext", key: "contact.whatsappMessage", label: "whatsapp_message", textarea: true, hint: "whatsapp_id_hint" },
       { kind: "text", key: "contact.phone", label: "phone", type: "tel", dir: "ltr" },
       { kind: "text", key: "contact.email", label: "email", type: "email", dir: "ltr" },
       { kind: "ltext", key: "contact.address", label: "address" },
       { kind: "ltext", key: "contact.hours", label: "hours" },
-      { kind: "text", key: "contact.mapEmbedUrl", label: "map_embed", type: "url", dir: "ltr" },
-      { kind: "text", key: "socials.instagram", label: "socials", type: "url", dir: "ltr", placeholder: "Instagram https://instagram.com/..." },
-      { kind: "text", key: "socials.tiktok", label: "socials", type: "url", dir: "ltr", placeholder: "TikTok https://tiktok.com/@..." },
-      { kind: "text", key: "socials.snapchat", label: "socials", type: "url", dir: "ltr", placeholder: "Snapchat https://snapchat.com/add/..." },
-      { kind: "text", key: "socials.facebook", label: "socials", type: "url", dir: "ltr", placeholder: "Facebook https://facebook.com/..." },
-      { kind: "text", key: "socials.x", label: "socials", type: "url", dir: "ltr", placeholder: "X https://x.com/..." },
-      { kind: "text", key: "socials.youtube", label: "socials", type: "url", dir: "ltr", placeholder: "YouTube https://youtube.com/@..." },
+      { kind: "ltext", key: "contact.title", label: "contact_title" },
+      { kind: "ltext", key: "contact.subtitle", label: "contact_subtitle" },
+      { kind: "text", key: "contact.mapEmbedUrl", label: "map_embed", type: "url", dir: "ltr", hint: "url_hint" },
+      { kind: "text", key: "socials.instagram", label: "instagram", type: "url", dir: "ltr", placeholder: "https://instagram.com/...", hint: "url_hint" },
+      { kind: "text", key: "socials.tiktok", label: "tiktok", type: "url", dir: "ltr", placeholder: "https://tiktok.com/@..." },
+      { kind: "text", key: "socials.snapchat", label: "snapchat", type: "url", dir: "ltr", placeholder: "https://snapchat.com/add/..." },
+      { kind: "text", key: "socials.facebook", label: "facebook", type: "url", dir: "ltr", placeholder: "https://facebook.com/..." },
+      { kind: "text", key: "socials.x", label: "x_social", type: "url", dir: "ltr", placeholder: "https://x.com/..." },
+      { kind: "text", key: "socials.youtube", label: "youtube", type: "url", dir: "ltr", placeholder: "https://youtube.com/@..." },
     ],
   },
   hero: {
@@ -178,9 +193,20 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
     title: "cta",
     hint: "cta_hint",
     fields: [
+      { kind: "ltext", key: "cta.eyebrow", label: "cta_eyebrow" },
       { kind: "ltext", key: "cta.title", label: "title" },
       { kind: "ltext", key: "cta.subtitle", label: "subtitle", textarea: true },
       { kind: "ltext", key: "cta.buttonText", label: "button_text" },
+    ],
+  },
+  labels: { key: "labels", title: "labels", hint: "labels_hint", fields: LABEL_FIELDS },
+  legal: {
+    key: "legal",
+    title: "legal",
+    hint: "legal_hint",
+    fields: [
+      { kind: "ltext", key: "legal.privacyTitle", label: "title" },
+      { kind: "ltext", key: "legal.privacy", label: "body", textarea: true },
     ],
   },
   seo: {
@@ -194,7 +220,7 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
       { kind: "upload", key: "seo.ogImageUrl", label: "og_image" },
     ],
   },
-  // theme and sections are rendered by hand (colour pickers / toggles) but parsed here.
+  // theme and sections are rendered by hand (colour pickers / toggles) and parsed in actions.ts.
   theme: { key: "theme", title: "theme", hint: "theme_hint", fields: [] },
   sections: { key: "sections", title: "sections", hint: "sections_hint", fields: [] },
 };
@@ -220,8 +246,12 @@ function readField(fd: FormData, prefix: string, f: FieldSpec): unknown {
   switch (f.kind) {
     case "ltext":
       return readLText(fd, name);
-    case "text":
+    case "text": {
+      const v = readStr(fd, name, 4000);
+      return f.type === "url" ? safeUrl(v) : v;
+    }
     case "upload":
+      return safeMediaUrl(readStr(fd, name, 4000));
     case "select":
       return readStr(fd, name, 4000);
     case "number": {

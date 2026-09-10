@@ -8,15 +8,15 @@ import { getPixel, upsertPixel } from "@/lib/db/pixels";
 import { patchSiteContent } from "@/lib/db/sites";
 import { dispatchEvent, testVisitor } from "@/lib/marketing/dispatch";
 import { EVENT_KEYS } from "@/lib/marketing/mapping";
-import { PLATFORMS, type EventKey, type Platform } from "@/lib/types";
-
-function isPlatform(v: string): v is Platform {
-  return (PLATFORMS as string[]).includes(v);
-}
+import { siteUrl } from "@/lib/config";
+import { isPlatform, type EventKey } from "@/lib/types";
 
 export async function savePixel(host: string, platform: string, fd: FormData) {
   const { site } = await requireSiteAdmin(host);
   if (!isPlatform(platform)) redirect("/admin/marketing?error=bad_platform");
+  const pixelId = readStr(fd, "pixelId", 120);
+  const active = readBool(fd, "active");
+  if (active && !pixelId) redirect(withQuery("/admin/marketing", { error: "pixel_id_required" }));
   try {
     const eventMap: Partial<Record<EventKey, string>> = {};
     for (const k of EVENT_KEYS) {
@@ -31,25 +31,26 @@ export async function savePixel(host: string, platform: string, fd: FormData) {
     // blank secret fields keep the stored value (so re-saving does not wipe it); "clearToken" removes them
     const keep = (input: string, prev: string | undefined) => (input ? input : clear ? undefined : prev);
     await upsertPixel(site.id, platform, {
-      pixelId: readStr(fd, "pixelId", 120),
+      pixelId,
       accessToken: tokenInput ? tokenInput : clear ? null : (existing?.accessToken ?? null),
       extra: {
         ...prevExtra,
         apiSecret: keep(secretInput, prevExtra.apiSecret),
         adsId: readStr(fd, "adsId", 60) || undefined,
+        adsLabel: readStr(fd, "adsLabel", 120) || undefined,
         consumerKey: platform === "x" ? readStr(fd, "consumerKey", 200) || (clear ? undefined : prevExtra.consumerKey) : prevExtra.consumerKey,
         consumerSecret: platform === "x" ? keep(readStr(fd, "consumerSecret", 200), prevExtra.consumerSecret) : prevExtra.consumerSecret,
         tokenSecret: platform === "x" ? keep(readStr(fd, "tokenSecret", 200), prevExtra.tokenSecret) : prevExtra.tokenSecret,
       },
       testEventCode: readStr(fd, "testEventCode", 60) || null,
-      active: readBool(fd, "active"),
+      active,
       eventMap,
     });
   } catch (e) {
     redirect(withQuery("/admin/marketing", { error: errMsg(e) }));
   }
   revalidatePath("/", "layout");
-  redirect(withQuery("/admin/marketing", { saved: "1" }) + `#${platform}`);
+  redirect(withQuery("/admin/marketing", { saved: "1", p: platform }));
 }
 
 export async function saveSignalMode(host: string, fd: FormData) {
@@ -66,7 +67,16 @@ export async function sendTestEvent(host: string, platform: string) {
   if (!isPlatform(platform)) redirect("/admin/marketing?error=bad_platform");
   const pixel = await getPixel(site.id, platform);
   if (!pixel || !pixel.pixelId) redirect(withQuery("/admin/marketing", { tested: platform, ok: "0", msg: "pixel_not_configured" }) + `#${platform}`);
-  const result = await dispatchEvent({ activePixels: [{ ...pixel, active: true }], visitor: testVisitor(), eventKey: "contacted", stage: "contacted", test: true, signalMode: "all" });
+  const url = siteUrl(host);
+  const result = await dispatchEvent({
+    activePixels: [{ ...pixel, active: true }],
+    visitor: testVisitor(url),
+    eventKey: "contacted",
+    stage: "contacted",
+    test: true,
+    signalMode: "all",
+    sourceUrl: url,
+  });
   const d = result.deliveries[0];
   const msg = d ? (d.skipped ? d.skipped : d.error ? d.error : `${d.status ?? ""} ${JSON.stringify(d.response ?? "").slice(0, 300)}`) : "no_delivery";
   redirect(withQuery("/admin/marketing", { tested: platform, ok: d?.ok ? "1" : "0", msg }) + `#${platform}`);

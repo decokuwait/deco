@@ -391,6 +391,8 @@ export function demoContent(category: Category): SiteContent {
       hours: L("السبت - الخميس: 9 صباحاً - 9 مساءً", "Sat - Thu: 9 AM - 9 PM"),
       mapEmbedUrl: "",
       whatsappMessage: { ar: "مرحباً، رقم الزائر: {id}\nأرغب في الاستفسار عن خدماتكم.", en: "Hello, my visitor ID: {id}\nI would like to ask about your services." },
+      title: L("تواصل معنا", "Contact us"),
+      subtitle: L("زيارة مجانية للمعاينة وعرض سعر خلال 24 ساعة", "Free site visit and a quote within 24 hours"),
     },
     socials: { instagram: "https://instagram.com/", tiktok: "https://tiktok.com/", snapchat: "https://snapchat.com/", facebook: "", x: "", youtube: "" },
     hero: {
@@ -420,10 +422,10 @@ export function demoContent(category: Category): SiteContent {
     },
     testimonials: { title: L("آراء عملائنا", "What clients say"), subtitle: L("ثقة عملائنا هي أساس نجاحنا", "Our clients' trust is our success"), items: s.testimonials.map((t, i) => ({ id: `t-${i}`, ...t, rating: 5 })) },
     faq: { title: L("الأسئلة الشائعة", "Frequently asked questions"), subtitle: L("إجابات على أكثر ما يسأله عملاؤنا", "Answers to what clients ask most"), items: s.faq.map((f, i) => ({ id: `faq-${i}`, ...f })) },
-    cta: { title: L("جاهز لتبدأ مشروعك؟", "Ready to start your project?"), subtitle: L("تواصل معنا الآن واحصل على معاينة مجانية وعرض سعر خلال 24 ساعة.", "Contact us now for a free site visit and a quote within 24 hours."), buttonText: L("تواصل واتساب", "WhatsApp us") },
+    cta: { title: L("جاهز لتبدأ مشروعك؟", "Ready to start your project?"), subtitle: L("تواصل معنا الآن واحصل على معاينة مجانية وعرض سعر خلال 24 ساعة.", "Contact us now for a free site visit and a quote within 24 hours."), buttonText: L("تواصل واتساب", "WhatsApp us"), eyebrow: L("اطلب عرض سعر", "Get a quote") },
     seo: { title: s.brand, description: s.tagline, ogImageUrl: img[0], keywords: s.seoKeywords },
     theme: {},
-    sections: { about: true, services: true, stats: true, process: true, testimonials: true, faq: true, cta: true },
+    sections: { about: true, services: true, stats: true, process: true, testimonials: true, faq: true, cta: true, order: [] },
     settings: { defaultLocale: "ar", showLangToggle: true, floatingWhatsapp: true, showVisitorId: true, signalMode: "smart" },
   };
   return deepMerge(emptyContent(), partial);

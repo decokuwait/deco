@@ -42,22 +42,31 @@ export function sectionEnabled(ctx: RenderCtx, key: SectionKey): boolean {
   }
 }
 
+/** Anchor links are root-relative so they also work from inner pages such as /privacy. */
 export function navLinks(ctx: RenderCtx): { href: string; label: string }[] {
-  const links: { href: string; label: string }[] = [{ href: "#top", label: ctx.ui("nav_home") }];
-  if (sectionEnabled(ctx, "about")) links.push({ href: "#about", label: ctx.ui("nav_about") });
-  if (sectionEnabled(ctx, "services")) links.push({ href: "#services", label: ctx.ui("nav_services") });
-  if (sectionEnabled(ctx, "finished") || sectionEnabled(ctx, "beforeAfter") || sectionEnabled(ctx, "progress")) links.push({ href: "#projects", label: ctx.ui("nav_projects") });
-  if (sectionEnabled(ctx, "faq")) links.push({ href: "#faq", label: ctx.ui("nav_faq") });
-  links.push({ href: "#contact", label: ctx.ui("nav_contact") });
+  const links: { href: string; label: string }[] = [{ href: "/#top", label: ctx.ui("nav_home") }];
+  if (sectionEnabled(ctx, "about")) links.push({ href: "/#about", label: ctx.ui("nav_about") });
+  if (sectionEnabled(ctx, "services")) links.push({ href: "/#services", label: ctx.ui("nav_services") });
+  if (sectionEnabled(ctx, "finished") || sectionEnabled(ctx, "beforeAfter") || sectionEnabled(ctx, "progress")) links.push({ href: projectsAnchor(ctx), label: ctx.ui("nav_projects") });
+  if (sectionEnabled(ctx, "faq")) links.push({ href: "/#faq", label: ctx.ui("nav_faq") });
+  links.push({ href: "/#contact", label: ctx.ui("nav_contact") });
   return links;
+}
+
+/** Legal links for footers (privacy policy page) — hidden in template previews and when the text is empty. */
+export function legalLinks(ctx: RenderCtx): { href: string; label: string }[] {
+  if (ctx.preview) return [];
+  const legal = ctx.site.content.legal;
+  if (!legal || !ctx.text(legal.privacy)) return [];
+  return [{ href: "/privacy", label: ctx.text(legal.privacyTitle) || ctx.ui("privacy_policy") }];
 }
 
 /** First projects section id, so the hero "see our work" button can scroll to it. */
 export function projectsAnchor(ctx: RenderCtx): string {
-  if (sectionEnabled(ctx, "finished")) return "#projects";
-  if (sectionEnabled(ctx, "beforeAfter")) return "#before-after";
-  if (sectionEnabled(ctx, "progress")) return "#progress";
-  return "#services";
+  if (sectionEnabled(ctx, "finished")) return "/#projects";
+  if (sectionEnabled(ctx, "beforeAfter")) return "/#before-after";
+  if (sectionEnabled(ctx, "progress")) return "/#progress";
+  return "/#services";
 }
 
 export function mediaOf(project: Project): MediaItem[] {

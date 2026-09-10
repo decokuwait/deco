@@ -1,6 +1,6 @@
 import { requireSuper, sp1, type SearchParams } from "../../_lib/guard";
 import { SuperPanel, TemplatePicker } from "../../_components/Panel";
-import { Card, PageHeader, Flash, Field, Input, Select } from "@/components/admin/ui";
+import { Card, PageHeader, Flash, Field, Input, Select, Toggle } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { CATEGORIES, CATEGORY_LABELS, type Category } from "@/lib/types";
 import { getTemplate } from "@/templates/registry";
@@ -16,7 +16,7 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
   const preset = getTemplate(sp1(sp.template));
   const category: Category | undefined = (CATEGORIES as string[]).includes(catRaw) ? (catRaw as Category) : preset?.category;
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template"];
+  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "template_category_mismatch", "domain_taken"];
   const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
   const root = ROOT_DOMAIN.replace(/:\d+$/, "");
 
@@ -46,8 +46,12 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
               <Input name="customDomain" dir="ltr" placeholder="company.com" />
             </Field>
             <Field label={t("whatsapp")}>
-              <Input name="whatsapp" dir="ltr" placeholder="96550000000" />
+              <Input name="whatsapp" dir="ltr" placeholder="96550000000" required />
             </Field>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Toggle name="seedDemo" defaultChecked label={t("seed_demo")} />
+            <Toggle name="startPaused" label={t("start_paused")} />
           </div>
         </Card>
         <Card title={t("admin_user")}>

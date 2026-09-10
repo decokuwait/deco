@@ -49,7 +49,8 @@ export function Uploader({
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open(target.mode === "put" ? "PUT" : "POST", target.uploadUrl);
-        if (target.headers) for (const [k, v] of Object.entries(target.headers)) xhr.setRequestHeader(k, v);
+        // Content-Length is a forbidden request header for XHR (the browser sets it); everything else is signed.
+        if (target.headers) for (const [k, v] of Object.entries(target.headers)) if (k.toLowerCase() !== "content-length") xhr.setRequestHeader(k, v);
         else xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
         xhr.upload.onprogress = (e) => e.lengthComputable && setProgress(Math.round((e.loaded / e.total) * 100));
         xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload ${xhr.status}`)));

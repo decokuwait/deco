@@ -16,7 +16,6 @@ export const ALLOWED_TYPES = new Set([
   "image/webp",
   "image/gif",
   "image/avif",
-  "image/svg+xml",
   "video/mp4",
   "video/webm",
   "video/quicktime",
@@ -61,15 +60,18 @@ async function s3() {
 export async function createUploadTarget(input: { siteId: string; filename: string; contentType: string; size?: number }): Promise<UploadTarget> {
   if (!ALLOWED_TYPES.has(input.contentType)) throw new Error("unsupported_type");
   const isVideo = input.contentType.startsWith("video/");
-  if (input.size && input.size > (isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES)) throw new Error("too_large");
+  const size = Number(input.size);
+  if (!Number.isInteger(size) || size <= 0) throw new Error("size_required");
+  if (size > (isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES)) throw new Error("too_large");
   const key = buildKey(input.siteId, input.filename);
   if (r2Configured()) {
     const { PutObjectCommand } = await import("@aws-sdk/client-s3");
     const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
     const client = await s3();
-    const cmd = new PutObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key, ContentType: input.contentType });
-    const uploadUrl = await getSignedUrl(client, cmd, { expiresIn: 60 * 10 });
-    return { mode: "put", uploadUrl, publicUrl: publicUrlFor(key), key, headers: { "Content-Type": input.contentType } };
+    // ContentLength is part of the signature, so R2 rejects uploads larger than what was approved.
+    const cmd = new PutObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key, ContentType: input.contentType, ContentLength: size });
+    const uploadUrl = await getSignedUrl(client, cmd, { expiresIn: 60 * 10, signableHeaders: new Set(["content-type", "content-length"]) });
+    return { mode: "put", uploadUrl, publicUrl: publicUrlFor(key), key, headers: { "Content-Type": input.contentType, "Content-Length": String(size) } };
   }
   // Local disk is only a development convenience; serverless file systems are ephemeral and read-only.
   if (process.env.VERCEL) throw new Error("storage_not_configured");
@@ -102,6 +104,16 @@ export async function deleteObject(key: string) {
   } catch {
     /* ignore */
   }
+}
+
+/** Storage key for a URL served by us (R2 public URL or local /api/files path); null for foreign URLs. */
+export function keyFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const local = url.match(/^\/api\/files\/(sites\/.+)$/);
+  if (local) return local[1];
+  const base = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+  if (base && url.startsWith(`${base}/sites/`)) return url.slice(base.length + 1);
+  return null;
 }
 
 export function contentTypeFor(key: string): string {

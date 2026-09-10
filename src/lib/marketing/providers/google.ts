@@ -38,8 +38,13 @@ function stableClientId(code: string, firstSeen: string): string {
   return `${Number(code) || 100000}.${ts}`;
 }
 
+export function googleReady(pixel: import("@/lib/types").PixelConfig): boolean {
+  return !!(pixel.pixelId && pixel.extra?.apiSecret);
+}
+
 export const googleProvider: Provider = {
   build: buildGoogle,
+  ready: googleReady,
   async send(ctx) {
     if (!ctx.pixel.extra?.apiSecret) {
       return { platform: "google", ok: false, eventName: ctx.eventName, skipped: "missing_api_secret" };

@@ -22,7 +22,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
   if (!site) notFound();
   const [domains, members] = await Promise.all([listDomains(id), listMembers(id)]);
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "not_found"];
+  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "not_found", "domain_taken", "template_category_mismatch"];
   const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
   const port = rootPort();
   const primary = domains.find((d) => d.kind === "subdomain") ?? domains[0];

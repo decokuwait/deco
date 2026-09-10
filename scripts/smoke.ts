@@ -69,7 +69,7 @@ async function main() {
   const admin = await createUser({ email: "admin@example.com", password: "Admin123!", isSuper: false });
   const { site } = await provisionSite({ slug: "demo", name: "Demo Decor", category: "gypsum", templateCode: "104", whatsapp: "96550000000", provisionVercel: false });
   await addMember(site.id, admin.id);
-  await upsertPixel(site.id, "meta", { pixelId: "123456789", accessToken: "", active: true });
+  await upsertPixel(site.id, "meta", { pixelId: "123456789", accessToken: "smoke-invalid-token", active: true });
   const { token: adminToken } = await createSession(admin.id);
   const { token: superToken } = await createSession(owner.id);
   const projectId = (await listProjects(site.id))[0]?.id ?? "";
@@ -77,6 +77,7 @@ async function main() {
   console.log("seeded demo site", site.id);
 
   // 2. start server
+  let code = "";
   const server = spawn(process.platform === "win32" ? "npx.cmd" : "npx", ["next", "start", "-p", String(PORT)], {
     env: { ...process.env, NODE_ENV: "production" },
     stdio: ["ignore", "pipe", "pipe"],
@@ -116,7 +117,7 @@ async function main() {
     const codeMatch = setCookie.match(/dk_vid=(\d{6})/);
     check(site1.status === 200, "tenant site renders (Host: demo.localhost)");
     check(!!codeMatch, `visitor cookie dk_vid assigned (${codeMatch?.[1] ?? "none"})`);
-    const code = codeMatch?.[1] ?? "";
+    code = codeMatch?.[1] ?? "";
     const waLink = site1Html.match(/https:\/\/wa\.me\/96550000000\?text=([^"]+)"/);
     check(!!waLink && decodeURIComponent(waLink[1].replace(/&amp;/g, "&")).includes(code), "WhatsApp link contains the visitor id in the first message");
     check(site1Html.includes("Demo Decor") || site1Html.includes("ديكور"), "site brand rendered");
@@ -131,8 +132,12 @@ async function main() {
       headers: { "x-forwarded-host": tenantHost, "content-type": "application/json", cookie: `dk_vid=${code}`, "user-agent": "smoke" },
       body: JSON.stringify({ code, url: `http://${tenantHost}/?fbclid=SMOKE123`, referrer: "https://www.instagram.com/", cookies: { _fbp: "fb.1.1.1" } }),
     });
-    const trackJson = (await track.json()) as { code?: string; created?: boolean; source?: string };
-    check(track.status === 200 && trackJson.code === code && trackJson.created === true && trackJson.source === "meta", `POST /api/track registers visitor with Meta attribution (${JSON.stringify(trackJson)})`);
+    const trackJson = (await track.json()) as { ok?: boolean; created?: boolean };
+    // The first render already created the visitor server-side, so the client call only enriches it.
+    check(track.status === 200 && trackJson.ok === true, `POST /api/track accepts the visit (${JSON.stringify(trackJson)})`);
+    const spoofed = await fetch(`http://${ROOT}/api/track`, { method: "POST", headers: { "x-forwarded-host": tenantHost, "content-type": "application/json" }, body: JSON.stringify({ code: "999999", url: `http://${tenantHost}/` }) });
+    const spoofJson = (await spoofed.json()) as { ok?: boolean; created?: boolean };
+    check(spoofed.status === 200 && (spoofed.headers.get("set-cookie") || "").includes("dk_vid=") && !(spoofed.headers.get("set-cookie") || "").includes("dk_vid=999999"), `a client-chosen visitor code is ignored and a server code is issued instead (${JSON.stringify(spoofJson)})`);
 
     const ev = await fetch(`http://${ROOT}/api/track/event`, {
       method: "POST",
@@ -227,15 +232,16 @@ async function main() {
   await getDb2();
   const { getVisitorByCode } = await import("../src/lib/db/visitors");
   const { listVisitorEvents } = await import("../src/lib/db/events");
-  const visitors = await (await getDb2()).query<{ code: string; whatsapp_clicks: number; source_platform: string }>(`select code, whatsapp_clicks, source_platform from visitors`);
-  const v = visitors[0];
-  check(visitors.length === 1, "one visitor stored");
-  check(v?.source_platform === "meta" && Number(v?.whatsapp_clicks) === 1, "visitor has meta source and 1 WhatsApp click");
+  const visitors = await (await getDb2()).query<{ code: string; whatsapp_clicks: number; source_platform: string }>(`select code, whatsapp_clicks, source_platform from visitors order by first_seen_at`);
+  const v = visitors.find((x) => x.code === code);
+  check(visitors.length === 2, `two visitors stored: the real one and the server-issued replacement for the spoofed code (${visitors.length})`);
+  check(v?.source_platform === "meta" && Number(v?.whatsapp_clicks) === 1, "visitor has meta source (last-touch fbclid) and 1 WhatsApp click");
   const full = v ? await getVisitorByCode(site.id, v.code) : null;
   const events = full ? await listVisitorEvents(full.id) : [];
   check(events.some((e) => e.eventType === "whatsapp_click" && e.eventId === "smoke-evt-1"), "whatsapp_click event stored with shared event id");
   const delivered = events.find((e) => e.eventType === "whatsapp_click");
-  check(delivered?.targets.includes("meta") && delivered?.deliveries[0]?.skipped === "missing_access_token", "signal routed to Meta (skipped: no access token configured)");
+  check(delivered?.targets.join(",") === "meta", `signal routed to Meta only (visitor came from Meta) — targets: ${delivered?.targets.join(",")}`);
+  check(delivered?.deliveries[0]?.platform === "meta" && delivered?.deliveries[0]?.ok === false, `Meta CAPI attempted and rejected the invalid token (${JSON.stringify(delivered?.deliveries[0] ?? null).slice(0, 160)})`);
   await resetDb2();
 
   console.log(failures ? `\n${failures} check(s) failed` : "\nAll smoke checks passed");

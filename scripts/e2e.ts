@@ -68,6 +68,7 @@ async function main() {
     const page = await actx.newPage();
     const perrors: string[] = [];
     page.on("pageerror", (e) => perrors.push(e.message));
+    page.on("dialog", (d) => d.accept()); // confirm() dialogs on delete buttons
     await page.goto(`${tenant}/admin`);
     check(page.url().includes("/admin/login"), "unauthenticated admin is redirected to login");
     await page.fill('input[name="email"]', "admin@example.com");
@@ -143,8 +144,8 @@ async function main() {
 
     // theme override
     await page.goto(`${tenant}/admin/content/theme`);
-    await page.locator('input[name="primary_default"]').uncheck({ force: true });
     await page.fill('input[name="primary"]', "#123456");
+    await page.locator('input[name="primary_custom"]').check({ force: true });
     await page.locator('button[type="submit"]').last().click();
     await page.waitForURL(/saved=1/);
     check((await (await hfetch("demo")).text()).includes("--t-primary:#123456"), "theme colour override applied to the site");

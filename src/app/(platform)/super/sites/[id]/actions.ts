@@ -6,7 +6,7 @@ import { requireSuper, errMsg, withQuery } from "../../_lib/guard";
 import { readStr } from "@/components/admin/ui";
 import { isValidSlug, isValidHostname, normalizeHostname, subdomainHost } from "@/lib/tenant";
 import { CATEGORIES, type Category } from "@/lib/types";
-import { isTemplateCode } from "@/templates/registry";
+import { getTemplate, isTemplateCode } from "@/templates/registry";
 import { deleteSite, getSiteById, getSiteBySlug, updateSite } from "@/lib/db/sites";
 import { addDomain, getDomain, listDomains, removeDomain, removeSubdomainRows, updateDomainStatus } from "@/lib/db/domains";
 import { addDomainToVercel, getDomainStatus, removeDomainFromVercel, vercelConfigured, verifyDomain } from "@/lib/vercel";
@@ -31,6 +31,7 @@ export async function updateSiteAction(id: string, fd: FormData) {
   const slug = readStr(fd, "slug", 63).toLowerCase();
   if (!name || !(CATEGORIES as string[]).includes(category)) redirect(withQuery(back, { error: "required" }));
   if (!isTemplateCode(templateCode)) redirect(withQuery(back, { error: "invalid_template" }));
+  if (getTemplate(templateCode)?.category !== category) redirect(withQuery(back, { error: "template_category_mismatch" }));
   if (!isValidSlug(slug)) redirect(withQuery(back, { error: "invalid_slug" }));
   if (slug !== site.slug) {
     const other = await getSiteBySlug(slug);

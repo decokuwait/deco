@@ -21,6 +21,12 @@ export function newEventId(): string {
   return randomUUID();
 }
 
+/** Whether a pixel can deliver server-side events (credentials present). */
+export function serverReady(pixel: PixelConfig): boolean {
+  const p = PROVIDERS[pixel.platform];
+  return !!p && p.ready(pixel);
+}
+
 export interface DispatchInput {
   activePixels: PixelConfig[];
   visitor: VisitorLike & { sourcePlatform: SourcePlatform };
@@ -34,6 +40,8 @@ export interface DispatchInput {
   signalMode?: SignalMode;
   test?: boolean;
   fetchImpl?: typeof fetch;
+  /** Platforms to exclude for this dispatch (e.g. google for browser-originated clicks already sent by gtag). */
+  exclude?: Platform[];
 }
 
 export interface DispatchResult {
@@ -46,7 +54,8 @@ export interface DispatchResult {
 export async function dispatchEvent(input: DispatchInput): Promise<DispatchResult> {
   const eventId = input.eventId || newEventId();
   const eventTime = input.eventTime || Math.floor(Date.now() / 1000);
-  const targets = selectTargets(input.activePixels, input.visitor.sourcePlatform, input.signalMode ?? "smart");
+  const pool = input.exclude?.length ? input.activePixels.filter((p) => !input.exclude!.includes(p.platform)) : input.activePixels;
+  const targets = selectTargets(pool, input.visitor.sourcePlatform, input.signalMode ?? "smart", input.test ? (p) => !!p.pixelId : serverReady);
   const deliveries = await Promise.all(
     targets.map(async (pixel): Promise<Delivery> => {
       const ctx: SendContext = {
@@ -74,7 +83,7 @@ export async function dispatchEvent(input: DispatchInput): Promise<DispatchResul
 }
 
 /** Synthetic visitor used for "send test event" from the admin panel. */
-export function testVisitor(): VisitorLike & { sourcePlatform: SourcePlatform } {
+export function testVisitor(landingUrl: string | null = null): VisitorLike & { sourcePlatform: SourcePlatform } {
   return {
     code: "123456",
     ip: "127.0.0.1",
@@ -83,7 +92,7 @@ export function testVisitor(): VisitorLike & { sourcePlatform: SourcePlatform } 
     cookies: {},
     phone: null,
     firstSeenAt: new Date().toISOString(),
-    landingUrl: null,
+    landingUrl,
     referrer: null,
     sourcePlatform: "direct",
   };

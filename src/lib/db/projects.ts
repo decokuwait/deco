@@ -1,4 +1,4 @@
-import { q, one, json, parseJson } from "./client";
+import { q, one, iso, json, parseJson } from "./client";
 import type { LText, MediaItem, MediaKind, MediaRole, Project, ProjectType } from "@/lib/types";
 
 interface ProjectRow {
@@ -144,21 +144,22 @@ export async function deleteProject(id: string) {
   await q(`delete from projects where id = $1`, [id]);
 }
 
+/**
+ * Moves a project one step within its type. Uses the same total order as listProjects
+ * (sort_order, created_at) and swaps both rows in one statement; equal sort_orders are split apart.
+ */
 export async function moveProject(id: string, direction: "up" | "down") {
-  const p = await one<ProjectRow>(`select * from projects where id = $1`, [id]);
+  const p = await one<ProjectRow & { created_at: unknown }>(`select * from projects where id = $1`, [id]);
   if (!p) return;
-  const neighbor = await one<ProjectRow>(
+  const neighbor = await one<ProjectRow & { created_at: unknown }>(
     direction === "up"
-      ? `select * from projects where site_id = $1 and type = $2 and sort_order < $3 order by sort_order desc limit 1`
-      : `select * from projects where site_id = $1 and type = $2 and sort_order > $3 order by sort_order asc limit 1`,
-    [p.site_id, p.type, p.sort_order],
+      ? `select * from projects where site_id = $1 and type = $2 and (sort_order, created_at) < ($3, $4::timestamptz) order by sort_order desc, created_at desc limit 1`
+      : `select * from projects where site_id = $1 and type = $2 and (sort_order, created_at) > ($3, $4::timestamptz) order by sort_order asc, created_at asc limit 1`,
+    [p.site_id, p.type, p.sort_order, iso(p.created_at)],
   );
   if (!neighbor) return;
-  await q(`update projects set sort_order = $2 where id = $1`, [p.id, neighbor.sort_order]);
-  await q(`update projects set sort_order = $2 where id = $1`, [neighbor.id, p.sort_order]);
-  if (neighbor.sort_order === p.sort_order) {
-    await q(`update projects set sort_order = $2 where id = $1`, [p.id, direction === "up" ? p.sort_order - 1 : p.sort_order + 1]);
-  }
+  const [mine, theirs] = p.sort_order === neighbor.sort_order ? (direction === "up" ? [neighbor.sort_order - 1, p.sort_order] : [neighbor.sort_order + 1, p.sort_order]) : [neighbor.sort_order, p.sort_order];
+  await q(`update projects set sort_order = case id when $1::uuid then $3::int when $2::uuid then $4::int end, updated_at = now() where id in ($1::uuid, $2::uuid)`, [p.id, neighbor.id, mine, theirs]);
 }
 
 export async function addMedia(input: {
@@ -224,21 +225,19 @@ export async function getMedia(id: string): Promise<(MediaItem & { projectId: st
   return r ? { ...mapMedia(r), projectId: r.project_id } : null;
 }
 
+/** Moves a media item one step within its project (same total order as the listing; single-statement swap). */
 export async function moveMedia(id: string, direction: "up" | "down") {
-  const m = await one<MediaRow>(`select * from project_media where id = $1`, [id]);
+  const m = await one<MediaRow & { created_at: unknown }>(`select * from project_media where id = $1`, [id]);
   if (!m) return;
-  const neighbor = await one<MediaRow>(
+  const neighbor = await one<MediaRow & { created_at: unknown }>(
     direction === "up"
-      ? `select * from project_media where project_id = $1 and sort_order < $2 order by sort_order desc limit 1`
-      : `select * from project_media where project_id = $1 and sort_order > $2 order by sort_order asc limit 1`,
-    [m.project_id, m.sort_order],
+      ? `select * from project_media where project_id = $1 and (sort_order, created_at) < ($2, $3::timestamptz) order by sort_order desc, created_at desc limit 1`
+      : `select * from project_media where project_id = $1 and (sort_order, created_at) > ($2, $3::timestamptz) order by sort_order asc, created_at asc limit 1`,
+    [m.project_id, m.sort_order, iso(m.created_at)],
   );
   if (!neighbor) return;
-  await q(`update project_media set sort_order = $2 where id = $1`, [m.id, neighbor.sort_order]);
-  await q(`update project_media set sort_order = $2 where id = $1`, [neighbor.id, m.sort_order]);
-  if (neighbor.sort_order === m.sort_order) {
-    await q(`update project_media set sort_order = $2 where id = $1`, [m.id, direction === "up" ? m.sort_order - 1 : m.sort_order + 1]);
-  }
+  const [mine, theirs] = m.sort_order === neighbor.sort_order ? (direction === "up" ? [neighbor.sort_order - 1, m.sort_order] : [neighbor.sort_order + 1, m.sort_order]) : [neighbor.sort_order, m.sort_order];
+  await q(`update project_media set sort_order = case id when $1::uuid then $3::int when $2::uuid then $4::int end where id in ($1::uuid, $2::uuid)`, [m.id, neighbor.id, mine, theirs]);
 }
 
 export async function countProjects(siteId: string): Promise<Record<ProjectType, number>> {

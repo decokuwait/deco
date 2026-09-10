@@ -2,9 +2,9 @@ import { requireSiteAdmin, sp1, type SearchParams } from "../_lib/guard";
 import { Panel } from "../_components/Panel";
 import { Card, PageHeader, Flash, Field, Input, Select, Toggle } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
-import { getTemplate } from "@/templates/registry";
-import { siteUrl } from "@/lib/config";
-import { changePassword, saveSettings } from "./actions";
+import { getTemplate, templatesFor } from "@/templates/registry";
+import { rootUrl, siteUrl } from "@/lib/config";
+import { changePassword, saveSettings, switchTemplate } from "./actions";
 
 export default async function SettingsPage({ params, searchParams }: { params: Promise<{ host: string }>; searchParams: SearchParams }) {
   const { host } = await params;
@@ -34,19 +34,33 @@ export default async function SettingsPage({ params, searchParams }: { params: P
             <Toggle name="showLangToggle" defaultChecked={s.showLangToggle} label={t("show_lang_toggle")} />
             <Toggle name="floatingWhatsapp" defaultChecked={s.floatingWhatsapp} label={t("floating_whatsapp")} />
             <Toggle name="showVisitorId" defaultChecked={s.showVisitorId} label={t("show_visitor_id")} hint={t("whatsapp_id_hint")} />
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-              <div>
-                <span className="font-bold">{t("template")}:</span> {template ? `${template.code} — ${template.name[locale]}` : site.templateCode}
-              </div>
-              <div className="text-xs text-slate-500">{t("template_note")}</div>
-              <div className="mt-2">
-                <a href={siteUrl(host)} className="font-bold text-emerald-700 underline" target="_blank" rel="noreferrer">
-                  {t("open_site")} ↗
-                </a>
-              </div>
-            </div>
             <div>
               <SubmitButton pendingText={t("saving")}>{t("save")}</SubmitButton>
+            </div>
+          </form>
+        </Card>
+        <Card title={t("choose_template")}>
+          <p className="mb-3 text-sm text-slate-600">{t("template_switch_hint")}</p>
+          <form action={switchTemplate.bind(null, host)} className="grid gap-3">
+            <Field label={t("template")}>
+              <Select name="template" defaultValue={site.templateCode}>
+                {templatesFor(site.category).map((tpl) => (
+                  <option key={tpl.code} value={tpl.code}>
+                    {tpl.code} — {tpl.name[locale]} · {tpl.description[locale]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="flex flex-wrap items-center gap-3">
+              <SubmitButton pendingText={t("saving")}>{t("save")}</SubmitButton>
+              <a href={siteUrl(host)} className="text-sm font-bold text-emerald-700 underline" target="_blank" rel="noreferrer">
+                {t("open_site")} ↗
+              </a>
+              {template && (
+                <a href={`${rootUrl(`/template/${template.code}`)}`} className="text-sm font-bold text-slate-600 underline" target="_blank" rel="noreferrer">
+                  {t("preview")} ↗
+                </a>
+              )}
             </div>
           </form>
         </Card>

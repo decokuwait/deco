@@ -1,6 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, SocialIcon, VisitorChip, socialLinks } from "../../ui/primitives";
-import { formatPhone, navLinks } from "../shared/helpers";
+import { formatPhone, legalLinks, navLinks } from "../shared/helpers";
 
 /** Four-column footer on the secondary colour. */
 export function FooterColumns({ ctx }: SectionProps) {
@@ -75,8 +75,15 @@ export function FooterColumns({ ctx }: SectionProps) {
       </Container>
       <div className="relative border-t border-white/10">
         <Container className="flex flex-col items-center justify-between gap-3 py-5 text-xs opacity-75 sm:flex-row">
-          <span>
-            © {year} {ctx.text(c.brand.name)} — {ctx.ui("rights")}
+          <span className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <span>
+              © {year} {ctx.text(c.brand.name)} — {ctx.ui("rights")}
+            </span>
+            {legalLinks(ctx).map((l) => (
+              <a key={l.href} href={l.href} className="underline underline-offset-2 hover:text-accent">
+                {l.label}
+              </a>
+            ))}
           </span>
           <VisitorChip ctx={ctx} className="border-white/20 bg-white/10 text-white [&_span]:text-white" />
         </Container>

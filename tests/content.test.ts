@@ -33,7 +33,8 @@ describe("content defaults", () => {
   });
   it("telLink normalizes", () => {
     expect(telLink("965 5000 0000")).toBe("tel:+96550000000");
-    expect(telLink("")).toBe("#");
+    expect(telLink("")).toBe("#contact");
+    expect(whatsappLink("", "hi {id}", "123456")).toBe("#contact");
   });
 });
 

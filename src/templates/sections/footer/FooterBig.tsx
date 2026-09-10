@@ -1,7 +1,7 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, PhoneIcon, SocialIcon, VisitorChip, WhatsAppIcon, buttonClass, cx, socialLinks } from "../../ui/primitives";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
-import { formatPhone, navLinks } from "../shared/helpers";
+import { formatPhone, legalLinks, navLinks } from "../shared/helpers";
 import { ClockIcon, MailIcon, PinIcon } from "../contact/icons";
 
 const heading = "font-heading text-sm font-bold uppercase tracking-widest text-accent";
@@ -115,6 +115,11 @@ export function FooterBig({ ctx }: SectionProps) {
         <Container wide className="flex flex-col items-center justify-between gap-3 py-5 text-xs opacity-80 sm:flex-row">
           <span>
             © {year} {name} — {ctx.ui("rights")}
+            {legalLinks(ctx).map((l) => (
+              <a key={l.href} href={l.href} className="ms-3 underline underline-offset-2 hover:text-accent">
+                {l.label}
+              </a>
+            ))}
           </span>
           <VisitorChip ctx={ctx} className="border-secondary-fg/20 bg-secondary-fg/10 text-secondary-fg [&_span]:text-secondary-fg" />
         </Container>

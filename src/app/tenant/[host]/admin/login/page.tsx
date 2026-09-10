@@ -21,7 +21,7 @@ export default async function LoginPage({ params, searchParams }: { params: Prom
   const t = (k: Parameters<typeof ta>[1]) => ta(locale, k);
   const error = sp1(sp.error);
   const changed = sp1(sp.changed);
-  const errorText = error === "no_access" ? t("no_access") : error === "invalid" ? t("invalid_login") : error ? t("error") : "";
+  const errorText = error === "no_access" ? t("no_access") : error === "invalid" ? t("invalid_login") : error === "too_many" ? t("too_many") : error ? t("error") : "";
   const action = loginAction.bind(null, host);
 
   return (

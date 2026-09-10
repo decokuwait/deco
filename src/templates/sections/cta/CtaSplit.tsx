@@ -14,7 +14,7 @@ export function CtaSplit({ ctx }: SectionProps) {
       <div className="relative overflow-hidden bg-secondary px-6 py-14 text-secondary-fg sm:px-12 lg:py-24">
         <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-40" />
         <div className="relative mx-auto max-w-xl text-center lg:me-0 lg:pe-8 lg:text-start">
-          <span className="text-xs font-bold uppercase tracking-widest text-accent">{ctx.ui("get_quote")}</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-accent">{ctx.text(ctx.site.content.cta.eyebrow) || ctx.ui("get_quote")}</span>
           <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl">{ctx.text(c.title)}</h2>
           {subtitle && <p className="mt-4 text-base opacity-85 sm:text-lg">{subtitle}</p>}
         </div>

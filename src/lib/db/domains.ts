@@ -58,14 +58,17 @@ export async function addDomain(input: {
   vercelStatus?: unknown;
   verified?: boolean;
 }): Promise<SiteDomain> {
+  // A hostname that already belongs to another site is never re-assigned silently.
   const r = await one<Row>(
     `insert into site_domains (site_id, hostname, kind, is_primary, vercel_status, verified)
      values ($1, $2, $3, $4, $5::jsonb, $6)
-     on conflict (hostname) do update set site_id = excluded.site_id, kind = excluded.kind, vercel_status = excluded.vercel_status, verified = excluded.verified
+     on conflict (hostname) do update set kind = excluded.kind, is_primary = excluded.is_primary, vercel_status = excluded.vercel_status, verified = excluded.verified
+       where site_domains.site_id = excluded.site_id
      returning *`,
     [input.siteId, input.hostname.toLowerCase(), input.kind, input.isPrimary ?? false, json(input.vercelStatus ?? null), input.verified ?? false],
   );
-  return map(r!);
+  if (!r) throw new Error("domain_taken");
+  return map(r);
 }
 
 export async function updateDomainStatus(id: string, patch: { vercelStatus?: unknown; verified?: boolean }) {

@@ -81,6 +81,7 @@ export function AdminShell({
               <a
                 key={n.href}
                 href={n.href}
+                aria-current={n.active ? "page" : undefined}
                 className={cx(
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition",
                   n.active ? "bg-emerald-600 text-white" : "text-slate-700 hover:bg-white hover:shadow-sm",
@@ -96,7 +97,7 @@ export function AdminShell({
       </div>
       <nav className="fixed inset-x-0 bottom-0 z-40 grid border-t border-slate-200 bg-white/95 backdrop-blur md:hidden" style={{ gridTemplateColumns: `repeat(${primary.length}, minmax(0, 1fr))`, paddingBottom: "env(safe-area-inset-bottom)" }}>
         {primary.map((n) => (
-          <a key={n.href} href={n.href} className={cx("flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-bold", n.active ? "text-emerald-700" : "text-slate-500")}>
+          <a key={n.href} href={n.href} aria-current={n.active ? "page" : undefined} className={cx("flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-bold", n.active ? "text-emerald-700" : "text-slate-500")}>
             <NavIcon name={n.icon} className="h-6 w-6" />
             <span className="truncate">{n.label}</span>
           </a>

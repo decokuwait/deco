@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listPixels } from "@/lib/db/pixels";
 import { PLATFORMS, PLATFORM_LABELS, type PixelConfig, type Platform } from "@/lib/types";
 import { DEFAULT_EVENT_MAP, EVENT_KEYS, EVENT_KEY_LABELS } from "@/lib/marketing/mapping";
+import { serverReady } from "@/lib/marketing/dispatch";
 import { savePixel, saveSignalMode, sendTestEvent } from "./actions";
 import type { AdminUiKey } from "@/lib/i18n/admin";
 
@@ -55,6 +56,7 @@ export default async function MarketingPage({ params, searchParams }: { params: 
                 <span id={platform} className="flex items-center gap-2 scroll-mt-20">
                   {PLATFORM_LABELS[platform]}
                   <Badge tone={p?.active && p.pixelId ? "green" : "slate"}>{p?.active && p.pixelId ? t("active") : t("inactive")}</Badge>
+                  {p?.active && p.pixelId && !serverReady(p) && <Badge tone="amber">{t("server_not_ready")}</Badge>}
                 </span>
               }
               actions={
@@ -84,13 +86,18 @@ export default async function MarketingPage({ params, searchParams }: { params: 
                   <Field label={t(TOKEN_LABEL[platform])} hint={hasSecret ? `${t("token_hint")} ✓` : t("token_hint")}>
                     <Input name={platform === "google" ? "apiSecret" : "accessToken"} type="password" autoComplete="off" dir="ltr" placeholder={hasSecret ? "••••••••" : ""} />
                   </Field>
-                  <Field label={t("test_event_code")} hint={t("optional")}>
+                  <Field label={t("test_event_code")} hint={t("test_code_hint")}>
                     <Input name="testEventCode" defaultValue={p?.testEventCode ?? ""} dir="ltr" />
                   </Field>
                   {platform === "google" && (
-                    <Field label={t("ads_id")} hint={t("optional")}>
-                      <Input name="adsId" defaultValue={p?.extra?.adsId ?? ""} dir="ltr" placeholder="AW-XXXXXXXXX" />
-                    </Field>
+                    <>
+                      <Field label={t("ads_id")} hint={t("optional")}>
+                        <Input name="adsId" defaultValue={p?.extra?.adsId ?? ""} dir="ltr" placeholder="AW-XXXXXXXXX" />
+                      </Field>
+                      <Field label={t("ads_label")} hint={t("ads_label_hint")}>
+                        <Input name="adsLabel" defaultValue={p?.extra?.adsLabel ?? ""} dir="ltr" placeholder="AbCdEfGhIj" />
+                      </Field>
+                    </>
                   )}
                   {platform === "x" && (
                     <>

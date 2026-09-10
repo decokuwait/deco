@@ -1,6 +1,11 @@
+import type { PixelConfig } from "@/lib/types";
 import type { Provider, SendContext } from "../types";
 import { postJson } from "../types";
-import { hashExternalId, hashPhone } from "../hash";
+import { hashExternalId, hashPhoneE164 } from "../hash";
+
+export function tiktokReady(pixel: PixelConfig): boolean {
+  return !!(pixel.pixelId && pixel.accessToken);
+}
 
 export function buildTikTok(ctx: SendContext) {
   const { pixel, visitor } = ctx;
@@ -9,7 +14,8 @@ export function buildTikTok(ctx: SendContext) {
   if (visitor.userAgent) user.user_agent = visitor.userAgent;
   if (visitor.clickIds?.ttclid) user.ttclid = visitor.clickIds.ttclid;
   if (visitor.cookies?._ttp) user.ttp = visitor.cookies._ttp;
-  const ph = hashPhone(visitor.phone);
+  // TikTok hashes phone numbers in E.164 form (leading +).
+  const ph = hashPhoneE164(visitor.phone);
   if (ph) user.phone = ph;
 
   const properties: Record<string, unknown> = { description: `visitor ${visitor.code}` };
@@ -38,7 +44,8 @@ export function buildTikTok(ctx: SendContext) {
       },
     ],
   };
-  if (pixel.testEventCode) body.test_event_code = pixel.testEventCode;
+  // Test event codes keep events out of reporting; only attach them for admin test sends.
+  if (ctx.test && pixel.testEventCode) body.test_event_code = pixel.testEventCode;
 
   const init: RequestInit = {
     method: "POST",
@@ -50,6 +57,7 @@ export function buildTikTok(ctx: SendContext) {
 
 export const tiktokProvider: Provider = {
   build: buildTikTok,
+  ready: tiktokReady,
   async send(ctx) {
     if (!ctx.pixel.accessToken) {
       return { platform: "tiktok", ok: false, eventName: ctx.eventName, skipped: "missing_access_token" };

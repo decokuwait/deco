@@ -1,9 +1,9 @@
-import type { Category, SiteRecord } from "@/lib/types";
+import type { Category, SiteContent, SiteRecord } from "@/lib/types";
 import { createSite, getSiteBySlug } from "@/lib/db/sites";
 import { addDomain, updateDomainStatus } from "@/lib/db/domains";
 import { addMedia, createProject } from "@/lib/db/projects";
 import { demoContent, demoProjects } from "@/lib/demo/content";
-import { deepMerge } from "@/lib/content/defaults";
+import { deepMerge, emptyContent } from "@/lib/content/defaults";
 import { subdomainHost } from "@/lib/tenant";
 import { ROOT_DOMAIN } from "@/lib/config";
 import { addDomainToVercel, vercelConfigured } from "@/lib/vercel";
@@ -22,30 +22,59 @@ export async function seedDemoProjects(siteId: string, category: Category): Prom
   return n;
 }
 
+/**
+ * Content for a brand-new real customer site: section titles, CTA texts and defaults from the demo
+ * (so nothing renders empty), but no fabricated services, stats, testimonials, FAQ or media.
+ */
+export function starterContent(category: Category, name: string, whatsapp?: string): SiteContent {
+  const demo = demoContent(category);
+  const base = emptyContent();
+  return deepMerge(base, {
+    brand: { name: { ar: name, en: name }, tagline: demo.brand.tagline },
+    contact: { ...base.contact, whatsapp: whatsapp || "", phone: whatsapp || "", title: demo.contact.title, subtitle: demo.contact.subtitle },
+    hero: { badge: demo.hero.badge, title: demo.hero.title, subtitle: demo.hero.subtitle, primaryCta: demo.hero.primaryCta, secondaryCta: demo.hero.secondaryCta },
+    about: { title: demo.about.title },
+    services: { title: demo.services.title, subtitle: demo.services.subtitle },
+    process: { title: demo.process.title, subtitle: demo.process.subtitle },
+    projects: demo.projects,
+    testimonials: { title: demo.testimonials.title, subtitle: demo.testimonials.subtitle },
+    faq: { title: demo.faq.title, subtitle: demo.faq.subtitle },
+    cta: demo.cta,
+    seo: { title: { ar: name, en: name }, description: demo.brand.tagline, keywords: demo.seo.keywords },
+  });
+}
+
 export interface ProvisionInput {
   slug: string;
   name: string;
   category: Category;
   templateCode?: string;
   whatsapp?: string;
+  /** Copy the category demo projects into the site (default true). */
   seedProjects?: boolean;
+  /** Start from the full demo content (services, stats, testimonials, FAQ). Default true; false = starter content. */
+  demoContent?: boolean;
+  status?: "active" | "paused";
   /** Also register the subdomain with Vercel when configured. */
   provisionVercel?: boolean;
 }
 
 /**
- * Creates a site with demo content for its category, a subdomain row `{slug}.{ROOT_DOMAIN}` and,
- * when Vercel is configured, registers the subdomain with the Vercel project (auto propagation
- * works when the root domain is on Vercel DNS or a wildcard record points to Vercel).
+ * Creates a site, a subdomain row `{slug}.{ROOT_DOMAIN}` and, when Vercel is configured, registers the
+ * subdomain with the Vercel project (auto propagation works when the root domain is on Vercel DNS or a
+ * wildcard record points to Vercel).
  */
 export async function provisionSite(input: ProvisionInput): Promise<{ site: SiteRecord; hostname: string; vercel: unknown }> {
   const template = getTemplate(input.templateCode) ?? defaultTemplateFor(input.category);
-  const content = deepMerge(demoContent(input.category), {
-    brand: { name: { ar: input.name, en: input.name } },
-    seo: { title: { ar: input.name, en: input.name } },
-    contact: input.whatsapp ? { whatsapp: input.whatsapp, phone: input.whatsapp } : {},
-  });
-  const site = await createSite({ slug: input.slug, name: input.name, category: input.category, templateCode: template.code, content });
+  const useDemo = input.demoContent ?? true;
+  const content = useDemo
+    ? deepMerge(demoContent(input.category), {
+        brand: { name: { ar: input.name, en: input.name } },
+        seo: { title: { ar: input.name, en: input.name } },
+        contact: input.whatsapp ? { whatsapp: input.whatsapp, phone: input.whatsapp } : {},
+      })
+    : starterContent(input.category, input.name, input.whatsapp);
+  const site = await createSite({ slug: input.slug, name: input.name, category: input.category, templateCode: template.code, content, status: input.status ?? "active" });
   if (input.seedProjects ?? true) await seedDemoProjects(site.id, input.category);
   const hostname = subdomainHost(site.slug, ROOT_DOMAIN);
   const row = await addDomain({ siteId: site.id, hostname, kind: "subdomain", isPrimary: true, verified: true });

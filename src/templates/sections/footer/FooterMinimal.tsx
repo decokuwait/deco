@@ -1,6 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, SocialIcon, VisitorChip, socialLinks } from "../../ui/primitives";
-import { navLinks } from "../shared/helpers";
+import { legalLinks, navLinks } from "../shared/helpers";
 
 /** One-row footer on the page background with a top border: brand, links, socials, copyright + visitor chip. */
 export function FooterMinimal({ ctx }: SectionProps) {
@@ -49,6 +49,11 @@ export function FooterMinimal({ ctx }: SectionProps) {
         <div className="flex flex-col items-center gap-2 text-xs text-muted sm:flex-row sm:gap-3">
           <span>
             © {year} {name} — {ctx.ui("rights")}
+            {legalLinks(ctx).map((l) => (
+              <a key={l.href} href={l.href} className="ms-3 underline underline-offset-2 hover:text-primary">
+                {l.label}
+              </a>
+            ))}
           </span>
           <VisitorChip ctx={ctx} />
         </div>

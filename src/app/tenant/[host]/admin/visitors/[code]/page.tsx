@@ -12,6 +12,7 @@ import { STAGE_LABELS, type Stage } from "@/lib/types";
 import { DeliveryList, DeliverySummary, PLATFORM_SHORT, SourceBadge, StageBadge, sourceLabel } from "../../_components/badges";
 import { fmtDateTime, fmtMoney } from "../../_lib/format";
 import { markStage, saveVisitorInfo } from "./actions";
+import { StageButtons } from "./StageButtons";
 
 const MARK_STAGES: Stage[] = ["contacted", "called_for_visit", "ordered", "first_payment", "order_complete"];
 const VALUE_STAGES: Stage[] = ["ordered", "first_payment", "order_complete"];
@@ -45,11 +46,13 @@ export default async function VisitorDetailPage({
           ? { tone: "red", text: t("signal_failed") }
           : saved === "nosignal"
             ? { tone: "amber", text: t("stage_saved_no_signal") }
-            : saved
-              ? { tone: "green", text: t("saved") }
-              : error
-                ? { tone: "red", text: `${t("error")}: ${error === "invalid_stage" ? t("invalid_stage") : error}` }
-                : null;
+            : saved === "same"
+              ? { tone: "amber", text: t("same_stage") }
+              : saved
+                ? { tone: "green", text: t("saved") }
+                : error
+                  ? { tone: "red", text: `${t("error")}: ${error === "invalid_stage" ? t("invalid_stage") : error === "value_required" ? t("value_required") : error}` }
+                  : null;
   const flashCls: Record<string, string> = {
     green: "border-emerald-200 bg-emerald-50 text-emerald-800",
     amber: "border-amber-200 bg-amber-50 text-amber-800",
@@ -111,38 +114,24 @@ export default async function VisitorDetailPage({
               )}
             </div>
             <form action={mark} className="flex flex-col gap-3">
+              {/* A disabled default button blocks implicit submission (Enter in the value field) from picking a stage. */}
+              <button type="submit" disabled hidden aria-hidden tabIndex={-1} />
               <Field label={t("value")} hint={t("value_hint")}>
                 <Input name="value" type="number" inputMode="decimal" step="0.001" min="0" dir="ltr" placeholder="0.000" />
               </Field>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {MARK_STAGES.map((s, i) => {
-                  const idx = i + 1;
-                  const isCurrent = visitor.stage === s;
-                  const done = idx < currentIdx;
-                  const usesValue = VALUE_STAGES.includes(s);
-                  return (
-                    <button
-                      key={s}
-                      type="submit"
-                      name="stage"
-                      value={s}
-                      className={`flex min-h-[56px] items-center justify-between gap-2 rounded-xl border px-4 py-3 text-start text-sm font-bold transition ${
-                        isCurrent
-                          ? "border-emerald-600 bg-emerald-600 text-white"
-                          : done
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                            : "border-slate-300 bg-white text-slate-800 hover:border-emerald-500 hover:bg-emerald-50"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${isCurrent ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{idx}</span>
-                        {STAGE_LABELS[s][locale]}
-                      </span>
-                      {usesValue && <span className={`text-[10px] ${isCurrent ? "text-white/80" : "text-slate-400"}`}>KWD</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              <StageButtons
+                pendingText={t("sending")}
+                resendLabel={t("resend_signal")}
+                currentStage={visitor.stage}
+                stages={MARK_STAGES.map((s, i) => ({
+                  value: s,
+                  label: STAGE_LABELS[s][locale],
+                  index: i + 1,
+                  isCurrent: visitor.stage === s,
+                  done: i + 1 < currentIdx,
+                  usesValue: VALUE_STAGES.includes(s),
+                }))}
+              />
               {visitor.stage !== "new" && (
                 <button type="submit" name="stage" value="new" className="self-start text-xs font-bold text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline">
                   {t("reset_stage")}

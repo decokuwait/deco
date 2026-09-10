@@ -1,10 +1,10 @@
 import type { CSSProperties } from "react";
 import type { LText, Locale, SiteData } from "@/lib/types";
-import { lt, t as uiT, dirOf, type SiteUiKey } from "@/lib/i18n/site";
+import { lt, t as uiT, dirOf, SITE_UI, type SiteUiKey } from "@/lib/i18n/site";
 import { whatsappLink, telLink } from "@/lib/content/defaults";
 import { FONTS, isFontKey, type FontKey } from "./fonts";
-import { patternCss } from "./decor/patterns";
-import type { DesignTokens, RenderCtx, TemplateDef } from "./types";
+import { patternCss, PATTERN_KEYS, type PatternKey } from "./decor/patterns";
+import type { ButtonStyle, DesignTokens, Radius, RenderCtx, TemplateDef } from "./types";
 
 /** Card/frame radius per token. "full" stays a generous rounding for cards; pill shapes are for buttons only. */
 const RADIUS: Record<DesignTokens["radius"], string> = {
@@ -16,15 +16,60 @@ const RADIUS: Record<DesignTokens["radius"], string> = {
   full: "36px",
 };
 
-/** Apply per-site theme overrides (admin colour/font choices) on top of template tokens. */
+const HEX = /^#[0-9a-f]{6}$/i;
+const RADII: Radius[] = ["none", "sm", "md", "lg", "xl", "full"];
+const BUTTONS: ButtonStyle[] = ["solid", "outline", "pill", "square", "glow", "underline"];
+
+function mix(hex: string, towards: string, amount: number): string {
+  const a = hex.slice(1).match(/.{2}/g)!.map((h) => parseInt(h, 16));
+  const b = towards.slice(1).match(/.{2}/g)!.map((h) => parseInt(h, 16));
+  return `#${a.map((v, i) => Math.round(v + (b[i] - v) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+
+function isDark(hex: string): boolean {
+  const [r, g, b] = hex.slice(1).match(/.{2}/g)!.map((h) => parseInt(h, 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.45;
+}
+
+/** Apply per-site theme overrides (admin colour/font/shape choices) on top of template tokens. */
 export function effectiveTokens(def: TemplateDef, site: SiteData): DesignTokens {
   const th = site.content.theme || {};
   const tokens: DesignTokens = { ...def.tokens };
-  if (th.primary && /^#[0-9a-f]{6}$/i.test(th.primary)) tokens.primary = th.primary;
-  if (th.secondary && /^#[0-9a-f]{6}$/i.test(th.secondary)) tokens.secondary = th.secondary;
-  if (th.accent && /^#[0-9a-f]{6}$/i.test(th.accent)) tokens.accent = th.accent;
+  if (th.primary && HEX.test(th.primary)) {
+    tokens.primary = th.primary.toLowerCase();
+    tokens.primaryFg = isDark(tokens.primary) ? "#ffffff" : "#111111";
+  }
+  if (th.secondary && HEX.test(th.secondary)) {
+    tokens.secondary = th.secondary.toLowerCase();
+    tokens.secondaryFg = isDark(tokens.secondary) ? "#f8f8f8" : "#111111";
+  }
+  if (th.accent && HEX.test(th.accent)) {
+    tokens.accent = th.accent.toLowerCase();
+    tokens.accentFg = isDark(tokens.accent) ? "#ffffff" : "#111111";
+  }
+  if (th.bg && HEX.test(th.bg)) {
+    tokens.bg = th.bg.toLowerCase();
+    const dark = isDark(tokens.bg);
+    tokens.mode = dark ? "dark" : "light";
+    tokens.surface = th.surface && HEX.test(th.surface) ? th.surface.toLowerCase() : mix(tokens.bg, dark ? "#ffffff" : "#000000", 0.04);
+    tokens.surface2 = mix(tokens.bg, dark ? "#ffffff" : "#000000", 0.08);
+    tokens.border = mix(tokens.bg, dark ? "#ffffff" : "#000000", 0.14);
+    if (!(th.text && HEX.test(th.text))) {
+      tokens.text = dark ? "#f3f4f6" : "#111827";
+      tokens.muted = dark ? "#a3a8b3" : "#5b6472";
+    }
+  } else if (th.surface && HEX.test(th.surface)) {
+    tokens.surface = th.surface.toLowerCase();
+  }
+  if (th.text && HEX.test(th.text)) {
+    tokens.text = th.text.toLowerCase();
+    tokens.muted = mix(tokens.text, tokens.bg, 0.4);
+  }
   if (isFontKey(th.headingFont)) tokens.headingFont = th.headingFont;
   if (isFontKey(th.bodyFont)) tokens.bodyFont = th.bodyFont;
+  if (th.radius && (RADII as string[]).includes(th.radius)) tokens.radius = th.radius as Radius;
+  if (th.buttonStyle && (BUTTONS as string[]).includes(th.buttonStyle)) tokens.buttonStyle = th.buttonStyle as ButtonStyle;
+  if (th.pattern && (PATTERN_KEYS as string[]).includes(th.pattern)) tokens.pattern = th.pattern as PatternKey;
   return tokens;
 }
 
@@ -59,6 +104,16 @@ export function fontKeysOf(tokens: DesignTokens): FontKey[] {
   return [tokens.headingFont, tokens.bodyFont];
 }
 
+/** Site-editable chrome labels (nav, buttons, footer) fall back to the dictionary. */
+export function uiLabel(site: SiteData, locale: Locale, key: SiteUiKey): string {
+  const custom = site.content.ui?.[key];
+  const v = custom ? lt(locale, custom, "") : "";
+  return v || uiT(locale, key);
+}
+
+/** Keys that site admins may override from the "labels" content section. */
+export const EDITABLE_UI_KEYS: SiteUiKey[] = (Object.keys(SITE_UI) as SiteUiKey[]).filter((k) => k !== "lang_switch");
+
 export function buildCtx(input: {
   site: SiteData;
   def: TemplateDef;
@@ -78,7 +133,7 @@ export function buildCtx(input: {
     whatsappHref: whatsappLink(c.contact.whatsapp, text(c.contact.whatsappMessage), input.visitorCode),
     telHref: telLink(c.contact.phone || c.contact.whatsapp),
     text,
-    ui: (key: SiteUiKey) => uiT(locale, key),
+    ui: (key: SiteUiKey) => uiLabel(site, locale, key),
     preview: !!input.preview,
   };
 }

@@ -1,24 +1,32 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { getRequestSite, clientIp } from "@/lib/site-request";
-import { getVisitorByCode, incrementWhatsappClicks, trackVisit } from "@/lib/db/visitors";
-import { createEvent, setEventDeliveries } from "@/lib/db/events";
+import { getVisitorByCode, incrementWhatsappClicks } from "@/lib/db/visitors";
+import { createEvent, hasRecentEvent, setEventDeliveries } from "@/lib/db/events";
 import { getActivePixels } from "@/lib/db/pixels";
 import { dispatchEvent } from "@/lib/marketing/dispatch";
 import { isValidVisitorCode } from "@/lib/visitor/code";
 import { VISITOR_COOKIE } from "@/lib/config";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** The same click from the same visitor within this window is not re-sent to the ad platforms. */
+const DEDUPE_MINUTES = 10;
+
 /**
- * Client-side conversion events (WhatsApp / call clicks). Stores the event and forwards it to the
- * platform APIs after the response is sent, so the click is never delayed.
+ * Client-side conversion events (WhatsApp / call clicks). The visitor is identified by its own cookie only,
+ * the event is stored, and delivery to the platform APIs happens after the response so the click is never
+ * delayed. Google is excluded here because the browser gtag already reported the click (avoids double counting).
  */
 export async function POST(req: NextRequest) {
   const site = await getRequestSite();
   if (!site) return NextResponse.json({ error: "no_site" }, { status: 404 });
-  let body: { code?: unknown; eventKey?: unknown; eventId?: unknown; url?: unknown } = {};
+  const ip = clientIp(req.headers) || "unknown";
+  if (!rateLimit(`event:${ip}`, 30, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+
+  let body: { eventKey?: unknown; eventId?: unknown; url?: unknown } = {};
   try {
     body = await req.json();
   } catch {
@@ -26,27 +34,19 @@ export async function POST(req: NextRequest) {
   }
   const eventKey = body.eventKey === "call_click" ? "call_click" : "whatsapp_click";
   const cookieCode = req.cookies.get(VISITOR_COOKIE)?.value;
-  const code = isValidVisitorCode(body.code) ? body.code : isValidVisitorCode(cookieCode) ? cookieCode : null;
-  if (!code) return NextResponse.json({ error: "no_visitor" }, { status: 400 });
+  if (!isValidVisitorCode(cookieCode)) return NextResponse.json({ error: "no_visitor" }, { status: 400 });
 
-  let visitor = await getVisitorByCode(site.id, code);
-  if (!visitor) {
-    const r = await trackVisit({
-      siteId: site.id,
-      code,
-      landingUrl: typeof body.url === "string" ? body.url : null,
-      referrer: req.headers.get("referer"),
-      userAgent: req.headers.get("user-agent"),
-      ip: clientIp(req.headers),
-    });
-    visitor = r.visitor;
-  }
+  const visitor = await getVisitorByCode(site.id, cookieCode);
+  if (!visitor) return NextResponse.json({ error: "unknown_visitor" }, { status: 404 });
+
+  if (await hasRecentEvent(visitor.id, eventKey, DEDUPE_MINUTES)) return NextResponse.json({ ok: true, deduped: true });
   if (eventKey === "whatsapp_click") await incrementWhatsappClicks(visitor.id);
 
-  const eventId = typeof body.eventId === "string" && body.eventId.length <= 64 ? body.eventId : undefined;
-  const ev = await createEvent({ visitorId: visitor.id, siteId: site.id, eventType: eventKey, eventId: eventId || crypto.randomUUID() });
-  const sourceUrl = typeof body.url === "string" ? body.url : visitor.landingUrl;
-  const v = visitor;
+  const eventId = typeof body.eventId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(body.eventId) ? body.eventId : crypto.randomUUID();
+  const ev = await createEvent({ visitorId: visitor.id, siteId: site.id, eventType: eventKey, eventId });
+  const sourceUrl = typeof body.url === "string" ? body.url.slice(0, 2000) : visitor.landingUrl;
+  const ua = req.headers.get("user-agent") || visitor.userAgent;
+  const reqIp = clientIp(req.headers) || visitor.ip;
 
   after(async () => {
     try {
@@ -54,11 +54,12 @@ export async function POST(req: NextRequest) {
       if (!pixels.length) return;
       const result = await dispatchEvent({
         activePixels: pixels,
-        visitor: { ...v, ip: clientIp(req.headers) || v.ip, userAgent: req.headers.get("user-agent") || v.userAgent },
+        visitor: { ...visitor, ip: reqIp, userAgent: ua },
         eventKey,
         eventId: ev.eventId,
         sourceUrl,
         signalMode: site.content.settings.signalMode,
+        exclude: ["google"],
       });
       await setEventDeliveries(ev.id, result.targets, result.deliveries);
     } catch (err) {

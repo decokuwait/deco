@@ -87,6 +87,8 @@ export default async function ProjectsPage({ params, searchParams }: { params: P
                           <span className="block truncate font-bold text-slate-900">{p.title[locale] || p.title.ar || p.title.en}</span>
                           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                             <Badge tone={p.published ? "green" : "amber"}>{p.published ? t("published") : t("draft")}</Badge>
+                            {type === "before_after" && !(p.media.some((m) => m.role === "before") && p.media.some((m) => m.role === "after")) && <Badge tone="red">{t("incomplete_before_after")}</Badge>}
+                            {type === "progress" && !p.media.some((m) => m.role === "step") && <Badge tone="red">{t("no_steps")}</Badge>}
                             <span>
                               {p.media.length} {t("media")}
                             </span>

@@ -20,6 +20,13 @@ function migrationsDir() {
   return path.join(process.cwd(), "supabase", "migrations");
 }
 
+const MIGRATION_LOCK = 7241001;
+
+/**
+ * Applies pending SQL files from supabase/migrations. All pending files run inside ONE transaction that
+ * holds an advisory lock, so concurrent cold starts (AUTO_MIGRATE on Vercel) serialise instead of racing.
+ * Migration files are written idempotently (IF NOT EXISTS / DROP IF EXISTS) so a repeated run is harmless.
+ */
 export async function runMigrations(db: DbClient): Promise<string[]> {
   await db.exec(`create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())`);
   const applied = new Set((await db.query<{ name: string }>(`select name from _migrations`)).map((r) => r.name));
@@ -28,25 +35,33 @@ export async function runMigrations(db: DbClient): Promise<string[]> {
     .readdirSync(/*turbopackIgnore: true*/ dir)
     .filter((f) => f.endsWith(".sql"))
     .sort();
-  const done: string[] = [];
-  for (const f of files) {
-    if (applied.has(f)) continue;
-    const sql = fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8");
-    await db.exec(sql);
-    await db.query(`insert into _migrations(name) values ($1) on conflict do nothing`, [f]);
-    done.push(f);
+  const pending = files.filter((f) => !applied.has(f));
+  if (!pending.length) return [];
+  const parts = [`begin;`, `select pg_advisory_xact_lock(${MIGRATION_LOCK});`];
+  for (const f of pending) {
+    parts.push(fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8"));
+    parts.push(`insert into _migrations(name) values ('${f.replace(/'/g, "''")}') on conflict do nothing;`);
   }
-  return done;
+  parts.push(`commit;`);
+  await db.exec(parts.join("\n"));
+  return pending;
 }
 
 async function createPostgres(url: string): Promise<DbClient> {
   const postgres = (await import("postgres")).default;
+  // Our queries pass JSON as already-stringified text into `$n::jsonb` casts. postgres.js would otherwise
+  // run its own JSON serializer on that string (double encoding), so json/jsonb parameters pass through verbatim.
+  const passthrough = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
   const sql = postgres(url, {
     prepare: false,
     max: Number(process.env.DATABASE_POOL_MAX || 3),
     idle_timeout: 20,
     connect_timeout: 15,
     ssl: url.includes("localhost") || url.includes("127.0.0.1") ? undefined : "require",
+    types: {
+      json: { to: 114, from: [114], serialize: passthrough, parse: (x: string) => JSON.parse(x) },
+      jsonb: { to: 3802, from: [3802], serialize: passthrough, parse: (x: string) => JSON.parse(x) },
+    },
   });
   const client: DbClient = {
     backend: "postgres",

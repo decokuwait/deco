@@ -3,6 +3,8 @@ import type { SourcePlatform, Stage, Visitor } from "@/lib/types";
 import { detectAttribution, fbcFromClickId } from "@/lib/visitor/attribution";
 import { generateVisitorCode } from "@/lib/visitor/code";
 
+const DISPLAY_TZ = "Asia/Kuwait";
+
 interface Row {
   id: string;
   site_id: string;
@@ -63,7 +65,10 @@ export async function getVisitorById(id: string): Promise<Visitor | null> {
 
 export interface TrackInput {
   siteId: string;
+  /** Code from the visitor's cookie (null when there is none). */
   code: string | null;
+  /** True when the proxy just generated this code: a collision must then allocate a new code instead of merging. */
+  fresh?: boolean;
   landingUrl?: string | null;
   referrer?: string | null;
   userAgent?: string | null;
@@ -72,49 +77,73 @@ export interface TrackInput {
 }
 
 /**
- * Register a visit. If the code is unknown for this site a new visitor row is created with attribution.
- * Returns the visitor plus whether it was newly created (so the caller can set/refresh the cookie).
+ * Register a visit. Unknown codes create a visitor row with attribution; known codes count a repeat visit
+ * and refresh last-touch attribution when the new landing URL carries a click id or utm_source.
+ * Concurrency-safe: the insert uses ON CONFLICT so two parallel first requests never allocate two codes.
  */
 export async function trackVisit(input: TrackInput): Promise<{ visitor: Visitor; created: boolean }> {
   const cookies = input.cookies ?? {};
-  if (input.code) {
-    const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, input.code]);
-    if (existing) {
-      const mergedCookies = { ...parseJson<Record<string, string>>(existing.cookies, {}), ...cookies };
-      const r = await one<Row>(
-        `update visitors set last_seen_at = now(), visits = visits + 1, cookies = $3::jsonb, user_agent = coalesce($4, user_agent), ip = coalesce($5, ip)
-         where id = $1 and site_id = $2 returning *`,
-        [existing.id, input.siteId, json(mergedCookies), input.userAgent ?? null, input.ip ?? null],
-      );
-      return { visitor: mapVisitor(r!), created: false };
-    }
-  }
-
   const attr = detectAttribution(input.landingUrl, input.referrer);
   if (attr.clickIds.fbclid && !cookies._fbc) cookies._fbc = fbcFromClickId(attr.clickIds.fbclid)!;
+  const landing = (input.landingUrl || "").slice(0, 2000) || null;
+  const referrer = (input.referrer || "").slice(0, 1000) || null;
+  const ua = (input.userAgent || "").slice(0, 500) || null;
+
+  if (input.code && !input.fresh) {
+    const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, input.code]);
+    if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null), created: false };
+  }
 
   for (let attempt = 0; attempt < 8; attempt++) {
-    const code = attempt === 0 && input.code ? input.code : generateVisitorCode();
+    const useOwnCode = attempt === 0 && input.code;
+    const code = useOwnCode ? input.code! : generateVisitorCode();
     const r = await one<Row>(
       `insert into visitors (site_id, code, source_platform, utm, click_ids, cookies, referrer, landing_url, user_agent, ip)
        values ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8, $9, $10)
        on conflict (site_id, code) do nothing returning *`,
-      [
-        input.siteId,
-        code,
-        attr.sourcePlatform,
-        json(attr.utm),
-        json(attr.clickIds),
-        json(cookies),
-        (input.referrer || "").slice(0, 1000) || null,
-        (input.landingUrl || "").slice(0, 2000) || null,
-        (input.userAgent || "").slice(0, 500) || null,
-        input.ip ?? null,
-      ],
+      [input.siteId, code, attr.sourcePlatform, json(attr.utm), json(attr.clickIds), json(cookies), referrer, landing, ua, input.ip ?? null],
     );
     if (r) return { visitor: mapVisitor(r), created: true };
+    if (useOwnCode && !input.fresh) {
+      // Lost a race with a parallel request for the same cookie code: treat as the existing visitor.
+      const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, code]);
+      if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null), created: false };
+    }
+    // A fresh proxy code that collides with another visitor: allocate a new one (never merge strangers).
   }
   throw new Error("Could not allocate a visitor code");
+}
+
+async function touch(
+  existing: Row,
+  attr: ReturnType<typeof detectAttribution>,
+  cookies: Record<string, string>,
+  landing: string | null,
+  referrer: string | null,
+  ua: string | null,
+  ip: string | null,
+): Promise<Visitor> {
+  const mergedCookies = { ...parseJson<Record<string, string>>(existing.cookies, {}), ...cookies };
+  const knownPlatform = attr.sourcePlatform !== "direct" && attr.sourcePlatform !== "other";
+  const hasClick = Object.keys(attr.clickIds).length > 0;
+  // Last-touch attribution: a new campaign click updates the source; a plain revisit keeps the old one.
+  const retouch = knownPlatform && (hasClick || !!attr.utm.utm_source);
+  const r = await one<Row>(
+    `update visitors set
+       last_seen_at = now(),
+       visits = visits + 1,
+       cookies = $3::jsonb,
+       user_agent = coalesce($4, user_agent),
+       ip = coalesce($5, ip),
+       source_platform = case when $6::boolean then $7 else source_platform end,
+       click_ids = case when $6::boolean then click_ids || $8::jsonb else click_ids end,
+       utm = case when $6::boolean then utm || $9::jsonb else utm end,
+       landing_url = case when $6::boolean then coalesce($10, landing_url) else landing_url end,
+       referrer = case when $6::boolean then coalesce($11, referrer) else referrer end
+     where id = $1 and site_id = $2 returning *`,
+    [existing.id, existing.site_id, json(mergedCookies), ua, ip, retouch, attr.sourcePlatform, json(attr.clickIds), json(attr.utm), landing, referrer],
+  );
+  return mapVisitor(r!);
 }
 
 export interface VisitorSearch {
@@ -131,7 +160,7 @@ export async function searchVisitors(siteId: string, s: VisitorSearch = {}): Pro
   const where = [`site_id = $1`];
   const params: unknown[] = [siteId];
   if (s.code) {
-    params.push(`${s.code}%`);
+    params.push(`${s.code.replace(/[%_]/g, "")}%`);
     where.push(`code like $${params.length}`);
   }
   if (s.stage === "leads") where.push(`stage <> 'new'`);
@@ -177,15 +206,16 @@ export interface VisitorStats {
   whatsappClicks: number;
 }
 
+/** Counts use the Kuwait calendar day so "today" matches what the admin sees. */
 export async function visitorStats(siteId: string): Promise<VisitorStats> {
   const totals = await one<{ total: unknown; today: unknown; week: unknown; leads: unknown; wa: unknown }>(
     `select count(*) as total,
-       count(*) filter (where first_seen_at >= date_trunc('day', now())) as today,
+       count(*) filter (where first_seen_at >= (date_trunc('day', now() at time zone $2) at time zone $2)) as today,
        count(*) filter (where first_seen_at >= now() - interval '7 days') as week,
        count(*) filter (where stage <> 'new') as leads,
        coalesce(sum(whatsapp_clicks), 0) as wa
      from visitors where site_id = $1`,
-    [siteId],
+    [siteId, DISPLAY_TZ],
   );
   const stages = await q<{ stage: string; n: unknown }>(`select stage, count(*) as n from visitors where site_id = $1 group by stage`, [siteId]);
   const sources = await q<{ source_platform: string; n: unknown }>(`select source_platform, count(*) as n from visitors where site_id = $1 group by source_platform`, [siteId]);

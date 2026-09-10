@@ -6,7 +6,9 @@ import { useEffect, useRef } from "react";
 export interface BrowserPixel {
   platform: "meta" | "tiktok" | "snapchat" | "google" | "x";
   pixelId: string;
+  /** Google Ads account id (AW-XXXX) and the conversion label of the "contact" conversion action. */
   adsId?: string;
+  adsLabel?: string;
   /** Event names for browser-side firing, keyed by our event key. */
   events: { whatsapp_click: string; call_click: string; page_view: string };
 }
@@ -38,8 +40,9 @@ function uuid(): string {
  *  - loads active browser pixels and fires PageView
  *  - exposes window.__dkTrack(eventKey) used by WhatsApp/call buttons: fires the browser pixel
  *    event with an event id and posts the same id to /api/track/event for server-side delivery.
+ * `externalIdHash` is the SHA-256 of the visitor id for platforms that require hashed identifiers.
  */
-export function SiteRuntime({ visitorCode, pixels, preview }: { visitorCode: string | null; pixels: BrowserPixel[]; preview: boolean }) {
+export function SiteRuntime({ visitorCode, externalIdHash, pixels, preview }: { visitorCode: string | null; externalIdHash: string | null; pixels: BrowserPixel[]; preview: boolean }) {
   const registered = useRef(false);
 
   useEffect(() => {
@@ -54,7 +57,7 @@ export function SiteRuntime({ visitorCode, pixels, preview }: { visitorCode: str
     fetch("/api/track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: visitorCode, url: location.href, referrer: document.referrer || null, cookies }),
+      body: JSON.stringify({ url: location.href, referrer: document.referrer || null, cookies }),
       keepalive: true,
     }).catch(() => {});
   }, [visitorCode, preview]);
@@ -65,17 +68,21 @@ export function SiteRuntime({ visitorCode, pixels, preview }: { visitorCode: str
       for (const p of pixels) {
         const name = p.events[eventKey];
         try {
-          if (p.platform === "meta" && window.fbq) window.fbq("trackCustom" === name ? "track" : isStandardMeta(name) ? "track" : "trackCustom", name, { visitor_id: visitorCode }, { eventID: eventId });
+          if (p.platform === "meta" && window.fbq) window.fbq(isStandardMeta(name) ? "track" : "trackCustom", name, { visitor_id: visitorCode }, { eventID: eventId });
           if (p.platform === "tiktok" && window.ttq) window.ttq.track(name, { description: `visitor ${visitorCode}` }, { event_id: eventId });
           if (p.platform === "snapchat" && window.snaptr) window.snaptr("track", name, { client_dedup_id: eventId, description: `visitor ${visitorCode}` });
-          if (p.platform === "google" && window.gtag) window.gtag("event", name, { visitor_id: visitorCode, transaction_id: eventId, send_to: p.adsId ? [p.pixelId, p.adsId] : p.pixelId });
+          if (p.platform === "google" && window.gtag) {
+            window.gtag("event", name, { visitor_id: visitorCode, transaction_id: eventId, send_to: p.pixelId });
+            // Google Ads conversion actions need the account id + conversion label; without a label nothing is recorded.
+            if (p.adsId && p.adsLabel) window.gtag("event", "conversion", { send_to: `${p.adsId}/${p.adsLabel}`, transaction_id: eventId });
+          }
           if (p.platform === "x" && window.twq && name) window.twq("event", name, { conversion_id: eventId, description: `visitor ${visitorCode}` });
         } catch {
           /* pixel errors must never break navigation */
         }
       }
       if (preview) return;
-      const body = JSON.stringify({ code: visitorCode, eventKey, eventId, url: location.href });
+      const body = JSON.stringify({ eventKey, eventId, url: location.href });
       try {
         if (navigator.sendBeacon) navigator.sendBeacon("/api/track/event", new Blob([body], { type: "application/json" }));
         else fetch("/api/track/event", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
@@ -98,7 +105,7 @@ export function SiteRuntime({ visitorCode, pixels, preview }: { visitorCode: str
           );
         if (p.platform === "tiktok")
           return (
-            <Script key="tiktok" id="dk-tiktok" strategy="afterInteractive">{`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};ttq.load('${esc(p.pixelId)}');${visitorCode ? `ttq.identify({external_id:'${esc(visitorCode)}'});` : ""}ttq.page();}(window,document,'ttq');`}</Script>
+            <Script key="tiktok" id="dk-tiktok" strategy="afterInteractive">{`!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script");n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};ttq.load('${esc(p.pixelId)}');${externalIdHash ? `ttq.identify({external_id:'${esc(externalIdHash)}'});` : ""}ttq.page();}(window,document,'ttq');`}</Script>
           );
         if (p.platform === "snapchat")
           return (

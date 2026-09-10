@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SESSION_COOKIE, SESSION_MAX_AGE, IS_PROD } from "@/lib/config";
 import { authenticate, createSession, deleteSession, getUserBySessionToken, type User } from "@/lib/db/users";
 import { isSiteMember } from "@/lib/db/members";
@@ -9,8 +9,11 @@ export async function getCurrentUser(): Promise<User | null> {
   return getUserBySessionToken(token);
 }
 
+/** Signs in with email/password. Throws TooManyAttemptsError when the email or client IP is throttled. */
 export async function signInWithPassword(email: string, password: string): Promise<User | null> {
-  const user = await authenticate(email, password);
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") || "").split(",")[0].trim() || h.get("x-real-ip") || null;
+  const user = await authenticate(email, password, ip);
   if (!user) return null;
   const { token, expiresAt } = await createSession(user.id);
   const store = await cookies();
