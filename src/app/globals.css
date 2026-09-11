@@ -193,3 +193,9 @@ body {
 .tone-primary {
   --t-accent-text: var(--t-accent-on-primary);
 }
+
+/* Admin forms: grid children default to min-width:auto, so one long unbreakable string (an upload URL, a wide
+   select option) would widen the whole card past a phone viewport. Let every grid cell shrink instead. */
+.admin .grid > * {
+  min-width: 0;
+}
