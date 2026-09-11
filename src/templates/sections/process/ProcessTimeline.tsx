@@ -23,7 +23,7 @@ export function ProcessTimeline({ ctx }: SectionProps) {
                     even ? "lg:col-start-1 lg:text-end" : "lg:col-start-3",
                   )}
                 >
-                  <span className="text-xs font-black uppercase tracking-widest text-accent">
+                  <span className="text-xs font-black uppercase tracking-widest text-accent-text">
                     {ctx.ui("step")} {i + 1}
                   </span>
                   <h3 className="mt-1 font-heading text-lg font-bold sm:text-xl">{ctx.text(s.title)}</h3>

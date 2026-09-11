@@ -26,6 +26,66 @@ function mix(hex: string, towards: string, amount: number): string {
   return `#${a.map((v, i) => Math.round(v + (b[i] - v) * amount).toString(16).padStart(2, "0")).join("")}`;
 }
 
+function luminance(hex: string): number {
+  const c = hex
+    .slice(1)
+    .match(/.{2}/g)!
+    .map((h) => parseInt(h, 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+
+export function contrastRatio(a: string, b: string): number {
+  const l1 = luminance(a);
+  const l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+function hexToHsl(hex: string): [number, number, number] {
+  const [r, g, b] = hex.slice(1).match(/.{2}/g)!.map((h) => parseInt(h, 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(v * 255)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/**
+ * The colour itself when it already reads on `bg`, otherwise the same hue darkened (light backgrounds)
+ * or lightened (dark backgrounds) just enough to reach the requested contrast. Used for accent text.
+ */
+export function readableOn(color: string, bg: string, min = 3): string {
+  if (!HEX.test(color) || !HEX.test(bg)) return color;
+  if (contrastRatio(color, bg) >= min) return color;
+  const [h, s, l] = hexToHsl(color);
+  const darken = luminance(bg) > 0.18;
+  let best = color;
+  for (let i = 1; i <= 24; i++) {
+    const nl = darken ? Math.max(0, l - i * 0.03) : Math.min(1, l + i * 0.03);
+    best = hslToHex(h, Math.min(1, s), nl);
+    if (contrastRatio(best, bg) >= min) return best;
+  }
+  return best;
+}
+
 function isDark(hex: string): boolean {
   const [r, g, b] = hex.slice(1).match(/.{2}/g)!.map((h) => parseInt(h, 16) / 255);
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.45;
@@ -82,6 +142,9 @@ export function tokensToStyle(tokens: DesignTokens): CSSProperties {
     "--t-secondary-fg": tokens.secondaryFg,
     "--t-accent": tokens.accent,
     "--t-accent-fg": tokens.accentFg,
+    "--t-accent-text": readableOn(tokens.accent, tokens.bg),
+    "--t-accent-on-dark": readableOn(tokens.accent, tokens.secondary),
+    "--t-accent-on-primary": readableOn(tokens.accent, tokens.primary),
     "--t-bg": tokens.bg,
     "--t-surface": tokens.surface,
     "--t-surface-2": tokens.surface2,

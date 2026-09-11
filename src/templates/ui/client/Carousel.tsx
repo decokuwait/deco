@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePageVisible, useReducedMotion } from "./motion";
 
 /**
  * Horizontal scroll-snap carousel with arrows and dots. Children are the slides.
@@ -26,13 +27,15 @@ export function Carousel({
   const ref = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const count = children.length;
+  const reduced = useReducedMotion();
+  const visible = usePageVisible();
 
   function scrollTo(i: number) {
     const el = ref.current;
     if (!el) return;
     const clamped = ((i % count) + count) % count;
     const child = el.children[clamped] as HTMLElement | undefined;
-    if (child) el.scrollTo({ left: child.offsetLeft - (el.clientWidth - child.clientWidth) / 2, behavior: "smooth" });
+    if (child) el.scrollTo({ left: child.offsetLeft - (el.clientWidth - child.clientWidth) / 2, behavior: reduced ? "auto" : "smooth" });
     setIndex(clamped);
   }
 
@@ -58,11 +61,11 @@ export function Carousel({
   }, []);
 
   useEffect(() => {
-    if (!autoplay || count < 2) return;
+    if (!autoplay || count < 2 || reduced || !visible) return;
     const id = setInterval(() => scrollTo(index + 1), autoplay);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoplay, index, count]);
+  }, [autoplay, index, count, reduced, visible]);
 
   const prev = () => scrollTo(index - 1);
   const next = () => scrollTo(index + 1);

@@ -147,7 +147,7 @@ export const PARTITION_TEMPLATES: TemplateDef[] = [
   {
     code: "304",
     category: "partition",
-    name: { ar: "المشربية", en: "Mashrabiya" },
+    name: { ar: "النحاس", en: "Brass" },
     description: { ar: "نحاس على بورسلين مع زخرفة مشربية وخط رقعة تراثي", en: "Brass on porcelain with a mashrabiya lattice and heritage Ruqaa headings" },
     tokens: {
       primary: "#b8860b",
@@ -647,7 +647,7 @@ export const PARTITION_TEMPLATES: TemplateDef[] = [
   {
     code: "315",
     category: "partition",
-    name: { ar: "الأفق", en: "Horizon" },
+    name: { ar: "النجوم", en: "Starfield" },
     description: { ar: "كحلي منتصف الليل مع فيروزي ولمسة غروب رملية وحقل نجوم", en: "Midnight navy with turquoise, a sandy sunset accent and a star field" },
     tokens: {
       primary: "#2dd4bf",

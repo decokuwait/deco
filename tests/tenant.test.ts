@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseHost, subdomainHost, isValidSlug, isValidHostname, normalizeHostname } from "@/lib/tenant";
+import {parseHost, subdomainHost, isValidSlug, isValidHostname, normalizeHostname, canonicalHost, isApexDomain, subdomainLabel, isReservedSlug, isPlatformHost } from "@/lib/tenant";
 
 describe("parseHost", () => {
   const root = "decokuwait.com";
@@ -60,7 +60,29 @@ describe("helpers", () => {
     expect(isValidHostname("localhost")).toBe(false);
   });
   it("normalizes hostnames", () => {
-    expect(normalizeHostname(" HTTPS://Www.Example.com/path ")).toBe("www.example.com");
+    // A leading www. is dropped: custom domains are stored as their apex and www redirects to it.
+    expect(normalizeHostname(" HTTPS://Www.Example.com/path ")).toBe("example.com");
     expect(normalizeHostname("example.com:443")).toBe("example.com");
+    expect(canonicalHost("www.gulfalu.com:443")).toBe("gulfalu.com");
+    expect(canonicalHost("shop.gulfalu.com")).toBe("shop.gulfalu.com");
+  });
+  it("knows apex domains, including Gulf second-level suffixes", () => {
+    expect(isApexDomain("gulfalu.com")).toBe(true);
+    expect(isApexDomain("gulfalu.com.kw")).toBe(true);
+    expect(isApexDomain("shop.gulfalu.com.kw")).toBe(false);
+    expect(isApexDomain("www.example.com")).toBe(false);
+    expect(subdomainLabel("shop.gulfalu.com.kw")).toBe("shop");
+    expect(subdomainLabel("www.example.com")).toBe("www");
+  });
+  it("rejects reserved slugs and platform hostnames", () => {
+    expect(isReservedSlug("www")).toBe(true);
+    expect(isReservedSlug("api")).toBe(true);
+    expect(isReservedSlug("_dmarc")).toBe(true);
+    expect(isReservedSlug("elite-decor")).toBe(false);
+    expect(isPlatformHost("decokuwait.com", "decokuwait.com")).toBe(true);
+    expect(isPlatformHost("www.decokuwait.com", "decokuwait.com")).toBe(true);
+    expect(isPlatformHost("sales.decokuwait.com", "decokuwait.com")).toBe(true);
+    expect(isPlatformHost("myapp.vercel.app", "decokuwait.com")).toBe(true);
+    expect(isPlatformHost("gulfalu.com", "decokuwait.com")).toBe(false);
   });
 });

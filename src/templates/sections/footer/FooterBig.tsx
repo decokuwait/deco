@@ -4,7 +4,7 @@ import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 import { formatPhone, legalLinks, navLinks } from "../shared/helpers";
 import { ClockIcon, MailIcon, PinIcon } from "../contact/icons";
 
-const heading = "font-heading text-sm font-bold uppercase tracking-widest text-accent";
+const heading = "font-heading text-sm font-bold uppercase tracking-widest text-accent-text";
 
 /** Secondary-colour footer with an accent top bar, a watermark brand name, two link columns and a contact block. */
 export function FooterBig({ ctx }: SectionProps) {
@@ -18,7 +18,7 @@ export function FooterBig({ ctx }: SectionProps) {
   const address = ctx.text(c.contact.address);
   const hours = ctx.text(c.contact.hours);
   return (
-    <footer className="relative overflow-hidden bg-secondary text-secondary-fg">
+    <footer className="tone-dark relative overflow-hidden bg-secondary text-secondary-fg">
       <div aria-hidden className="h-2 bg-accent" />
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 select-none overflow-hidden text-center">
         <span className="-mb-[0.22em] block whitespace-nowrap font-heading text-[24vw] font-black leading-none text-secondary-fg/5 lg:text-[15vw]">{name}</span>

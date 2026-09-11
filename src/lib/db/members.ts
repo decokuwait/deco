@@ -51,3 +51,17 @@ export async function listSiteIdsForUser(userId: string): Promise<string[]> {
   const rows = await q<{ site_id: string }>(`select site_id from site_members where user_id = $1`, [userId]);
   return rows.map((r) => r.site_id);
 }
+
+/**
+ * Non-super users whose only site membership is this site. Used before a site is deleted so the
+ * accounts created for it do not linger as users that can log in nowhere.
+ */
+export async function listOrphanMemberIds(siteId: string): Promise<string[]> {
+  const rows = await q<{ user_id: string }>(
+    `select m.user_id from site_members m join users u on u.id = m.user_id
+     where m.site_id = $1 and u.is_super = false
+       and not exists (select 1 from site_members o where o.user_id = m.user_id and o.site_id <> $1)`,
+    [siteId],
+  );
+  return rows.map((r) => r.user_id);
+}

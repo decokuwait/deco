@@ -4,10 +4,17 @@ import { redirect } from "next/navigation";
 import { signInWithPassword, signOut } from "@/lib/auth/session";
 import { listUsers, superAdminEmails, upsertSuperAdmin, normalizeEmail } from "@/lib/db/users";
 import { readStr } from "@/components/admin/ui";
+import { createHash, timingSafeEqual } from "node:crypto";
+
+function safeEqual(a: string, b: string) {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 /**
- * Super admin login. Bootstrap: when no user exists yet and the email is listed in
- * SUPER_ADMIN_EMAILS, the owner account is created with the submitted password.
+ * Super admin login. Bootstrap: when no user exists yet, the email is listed in SUPER_ADMIN_EMAILS and
+ * the submitted password equals SUPER_ADMIN_PASSWORD, the owner account is created.
  */
 export async function superLogin(fd: FormData) {
   const email = normalizeEmail(readStr(fd, "email", 200));
@@ -16,10 +23,11 @@ export async function superLogin(fd: FormData) {
 
   const users = await listUsers();
   if (users.length === 0 && superAdminEmails().includes(email) && password.length >= 8) {
-    // Bootstrap is only allowed with the password configured in the environment (when one is set),
-    // so the empty-database window cannot be claimed by a stranger who knows the owner's email.
-    const expected = process.env.SUPER_ADMIN_PASSWORD?.trim();
-    if (!expected || expected === password) await upsertSuperAdmin(email, password, "Owner");
+    // Bootstrap requires the password configured in the environment: an empty database must never be
+    // claimable by a stranger who only knows the owner's email address.
+    const expected = process.env.SUPER_ADMIN_PASSWORD?.trim() || "";
+    if (!expected) console.error("super admin bootstrap refused: SUPER_ADMIN_PASSWORD is not set");
+    else if (safeEqual(expected, password)) await upsertSuperAdmin(email, password, "Owner");
   }
   let user: Awaited<ReturnType<typeof signInWithPassword>> = null;
   try {

@@ -2,6 +2,8 @@ import type { Category, LText, MediaItem, Project, SiteContent } from "@/lib/typ
 import { emptyContent, deepMerge } from "@/lib/content/defaults";
 
 const U = (id: string, w = 1400) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
+/** Same photo at a smaller width for slots that render small (cards, mosaic tiles). */
+const sized = (url: string, w: number) => url.replace(/([?&])w=d+/, `$1w=${w}`);
 export const DEMO_VIDEO = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4";
 
 export const IMAGES: Record<Category, string[]> = {
@@ -400,7 +402,7 @@ export function demoContent(category: Category): SiteContent {
       title: s.heroTitle,
       subtitle: s.heroSubtitle,
       imageUrl: img[0],
-      images: [img[1], img[2], img[3]],
+      images: [sized(img[1], 900), sized(img[2], 900), sized(img[3], 900)],
       videoUrl: "",
       primaryCta: L("تواصل واتساب", "WhatsApp us"),
       secondaryCta: L("شاهد أعمالنا", "See our work"),
@@ -410,7 +412,7 @@ export function demoContent(category: Category): SiteContent {
     services: {
       title: L("خدماتنا", "Our services"),
       subtitle: L("كل ما تحتاجه في مكان واحد", "Everything you need in one place"),
-      items: s.services.map((sv, i) => ({ id: `svc-${i}`, title: sv.title, description: sv.description, icon: sv.icon, imageUrl: img[(i + 5) % img.length] })),
+      items: s.services.map((sv, i) => ({ id: `svc-${i}`, title: sv.title, description: sv.description, icon: sv.icon, imageUrl: sized(img[(i + 5) % img.length], 800) })),
     },
     process: { title: L("كيف نعمل", "How we work"), subtitle: L("أربع خطوات بسيطة", "Four simple steps"), steps: s.process.map((p, i) => ({ id: `step-${i}`, ...p })) },
     projects: {
@@ -453,7 +455,7 @@ export function demoProjects(category: Category): Project[] {
       media("image", img[(base + 2) % img.length], "gallery", 2),
     ];
     if (i === 0) m.push(media("video", DEMO_VIDEO, "gallery", 3, { posterUrl: img[base] }));
-    out.push({ id: `fin-${i}`, type: "finished", title: p.title, description: p.description, location: p.location, coverUrl: img[base], published: true, order: i, media: m });
+    out.push({ id: `fin-${i}`, type: "finished", title: p.title, description: p.description, location: p.location, coverUrl: sized(img[base], 1000), published: true, order: i, media: m });
   });
   s.beforeAfter.forEach((p, i) => {
     const before = img[(i * 2 + 7) % img.length];

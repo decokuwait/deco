@@ -41,7 +41,7 @@ export function AboutBand({ ctx }: SectionProps) {
           <div className="mt-10 grid w-full max-w-3xl grid-cols-2 gap-y-6 border-t border-secondary-fg/15 pt-8 sm:grid-cols-4">
             {stats.map((s) => (
               <div key={s.id} className="text-center">
-                <div className="font-heading text-3xl font-black text-accent sm:text-4xl">{s.value}</div>
+                <div className="font-heading text-3xl font-black text-accent-text sm:text-4xl">{s.value}</div>
                 <div className="mt-1 text-sm font-semibold opacity-80">{ctx.text(s.label)}</div>
               </div>
             ))}

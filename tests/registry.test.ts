@@ -4,6 +4,19 @@ import { DEFAULT_ORDER, type HeroVariant, type NavVariant, type ServicesVariant 
 import { FONTS } from "@/templates/fonts";
 import { PATTERN_KEYS } from "@/templates/decor/patterns";
 import { CATEGORIES } from "@/lib/types";
+import { readableOn, contrastRatio } from "@/templates/ctx";
+import { NAV as NAV_MAP } from "@/templates/sections/nav";
+import { HERO as HERO_MAP } from "@/templates/sections/hero";
+import { SERVICES as SERVICES_MAP } from "@/templates/sections/services";
+import { ABOUT } from "@/templates/sections/about";
+import { STATS } from "@/templates/sections/stats";
+import { PROCESS } from "@/templates/sections/process";
+import { FINISHED, BEFORE_AFTER, PROGRESS } from "@/templates/sections/projects";
+import { TESTIMONIALS } from "@/templates/sections/testimonials";
+import { FAQ } from "@/templates/sections/faq";
+import { CTA } from "@/templates/sections/cta";
+import { CONTACT } from "@/templates/sections/contact";
+import { FOOTER } from "@/templates/sections/footer";
 
 const HEROES: HeroVariant[] = ["split", "fullscreen", "centered", "diagonal", "cards", "video", "editorial", "gallery", "arch", "stacked"];
 const NAVS: NavVariant[] = ["classic", "centered", "split", "minimal", "pill", "transparent", "boxed"];
@@ -53,7 +66,57 @@ describe("template registry", () => {
   it("uses unique primary colours and full layouts across all 60", () => {
     expect(new Set(TEMPLATES.map((t) => t.tokens.primary.toLowerCase())).size).toBe(60);
     expect(new Set(TEMPLATES.map((t) => JSON.stringify({ ...t.layout, order: undefined }))).size).toBe(60);
-    expect(new Set(TEMPLATES.map((t) => t.name.ar)).size).toBeGreaterThanOrEqual(50);
+    // Every template is browsable by name in the gallery and the super admin picker: names never repeat.
+    expect(new Set(TEMPLATES.map((t) => t.name.ar)).size).toBe(60);
+    expect(new Set(TEMPLATES.map((t) => t.name.en.toLowerCase())).size).toBe(60);
+    expect(new Set(TEMPLATES.map((t) => t.description.ar)).size).toBe(60);
+    expect(new Set(TEMPLATES.map((t) => t.description.en)).size).toBe(60);
+  });
+
+  it("uses every section variant at least once and every nav/footer variant inside each category", () => {
+    const slots = {
+      nav: NAV_MAP,
+      hero: HERO_MAP,
+      services: SERVICES_MAP,
+      about: ABOUT,
+      stats: STATS,
+      process: PROCESS,
+      finished: FINISHED,
+      beforeAfter: BEFORE_AFTER,
+      progress: PROGRESS,
+      testimonials: TESTIMONIALS,
+      faq: FAQ,
+      cta: CTA,
+      contact: CONTACT,
+      footer: FOOTER,
+    } as const;
+    for (const [slot, registry] of Object.entries(slots)) {
+      const used = new Set(TEMPLATES.map((t) => t.layout[slot as keyof typeof slots] as string));
+      for (const variant of Object.keys(registry)) expect(used.has(variant), `${slot}:${variant} is never used`).toBe(true);
+      for (const variant of used) expect(variant in registry, `${slot}:${variant} has no component`).toBe(true);
+    }
+    for (const cat of CATEGORIES) {
+      const list = templatesFor(cat);
+      expect(new Set(list.map((t) => t.layout.nav)).size, `${cat} navs`).toBe(Object.keys(NAV_MAP).length);
+      expect(new Set(list.map((t) => t.layout.footer)).size, `${cat} footers`).toBe(Object.keys(FOOTER).length);
+      expect(list.filter((t) => t.layout.order).length, `${cat} custom orders`).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  it("derives a legible accent for text on every background (eyebrows, numerals, captions)", () => {
+    for (const t of TEMPLATES) {
+      const k = t.tokens;
+      expect(contrastRatio(readableOn(k.accent, k.bg), k.bg), `${t.code} accent text on bg`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(readableOn(k.accent, k.surface), k.surface), `${t.code} accent text on surface`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(readableOn(k.accent, k.secondary), k.secondary), `${t.code} accent text on dark band`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(readableOn(k.accent, k.primary), k.primary), `${t.code} accent text on primary`).toBeGreaterThanOrEqual(2.5);
+    }
+    // Already-legible colours are returned untouched; illegible ones keep their hue.
+    expect(readableOn("#b45309", "#ffffff")).toBe("#b45309");
+    expect(readableOn("#ffffff", "#000000")).toBe("#ffffff");
+    const fixed = readableOn("#f5d76e", "#ffffff");
+    expect(fixed).not.toBe("#f5d76e");
+    expect(contrastRatio(fixed, "#ffffff")).toBeGreaterThanOrEqual(3);
   });
 
   it("has valid tokens, fonts, patterns, and readable contrast", () => {

@@ -9,12 +9,9 @@ import { getActivePixels } from "@/lib/db/pixels";
 import { createEvent } from "@/lib/db/events";
 import { dispatchEvent } from "@/lib/marketing/dispatch";
 import { stageToEventKey } from "@/lib/marketing/mapping";
+import { deliveryOutcome, stageAcceptsValue, stageNeedsValue, type MarkOutcome } from "@/lib/marketing/stages";
 import { siteUrl } from "@/lib/config";
 import { STAGES, type Stage } from "@/lib/types";
-
-const VALUE_STAGES: Stage[] = ["ordered", "first_payment", "order_complete"];
-/** Purchase-type stages must carry an amount so the ad platforms receive a valid value/currency. */
-const VALUE_REQUIRED: Stage[] = ["first_payment", "order_complete"];
 
 function isStage(v: string): v is Stage {
   return (STAGES as string[]).includes(v);
@@ -34,10 +31,10 @@ export async function markStage(host: string, code: string, fd: FormData) {
   const stage = resend || readStr(fd, "stage", 40);
   if (!isStage(stage)) redirect(withQuery(back, { error: "invalid_stage" }));
   if (!resend && visitor.stage === stage && stage !== "new") redirect(withQuery(back, { saved: "same" }));
-  const value = VALUE_STAGES.includes(stage) ? readNum(fd, "value") : null;
-  if (VALUE_REQUIRED.includes(stage) && (value == null || value < 0)) redirect(withQuery(back, { error: "value_required" }));
+  const value = stageAcceptsValue(stage) ? readNum(fd, "value") : null;
+  if (stageNeedsValue(stage, value)) redirect(withQuery(back, { error: "value_required" }));
 
-  let outcome: "saved" | "sent" | "partial" | "failed" | "nosignal" = "saved";
+  let outcome: MarkOutcome = "saved";
   try {
     const updated = (await updateVisitor(visitor.id, { stage })) ?? visitor;
     const eventKey = stageToEventKey(stage);
@@ -65,11 +62,7 @@ export async function markStage(host: string, code: string, fd: FormData) {
         deliveries: result.deliveries,
         createdBy: user.id,
       });
-      const okCount = result.deliveries.filter((d) => d.ok).length;
-      if (!result.deliveries.length) outcome = "nosignal";
-      else if (okCount === result.deliveries.length) outcome = "sent";
-      else if (okCount === 0) outcome = "failed";
-      else outcome = "partial";
+      outcome = deliveryOutcome(result.deliveries);
     } else {
       outcome = "nosignal";
     }

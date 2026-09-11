@@ -2,6 +2,42 @@
 
 import { useRef, useState } from "react";
 
+const MAX_EDGE = 2000;
+const SKIP_BELOW = 1.5 * 1024 * 1024;
+
+/**
+ * Phone photos are 4000px+ and several MB; the site never renders wider than 2000px. Large images are
+ * resized on the device before upload (transparent PNG/WebP keep their format, photos become JPEG),
+ * which makes uploads fast on mobile data and keeps the hero image light for every visitor.
+ */
+async function prepareImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") return file;
+  if (typeof createImageBitmap !== "function") return file;
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return file;
+  }
+  try {
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size < SKIP_BELOW) return file;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const type = file.type === "image/png" ? "image/png" : file.type === "image/webp" ? "image/webp" : "image/jpeg";
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.86));
+    if (!blob || blob.size >= file.size) return file;
+    const ext = type === "image/png" ? ".png" : type === "image/webp" ? ".webp" : ".jpg";
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ext, { type });
+  } finally {
+    bitmap.close();
+  }
+}
+
 /**
  * Upload control for admin forms. Requests an upload target from /api/upload, uploads the file
  * directly (R2 presigned PUT, or local POST in development) and stores the public URL in a hidden
@@ -34,11 +70,12 @@ export function Uploader({
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function onFile(file: File) {
+  async function onFile(original: File) {
     setBusy(true);
     setError(null);
     setProgress(0);
     try {
+      const file = kind === "image" ? await prepareImage(original) : original;
       const res = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

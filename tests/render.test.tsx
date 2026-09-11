@@ -5,6 +5,7 @@ import { buildCtx } from "@/templates/ctx";
 import { TemplateRenderer } from "@/templates/render/TemplateRenderer";
 import { previewSiteData } from "@/lib/preview";
 import { LOCALES } from "@/lib/types";
+import { DEFAULT_ORDER } from "@/templates/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
@@ -94,5 +95,43 @@ describe("template rendering", () => {
     const ctx = buildCtx({ site, def, locale: "ar", visitorCode: null, preview: true });
     const html = renderToStaticMarkup(<TemplateRenderer ctx={ctx} />);
     expect(html).toContain('id="contact"');
+  });
+});
+
+describe("site-level rendering options", () => {
+  it("links the privacy page from the footer on real sites (not in previews) and honours label overrides", () => {
+    const def = TEMPLATES[3];
+    const site = previewSiteData(def);
+    site.content.ui = { whatsapp: { ar: "واتس فوري", en: "Chat now" } };
+    const live = renderToStaticMarkup(<TemplateRenderer ctx={buildCtx({ site, def, locale: "en", visitorCode: "222222", preview: false })} />);
+    expect(live).toContain('href="/privacy"');
+    expect(live).toContain(site.content.legal.privacyTitle.en);
+    expect(live).toContain("Chat now");
+    expect(live).not.toContain('aria-label="WhatsApp us"');
+    const preview = renderToStaticMarkup(<TemplateRenderer ctx={buildCtx({ site, def, locale: "en", visitorCode: "222222", preview: true })} />);
+    expect(preview).not.toContain('href="/privacy"');
+  });
+
+  it("applies a complete custom section order and ignores an incomplete one", () => {
+    const def = TEMPLATES[7];
+    const site = previewSiteData(def);
+    const order = [...(def.layout.order ?? DEFAULT_ORDER)];
+    // Move contact right after the hero: every other section keeps its relative order.
+    const custom = ["hero", "contact", ...order.filter((k) => k !== "hero" && k !== "contact")] as typeof order;
+    site.content.sections.order = custom;
+    const html = renderToStaticMarkup(<TemplateRenderer ctx={buildCtx({ site, def, locale: "ar", visitorCode: null, preview: true })} />);
+    expect(html.indexOf('id="contact"')).toBeLessThan(html.indexOf('id="about"'));
+    site.content.sections.order = ["contact", "hero"];
+    const fallback = renderToStaticMarkup(<TemplateRenderer ctx={buildCtx({ site, def, locale: "ar", visitorCode: null, preview: true })} />);
+    expect(fallback.indexOf('id="about"')).toBeLessThan(fallback.indexOf('id="contact"'));
+  });
+
+  it("exposes the accent text token and tone overrides for legible eyebrows", () => {
+    const def = TEMPLATES[0];
+    const site = previewSiteData(def);
+    const html = renderToStaticMarkup(<TemplateRenderer ctx={buildCtx({ site, def, locale: "ar", visitorCode: null, preview: true })} />);
+    expect(html).toContain("--t-accent-text:");
+    expect(html).toContain("--t-accent-on-dark:");
+    expect(html).toContain("tone-dark");
   });
 });

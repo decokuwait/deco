@@ -1,33 +1,54 @@
 import Link from "next/link";
+import fs from "node:fs";
+import path from "node:path";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getTemplate, neighbours, TEMPLATES } from "@/templates/registry";
+import { getTemplate, neighbours } from "@/templates/registry";
 import { buildCtx } from "@/templates/ctx";
 import { TemplateRenderer } from "@/templates/render/TemplateRenderer";
 import { previewSiteData } from "@/lib/preview";
 import { CATEGORY_LABELS, type Locale } from "@/lib/types";
 import { getRequestLocale } from "@/lib/site-request";
+import { rootUrl } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export function generateStaticParams() {
-  return TEMPLATES.map((t) => ({ code: t.code }));
+type Params = Promise<{ code: string }>;
+type Search = Promise<{ lang?: string }>;
+
+async function previewLocale(sp: { lang?: string }): Promise<Locale> {
+  if (sp.lang === "en" || sp.lang === "ar") return sp.lang;
+  return getRequestLocale("ar");
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
+function hasThumb(code: string) {
+  return fs.existsSync(path.join(process.cwd(), "public", "templates", `${code}.jpg`));
+}
+
+export async function generateMetadata({ params, searchParams }: { params: Params; searchParams: Search }): Promise<Metadata> {
   const { code } = await params;
   const def = getTemplate(code);
   if (!def) return { title: "Template not found" };
-  return { title: `${def.code} — ${def.name.ar} | ${def.name.en}`, description: def.description.en };
+  const locale = await previewLocale(await searchParams);
+  const title = `${def.code} · ${def.name.ar} · ${def.name.en}`;
+  const description = locale === "en" ? def.description.en : def.description.ar;
+  const canonical = rootUrl(`/template/${def.code}`);
+  const image = hasThumb(def.code) ? rootUrl(`/templates/${def.code}.jpg`) : undefined;
+  return {
+    title,
+    description,
+    alternates: { canonical, languages: { ar: `${canonical}?lang=ar`, en: `${canonical}?lang=en`, "x-default": canonical } },
+    openGraph: { title, description, type: "website", url: canonical, siteName: "DecoKuwait", images: image ? [image] : [] },
+    twitter: { card: image ? "summary_large_image" : "summary", title, description, images: image ? [image] : undefined },
+  };
 }
 
-export default async function TemplatePreview({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ lang?: string }> }) {
+export default async function TemplatePreview({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { code } = await params;
   const sp = await searchParams;
   const def = getTemplate(code);
   if (!def) notFound();
-  const cookieLocale = await getRequestLocale("ar");
-  const locale: Locale = sp.lang === "en" ? "en" : sp.lang === "ar" ? "ar" : cookieLocale;
+  const locale = await previewLocale(sp);
   const site = previewSiteData(def);
   const ctx = buildCtx({ site, def, locale, visitorCode: "123456", preview: true });
   const { prev, next } = neighbours(def.code);

@@ -9,6 +9,8 @@ import { buildSnapchat } from "@/lib/marketing/providers/snapchat";
 import { buildGoogle } from "@/lib/marketing/providers/google";
 import { buildX, oauth1Header, xProvider } from "@/lib/marketing/providers/x";
 import { dispatchEvent, testVisitor } from "@/lib/marketing/dispatch";
+import { FETCH_TIMEOUT_MS } from "@/lib/marketing/types";
+import { deliveryOutcome, stageAcceptsValue, stageNeedsValue } from "@/lib/marketing/stages";
 import type { SendContext } from "@/lib/marketing/types";
 
 function pixel(platform: PixelConfig["platform"], extra: Partial<PixelConfig> = {}): PixelConfig {
@@ -212,6 +214,49 @@ describe("dispatchEvent", () => {
     });
     expect(fallback.targets).toEqual(["tiktok", "snapchat"]);
   });
+  it("honours exclude (browser clicks already reached Google through gtag) and still routes smartly", async () => {
+    const calls: string[] = [];
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      calls.push(String(url));
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const fromGoogle = await dispatchEvent({
+      activePixels: [pixel("meta"), pixel("google")],
+      visitor: { ...visitor, sourcePlatform: "google" },
+      eventKey: "whatsapp_click",
+      exclude: ["google"],
+      fetchImpl,
+    });
+    expect(fromGoogle.targets).toEqual(["meta"]);
+    expect(calls.length).toBe(1);
+    expect(calls[0]).toContain("graph.facebook.com");
+    const all = await dispatchEvent({
+      activePixels: [pixel("meta"), pixel("google"), pixel("tiktok")],
+      visitor: { ...testVisitor(), sourcePlatform: "direct" },
+      eventKey: "whatsapp_click",
+      exclude: ["google"],
+      fetchImpl,
+    });
+    expect(all.targets.sort()).toEqual(["meta", "tiktok"]);
+  });
+  it("aborts a hung platform API after the timeout and records the failure", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(
+        (_url: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new Error("This operation was aborted")));
+          }),
+      ) as unknown as typeof fetch;
+      const pending = dispatchEvent({ activePixels: [pixel("meta")], visitor: { ...visitor, sourcePlatform: "meta" }, eventKey: "contacted", fetchImpl });
+      await vi.advanceTimersByTimeAsync(FETCH_TIMEOUT_MS + 10);
+      const res = await pending;
+      expect(res.deliveries[0].ok).toBe(false);
+      expect(res.deliveries[0].error).toMatch(/abort/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("only attaches test event codes and validation endpoints in test mode", () => {
     const prodMeta = JSON.parse(String(buildMeta(ctx(pixel("meta", { testEventCode: "T1" }))).init.body));
     expect(prodMeta.test_event_code).toBeUndefined();
@@ -288,5 +333,21 @@ describe("X (Twitter) conversion API", () => {
     expect(calls[0]).toContain("ads-api.x.com");
     const unmapped = await dispatchEvent({ activePixels: [xPixel], visitor: { ...visitor, sourcePlatform: "x" }, eventKey: "ordered", fetchImpl });
     expect(unmapped.deliveries[0].skipped).toBe("missing_event_id");
+  });
+});
+
+describe("stage marking rules", () => {
+  it("requires an amount only for payment stages and summarises deliveries", () => {
+    expect(stageAcceptsValue("ordered")).toBe(true);
+    expect(stageAcceptsValue("contacted")).toBe(false);
+    expect(stageNeedsValue("first_payment", null)).toBe(true);
+    expect(stageNeedsValue("first_payment", -1)).toBe(true);
+    expect(stageNeedsValue("first_payment", 0)).toBe(false);
+    expect(stageNeedsValue("order_complete", 250)).toBe(false);
+    expect(stageNeedsValue("ordered", null)).toBe(false);
+    expect(deliveryOutcome([])).toBe("nosignal");
+    expect(deliveryOutcome([{ ok: true }, { ok: true }])).toBe("sent");
+    expect(deliveryOutcome([{ ok: false }])).toBe("failed");
+    expect(deliveryOutcome([{ ok: true }, { ok: false }])).toBe("partial");
   });
 });

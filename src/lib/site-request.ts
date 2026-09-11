@@ -16,7 +16,11 @@ export const getRequestSite = cache(async (hostParam?: string): Promise<SiteReco
   return getSiteByHost(info.candidates, info.subdomain);
 });
 
+/** Language of the current request: `?lang=` (forwarded by the proxy as a header) wins over the cookie. */
 export async function getRequestLocale(fallback: Locale = "ar"): Promise<Locale> {
+  const h = await headers();
+  const fromQuery = h.get("x-dk-lang");
+  if (isLocale(fromQuery)) return fromQuery;
   const c = await cookies();
   const v = c.get(LOCALE_COOKIE)?.value;
   return isLocale(v) ? v : fallback;

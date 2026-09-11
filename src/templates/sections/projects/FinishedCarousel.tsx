@@ -24,10 +24,10 @@ export function FinishedCarousel({ ctx }: SectionProps) {
                 <Img src={coverOf(pr)} alt={ctx.text(pr.title)} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 {hasVideo && <PlayBadge />}
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-white">
+                <div className="tone-dark absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-white">
                   <div>
                     <div className="font-heading text-xl font-bold">{ctx.text(pr.title)}</div>
-                    {ctx.text(pr.location) && <div className="text-xs font-semibold text-accent">{ctx.text(pr.location)}</div>}
+                    {ctx.text(pr.location) && <div className="text-xs font-semibold text-accent-text">{ctx.text(pr.location)}</div>}
                   </div>
                   <span className="shrink-0 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-bold backdrop-blur">{items.length}</span>
                 </div>

@@ -35,7 +35,7 @@ export function Section({
     accent: "bg-accent text-accent-fg",
   };
   return (
-    <section id={id} className={cx("relative py-16 sm:py-20 lg:py-24", tones[tone], className)} style={style}>
+    <section id={id} className={cx("relative py-16 sm:py-20 lg:py-24", tones[tone], tone === "secondary" && "tone-dark", tone === "primary" && "tone-primary", className)} style={style}>
       {pattern && <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-60" />}
       <div className="relative">{children}</div>
     </section>
@@ -61,7 +61,7 @@ export function SectionHeading({
   return (
     <div className={cx("mb-10 sm:mb-14", align === "center" ? "text-center mx-auto max-w-2xl" : "text-start max-w-2xl", className)}>
       {eyebrow && (
-        <span className={cx("mb-3 inline-block text-xs font-bold uppercase tracking-widest", light ? "text-accent" : "text-primary")}>{eyebrow}</span>
+        <span className={cx("mb-3 inline-block text-xs font-bold uppercase tracking-widest", light ? "text-accent-text" : "text-primary")}>{eyebrow}</span>
       )}
       <h2 className="font-heading text-3xl font-extrabold leading-tight sm:text-4xl">{title}</h2>
       {subtitle && <p className={cx("mt-3 text-base sm:text-lg", light ? "opacity-85" : "text-muted")}>{subtitle}</p>}
@@ -93,7 +93,7 @@ export function buttonClass(style: ButtonStyle, variant: "primary" | "accent" | 
       style === "outline"
         ? "border-2 border-accent text-accent hover:bg-accent hover:text-accent-fg"
         : style === "underline"
-          ? "border-accent text-accent hover:opacity-80"
+          ? "border-accent text-accent-text hover:opacity-80"
           : style === "glow"
             ? "bg-accent text-accent-fg shadow-[0_10px_30px_-10px_var(--t-accent)] hover:-translate-y-0.5"
             : "bg-accent text-accent-fg hover:opacity-90 hover:-translate-y-0.5",
@@ -130,7 +130,8 @@ export function Btn({
 export function Img({ src, alt = "", className = "", eager = false, style }: { src?: string | null; alt?: string; className?: string; eager?: boolean; style?: CSSProperties }) {
   if (!src) return <div className={cx("bg-surface-2", className)} style={style} aria-hidden />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" className={className} style={style} />;
+  // Eager images are the LCP candidates (hero, first cards): tell the browser to fetch them first.
+  return <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className={className} style={style} />;
 }
 
 export function Video({ item, className = "", autoPlay = false, controls = true }: { item: Pick<MediaItem, "url" | "posterUrl">; className?: string; autoPlay?: boolean; controls?: boolean }) {
@@ -173,7 +174,7 @@ export function Divider({ ctx, from = "bg", flip = false }: { ctx: RenderCtx; fr
 
 export function Badge({ children, tone = "accent", className = "" }: { children: ReactNode; tone?: "accent" | "primary" | "light"; className?: string }) {
   const tones = {
-    accent: "bg-accent/15 text-accent border-accent/30",
+    accent: "bg-accent/15 text-accent-text border-accent/30",
     primary: "bg-primary/10 text-primary border-primary/20",
     light: "bg-white/15 text-white border-white/30 backdrop-blur",
   };

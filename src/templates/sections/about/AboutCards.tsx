@@ -32,7 +32,7 @@ export function AboutCards({ ctx }: SectionProps) {
                     <Icon name={POINT_ICONS[i % POINT_ICONS.length]} className="h-6 w-6" />
                   </span>
                   <div>
-                    <span className="text-xs font-black tracking-widest text-accent tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="text-xs font-black tracking-widest text-accent-text tabular-nums">{String(i + 1).padStart(2, "0")}</span>
                     <p className="mt-1 font-heading text-lg font-bold leading-snug">{ctx.text(p)}</p>
                   </div>
                 </div>

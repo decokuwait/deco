@@ -16,7 +16,7 @@ export function CtaCard({ ctx }: SectionProps) {
           <div aria-hidden className="absolute inset-x-0 top-0 z-10 h-1 bg-accent" />
           <div className="grid lg:grid-cols-[1.15fr_1fr]">
             <div className="flex flex-col justify-center p-7 sm:p-12">
-              <span className="text-xs font-bold uppercase tracking-widest text-accent">{ctx.text(ctx.site.content.cta.eyebrow) || ctx.ui("free_visit")}</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-accent-text">{ctx.text(ctx.site.content.cta.eyebrow) || ctx.ui("free_visit")}</span>
               <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl">{ctx.text(c.title)}</h2>
               {subtitle && <p className="mt-3 max-w-xl text-base text-muted sm:text-lg">{subtitle}</p>}
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">

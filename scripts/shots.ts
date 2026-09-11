@@ -3,11 +3,11 @@
  * admin / super admin pages, for visual QA. Requires `npm run build` first.
  * Output: .qa/shots/<name>.png and .qa/shots/index.json
  */
-import "dotenv/config";
 import path from "node:path";
 import fs from "node:fs";
 import { chromium, type Browser } from "playwright";
 import { ensureDir, portFree, qaEnv, seedQa, startServer, stopServer, waitFor } from "./qa-lib";
+// Screenshots use the same isolated environment as the other QA scripts (never production credentials).
 
 const env = qaEnv("shots", 3126);
 const OUT = ensureDir(path.join(process.cwd(), ".qa", "shots"));
@@ -75,7 +75,7 @@ async function main() {
   const results: Array<Awaited<ReturnType<typeof shot>>> = [];
   const browser = await chromium.launch();
   try {
-    await waitFor(`http://${env.root}/`);
+    await waitFor(`http://${env.root}/`, 90000, server);
     const { TEMPLATES } = await import("../src/templates/registry");
     const list = ONLY.length ? TEMPLATES.filter((t) => ONLY.includes(t.code)) : TEMPLATES;
     let i = 0;
@@ -117,6 +117,11 @@ async function main() {
   for (const r of withErrors) console.log(`   ${r.file}: ${r.errors.slice(0, 3).join(" | ")}`);
   console.log(`[shots] pages with horizontal overflow: ${overflow.length}`);
   for (const r of overflow) console.log(`   ${r.file}`);
+  // SHOTS_STRICT=1 turns the visual sweep into a gate: any browser error or horizontal overflow fails the run.
+  if (process.env.SHOTS_STRICT === "1" && (withErrors.length || overflow.length)) {
+    console.log("[shots] STRICT mode: failing because of the pages listed above");
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

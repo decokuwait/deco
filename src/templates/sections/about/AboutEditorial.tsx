@@ -23,7 +23,7 @@ export function AboutEditorial({ ctx }: SectionProps) {
       <Container>
         <header className="grid gap-6 border-b-2 border-fg pb-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent">
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent-text">
               <span aria-hidden className="h-2 w-2 rotate-45 bg-accent" />
               {ctx.text(brand.name)}
             </span>

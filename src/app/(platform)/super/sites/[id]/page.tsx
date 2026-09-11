@@ -22,8 +22,10 @@ export default async function EditSitePage({ params, searchParams }: { params: P
   if (!site) notFound();
   const [domains, members] = await Promise.all([listDomains(id), listMembers(id)]);
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "not_found", "domain_taken", "template_category_mismatch"];
+  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "not_found", "domain_taken", "template_category_mismatch", "reserved_slug", "user_exists", "user_exists_attach", "vercel_unreachable"];
   const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
+  const saved = sp1(sp.saved);
+  const savedText = saved === "attached" ? t("saved_attached") : saved === "created" ? t("saved_created") : t("saved");
   const port = rootPort();
   const primary = domains.find((d) => d.kind === "subdomain") ?? domains[0];
   const host = primary ? `${primary.hostname}${port}` : null;
@@ -45,7 +47,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
           ) : undefined
         }
       />
-      <Flash saved={sp1(sp.saved)} error={errorText} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={saved} error={errorText} savedText={savedText} errorText={t("error")} locale={locale} />
 
       <form action={updateSiteAction.bind(null, id)} className="grid gap-5">
         <Card title={t("site_name")}>
@@ -91,8 +93,9 @@ export default async function EditSitePage({ params, searchParams }: { params: P
           <ul className="divide-y divide-slate-100">
             {domains.map((d) => {
               const ok = d.verified;
-              const recs = recommendedRecords(d.hostname);
-              const vs = d.vercelStatus as { verification?: { type: string; domain: string; value: string }[]; error?: string } | null;
+              const vs = d.vercelStatus as { verification?: { type: string; domain: string; value: string }[]; recommended?: { type: string; name: string; value: string }[]; error?: string } | null;
+              // Routing records (A/CNAME) are always needed; Vercel's TXT ownership challenge is shown in addition when present.
+              const recs = [...(vs?.recommended?.length ? vs.recommended : recommendedRecords(d.hostname)), ...(vs?.verification ?? []).map((v) => ({ type: v.type, name: v.domain, value: v.value }))];
               return (
                 <li key={d.id} className="py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -121,7 +124,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
                       <div className="mb-1 font-bold text-slate-700">{t("dns_instructions")}</div>
                       <table className="w-full text-start font-mono" dir="ltr">
                         <tbody>
-                          {(vs?.verification?.length ? vs.verification.map((v) => ({ type: v.type, name: v.domain, value: v.value })) : recs).map((r, i) => (
+                          {recs.map((r, i) => (
                             <tr key={i}>
                               <td className="pe-3 py-0.5 font-bold">{r.type}</td>
                               <td className="pe-3 py-0.5">{r.name}</td>
@@ -130,6 +133,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
                           ))}
                         </tbody>
                       </table>
+                      {!!vs?.verification?.length && <div className="mt-2 font-sans text-slate-600">{t("dns_verify_hint")}</div>}
                       {vs?.error && <div className="mt-1 text-red-700">{vs.error}</div>}
                     </div>
                   )}

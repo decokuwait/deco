@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { usePageVisible, useReducedMotion } from "./motion";
 
 function Chevron({ className = "" }: { className?: string }) {
   return (
@@ -32,6 +33,8 @@ export function QuoteCarousel({
   const ref = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const reduced = useReducedMotion();
+  const visible = usePageVisible();
   const count = children.length;
 
   const go = useCallback(
@@ -73,11 +76,10 @@ export function QuoteCarousel({
   }, []);
 
   useEffect(() => {
-    if (!autoplay || count < 2 || paused) return;
-    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!autoplay || count < 2 || paused || reduced || !visible) return;
     const id = setTimeout(() => go(index + 1), autoplay);
     return () => clearTimeout(id);
-  }, [autoplay, count, paused, index, go]);
+  }, [autoplay, count, paused, index, go, reduced, visible]);
 
   if (!count) return null;
 

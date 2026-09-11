@@ -3,13 +3,15 @@ import { parseHost } from "@/lib/tenant";
 import { generateVisitorCode, isValidVisitorCode } from "@/lib/visitor/code";
 import { ROOT_DOMAIN, VISITOR_COOKIE, VISITOR_COOKIE_MAX_AGE, VISITOR_FRESH_COOKIE } from "@/lib/config";
 
-const INTERNAL_HEADERS = ["x-dk-host", "x-dk-vid", "x-dk-vid-new", "x-dk-path"];
+const INTERNAL_HEADERS = ["x-dk-host", "x-dk-vid", "x-dk-vid-new", "x-dk-path", "x-dk-lang"];
 
 /**
  * Multi-tenant routing:
  *  - platform root domain  -> normal routes (/, /templates, /template/xxx, /super ...)
  *  - any other host        -> rewritten to /tenant/<host>/... and given a 6-digit visitor cookie
  * Internal x-dk-* headers are always stripped from the inbound request so clients cannot spoof them.
+ * A `?lang=ar|en` query is forwarded as `x-dk-lang` so layouts (which cannot read search params) can
+ * render the document in the requested language.
  */
 export default function proxy(req: NextRequest) {
   const url = req.nextUrl;
@@ -17,15 +19,12 @@ export default function proxy(req: NextRequest) {
   const info = parseHost(rawHost, ROOT_DOMAIN);
   const headers = new Headers(req.headers);
   for (const h of INTERNAL_HEADERS) headers.delete(h);
+  const lang = url.searchParams.get("lang");
+  if (lang === "ar" || lang === "en") headers.set("x-dk-lang", lang);
 
   if (info.kind === "root") {
     if (url.pathname.startsWith("/tenant")) return new NextResponse("Not found", { status: 404 });
     return NextResponse.next({ request: { headers } });
-  }
-
-  // Tenant host: never expose platform-only routes.
-  if (url.pathname.startsWith("/tenant") || url.pathname.startsWith("/super") || url.pathname.startsWith("/templates") || url.pathname.startsWith("/template")) {
-    return new NextResponse("Not found", { status: 404 });
   }
 
   // One canonical host per custom domain: www.example.com -> example.com (keeps one visitor id per person).
@@ -43,10 +42,13 @@ export default function proxy(req: NextRequest) {
     return NextResponse.next({ request: { headers } });
   }
 
+  // Everything else is served from the tenant tree. Platform-only paths (/super, /templates, /tenant ...)
+  // have no route there and end in the site's own 404 page.
   const rewritten = url.clone();
   rewritten.pathname = `/tenant/${info.host}${url.pathname === "/" ? "" : url.pathname}`;
 
-  const isPublic = !url.pathname.startsWith("/admin");
+  // Visitor ids are minted for public pages only (never for the admin panel or asset routes).
+  const isPublic = !url.pathname.startsWith("/admin") && url.pathname !== "/icon";
   let code = req.cookies.get(VISITOR_COOKIE)?.value;
   let fresh = false;
   if (isPublic && !isValidVisitorCode(code)) {
@@ -72,5 +74,6 @@ export default function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|woff2?)$).*)"],
+  // robots.txt and sitemap.xml are route handlers that read the forwarded host themselves (and use the canonical host).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|xml|woff2?)$).*)"],
 };

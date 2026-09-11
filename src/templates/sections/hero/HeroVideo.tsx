@@ -8,7 +8,7 @@ export function HeroVideo({ ctx }: SectionProps) {
   const h = ctx.site.content.hero;
   const poster = mainImage(ctx);
   return (
-    <section className="relative flex min-h-[82svh] items-end overflow-hidden bg-secondary text-white">
+    <section className="tone-dark relative flex min-h-[82svh] items-end overflow-hidden bg-secondary text-white">
       <div className="absolute inset-0">
         {h.videoUrl ? <HeroAutoVideo src={h.videoUrl} poster={poster || undefined} className="h-full w-full object-cover" /> : <Img src={poster} alt="" className="h-full w-full object-cover" eager />}
       </div>

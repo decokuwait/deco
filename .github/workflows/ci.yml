@@ -8,7 +8,7 @@ on:
 jobs:
   qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     env:
       NEXT_PUBLIC_ROOT_DOMAIN: localhost:3000
       SUPER_ADMIN_EMAILS: owner@example.com
@@ -22,7 +22,7 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
-      - name: Unit tests (routing, attribution, marketing payloads, database, registry, rendering of all 60 templates)
+      - name: Unit tests (routing, proxy, attribution, marketing payloads, database on PGlite, registry, rendering of all 60 templates)
         run: npm test
       - name: Build
         run: npm run build
@@ -32,10 +32,55 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser end-to-end flows (visitor, admin, super admin)
         run: npm run e2e
-      - name: Upload e2e screenshots
+      - name: Visual sweep of one template per category (browser errors + horizontal overflow fail the job)
+        run: npm run shots
+        env:
+          SHOTS_STRICT: "1"
+          SHOTS_SKIP_ADMIN: "1"
+          SHOTS_ONLY: 101,207,313,409
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-screenshots
-          path: .qa/e2e
+          name: qa-screenshots
+          path: |
+            .qa/e2e
+            .qa/shots
           if-no-files-found: ignore
+
+  postgres:
+    # The production data path (postgres.js, jsonb passthrough, pooled multi-statement migrations) runs
+    # against a real Postgres, not only the embedded PGlite used by the default unit tests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: deco
+          POSTGRES_PASSWORD: deco
+          POSTGRES_DB: deco
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U deco"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://deco:deco@localhost:5432/deco
+      DATABASE_URL: postgres://deco:deco@localhost:5432/deco
+      NEXT_PUBLIC_ROOT_DOMAIN: localhost:3000
+      SUPER_ADMIN_EMAILS: owner@example.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations (twice: the second run must be a no-op)
+        run: |
+          npm run db:migrate
+          npm run db:migrate
+      - name: Database and security suites on Postgres
+        run: npx vitest run tests/db.test.ts tests/security.test.ts

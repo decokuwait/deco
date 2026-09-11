@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePageVisible, useReducedMotion } from "./motion";
 
 export interface ProgressSlide {
   id: string;
@@ -32,14 +33,16 @@ export function ProgressSlideshow({
 }) {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
+  const reduced = useReducedMotion();
+  const visible = usePageVisible();
   const n = slides.length;
   const cur = slides[i];
 
   useEffect(() => {
-    if (!autoplay || n < 2 || paused || cur?.kind === "video") return;
+    if (!autoplay || n < 2 || paused || reduced || !visible || cur?.kind === "video") return;
     const id = setTimeout(() => setI((v) => (v + 1) % n), autoplay);
     return () => clearTimeout(id);
-  }, [i, n, autoplay, paused, cur]);
+  }, [i, n, autoplay, paused, reduced, visible, cur]);
 
   if (!n) return null;
   const go = (d: number) => setI((v) => ((v + d) % n + n) % n);

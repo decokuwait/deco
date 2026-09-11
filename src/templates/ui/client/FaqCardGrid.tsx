@@ -29,7 +29,7 @@ export function FaqCardGrid({
             }`}
           >
             <button type="button" onClick={() => toggle(it.id)} aria-expanded={isOpen} className="flex w-full items-start gap-4 p-5 text-start">
-              <span className="mt-0.5 shrink-0 font-heading text-xs font-black tracking-widest text-accent" aria-hidden>
+              <span className="mt-0.5 shrink-0 font-heading text-xs font-black tracking-widest text-accent-text" aria-hidden>
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span className="flex-1 font-heading text-base font-bold leading-snug sm:text-lg">{it.q}</span>

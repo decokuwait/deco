@@ -19,7 +19,9 @@ export function rootUrl(path = "/"): string {
 
 export function siteUrl(host: string, path = "/"): string {
   const proto = isLocal(host) ? "http" : "https";
-  return `${proto}://${host}${path}`;
+  // Tenant hosts are stored without a port; locally the platform runs on one, so put it back.
+  const withPort = isLocal(host) && !/:\d+$/.test(host) ? `${host}${rootPort()}` : host;
+  return `${proto}://${withPort}${path}`;
 }
 
 /** Port of the root domain (e.g. ":3000" locally, "" in production). */

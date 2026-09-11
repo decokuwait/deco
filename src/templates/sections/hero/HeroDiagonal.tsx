@@ -7,7 +7,7 @@ export function HeroDiagonal({ ctx }: SectionProps) {
   const h = ctx.site.content.hero;
   const points = ctx.site.content.about.points.slice(0, 3);
   return (
-    <section className="relative grid overflow-hidden bg-secondary text-secondary-fg lg:min-h-[80svh] lg:grid-cols-[55%_45%]">
+    <section className="tone-dark relative grid overflow-hidden bg-secondary text-secondary-fg lg:min-h-[80svh] lg:grid-cols-[55%_45%]">
       <div className="relative z-10 flex items-center px-4 py-14 sm:px-8 sm:py-20 lg:ps-[max(2rem,calc((100vw-72rem)/2))] lg:pe-16 lg:[clip-path:polygon(0_0,100%_0,88%_100%,0_100%)] lg:bg-secondary">
         <div aria-hidden className="pattern-bg absolute inset-0 opacity-20" />
         <div className="relative max-w-xl animate-fade-up">

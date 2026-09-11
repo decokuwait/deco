@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireSuper, errMsg, withQuery } from "../../_lib/guard";
 import { readBool, readStr } from "@/components/admin/ui";
-import { isValidSlug, isValidHostname, normalizeHostname } from "@/lib/tenant";
+import { isValidSlug, isValidHostname, normalizeHostname, isReservedSlug, isPlatformHost } from "@/lib/tenant";
 import { CATEGORIES, type Category } from "@/lib/types";
 import { isTemplateCode, getTemplate } from "@/templates/registry";
 import { provisionSite, slugAvailable } from "@/lib/provision";
@@ -12,9 +12,22 @@ import { addDomain, findDomain, updateDomainStatus } from "@/lib/db/domains";
 import { addDomainToVercel, vercelConfigured } from "@/lib/vercel";
 import { createUser, getUserByEmail } from "@/lib/db/users";
 import { addMember } from "@/lib/db/members";
+import { ROOT_DOMAIN } from "@/lib/config";
 
 function isCategory(v: string): v is Category {
   return (CATEGORIES as string[]).includes(v);
+}
+
+function bounce(back: string, error: string): never {
+  redirect(withQuery(back, { error }));
+}
+
+/** Postgres unique violations surface as `slug_taken` / `domain_taken` instead of a raw constraint message. */
+function friendlyDbError(msg: string): string {
+  if (/sites_slug_key|duplicate key.*slug/i.test(msg)) return "slug_taken";
+  if (/site_domains_hostname_key|duplicate key.*hostname/i.test(msg)) return "domain_taken";
+  if (/users_email_key|duplicate key.*email/i.test(msg)) return "user_exists";
+  return msg;
 }
 
 export async function createSiteAction(fd: FormData) {
@@ -29,20 +42,36 @@ export async function createSiteAction(fd: FormData) {
   const adminPassword = String(fd.get("adminPassword") ?? "");
   const seedDemo = readBool(fd, "seedDemo");
   const startPaused = readBool(fd, "startPaused");
-  const back = withQuery("/super/sites/new", { cat: category, template: templateCode });
-
-  if (!name) redirect(withQuery(back, { error: "required" }));
-  if (!isCategory(category)) redirect(withQuery(back, { error: "required" }));
-  if (!isTemplateCode(templateCode)) redirect(withQuery(back, { error: "invalid_template" }));
+  // Everything the operator typed (except the password) survives a validation round-trip.
+  const back = withQuery("/super/sites/new", {
+    cat: category,
+    template: templateCode,
+    name,
+    slug,
+    customDomain,
+    whatsapp,
+    adminEmail,
+    seedDemo: seedDemo ? "1" : "0",
+    startPaused: startPaused ? "1" : "0",
+  });
+  if (!name) bounce(back, "required");
+  if (!isCategory(category)) bounce(back, "required");
+  if (!isTemplateCode(templateCode)) bounce(back, "invalid_template");
   const template = getTemplate(templateCode)!;
-  if (template.category !== category) redirect(withQuery(back, { error: "template_category_mismatch" }));
-  if (!isValidSlug(slug)) redirect(withQuery(back, { error: "invalid_slug" }));
-  if (!(await slugAvailable(slug))) redirect(withQuery(back, { error: "slug_taken" }));
-  if (customDomain && !isValidHostname(customDomain)) redirect(withQuery(back, { error: "invalid_domain" }));
-  if (customDomain && (await findDomain(customDomain))) redirect(withQuery(back, { error: "domain_taken" }));
+  if (template.category !== category) bounce(back, "template_category_mismatch");
+  if (!isValidSlug(slug)) bounce(back, "invalid_slug");
+  if (isReservedSlug(slug)) bounce(back, "reserved_slug");
+  if (!(await slugAvailable(slug))) bounce(back, "slug_taken");
+  if (customDomain) {
+    if (!isValidHostname(customDomain) || isPlatformHost(customDomain, ROOT_DOMAIN)) bounce(back, "invalid_domain");
+    if ((await findDomain(customDomain)) || (await findDomain(`www.${customDomain}`))) bounce(back, "domain_taken");
+  }
+  let existingAdmin: Awaited<ReturnType<typeof getUserByEmail>> = null;
   if (adminEmail) {
-    const existing = await getUserByEmail(adminEmail);
-    if (!existing && adminPassword.length < 8) redirect(withQuery(back, { error: "password_short" }));
+    existingAdmin = await getUserByEmail(adminEmail);
+    // Attaching an existing account must be a conscious choice: a typed password would otherwise be silently ignored.
+    if (existingAdmin && adminPassword) bounce(back, "user_exists_attach");
+    if (!existingAdmin && adminPassword.length < 8) bounce(back, "password_short");
   }
 
   let siteId = "";
@@ -58,6 +87,14 @@ export async function createSiteAction(fd: FormData) {
       status: startPaused ? "paused" : "active",
     });
     siteId = site.id;
+  } catch (e) {
+    bounce(back, friendlyDbError(errMsg(e)));
+  }
+
+  // The site exists from here on: any later problem is reported on the site's own page, where the
+  // operator can retry the domain or member step without re-creating anything.
+  let warning = "";
+  try {
     if (customDomain) {
       const row = await addDomain({ siteId, hostname: customDomain, kind: "custom" });
       if (vercelConfigured()) {
@@ -65,15 +102,19 @@ export async function createSiteAction(fd: FormData) {
         await updateDomainStatus(row.id, { vercelStatus: v, verified: !!(v.verified && v.configured) });
       }
     }
+  } catch (e) {
+    warning = friendlyDbError(errMsg(e));
+  }
+  let savedAs = "1";
+  try {
     if (adminEmail) {
-      const user = (await getUserByEmail(adminEmail)) || (await createUser({ email: adminEmail, password: adminPassword, isSuper: false }));
+      const user = existingAdmin ?? (await createUser({ email: adminEmail, password: adminPassword, isSuper: false }));
       await addMember(siteId, user.id);
+      savedAs = existingAdmin ? "attached" : "created";
     }
   } catch (e) {
-    const msg = errMsg(e);
-    if (msg.includes("NEXT_REDIRECT")) throw e;
-    redirect(withQuery(back, { error: msg }));
+    warning = warning || friendlyDbError(errMsg(e));
   }
   revalidatePath("/", "layout");
-  redirect(withQuery(`/super/sites/${siteId}`, { saved: "1" }));
+  redirect(withQuery(`/super/sites/${siteId}`, warning ? { error: warning } : { saved: savedAs }));
 }

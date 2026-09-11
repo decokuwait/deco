@@ -7,7 +7,7 @@ export function HeroFullscreen({ ctx }: SectionProps) {
   const h = ctx.site.content.hero;
   const stats = ctx.site.content.stats.slice(0, 3);
   return (
-    <section className="relative flex min-h-[88svh] items-end overflow-hidden bg-secondary text-white sm:items-center">
+    <section className="tone-dark relative flex min-h-[88svh] items-end overflow-hidden bg-secondary text-white sm:items-center">
       <div className="absolute inset-0 overflow-hidden">
         <Img src={mainImage(ctx)} alt="" className="h-full w-full object-cover animate-ken-burns" eager />
       </div>
@@ -24,7 +24,7 @@ export function HeroFullscreen({ ctx }: SectionProps) {
           <div className="mx-auto mt-12 grid max-w-2xl grid-cols-3 divide-x divide-white/20 rounded-card border border-white/20 bg-white/10 backdrop-blur rtl:divide-x-reverse">
             {stats.map((s) => (
               <div key={s.id} className="px-2 py-4">
-                <div className="font-heading text-2xl font-black text-accent sm:text-3xl">{s.value}</div>
+                <div className="font-heading text-2xl font-black text-accent-text sm:text-3xl">{s.value}</div>
                 <div className="mt-1 text-[11px] font-semibold text-white/80 sm:text-xs">{ctx.text(s.label)}</div>
               </div>
             ))}

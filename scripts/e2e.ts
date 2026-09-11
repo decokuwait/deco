@@ -5,7 +5,6 @@
  *  creates a site, switches template, manages users -> cleanup.
  * Run `npm run build` first. Chromium resolves *.localhost to 127.0.0.1, so tenant hosts work natively.
  */
-import "dotenv/config";
 import path from "node:path";
 import fs from "node:fs";
 import { chromium, type Page } from "playwright";
@@ -41,20 +40,26 @@ async function main() {
   const pngPath = path.join(OUT, "upload.png");
   fs.writeFileSync(pngPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVQIW2P8z8Dwn4EIwDiqEAgAAB1WCAJ9y3IcAAAAAElFTkSuQmCC", "base64"));
   try {
-    await waitFor(`${rootUrl}/`);
+    await waitFor(`${rootUrl}/`, 90000, server);
 
     // ---------- visitor ----------
     const vctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const vpage = await vctx.newPage();
     const errors: string[] = [];
     vpage.on("pageerror", (e) => errors.push(e.message));
-    await vpage.goto(`${tenant}/?fbclid=E2E123`, { waitUntil: "networkidle" });
+    // Demo videos are large external files; the visit registration call is the real "page is ready" signal.
+    await vpage.route(/\.(mp4|webm|mov)(\?|$)/i, (r) => r.abort());
+    const visitRegistered = vpage.waitForResponse((r) => r.url().endsWith("/api/track") && r.request().method() === "POST", { timeout: 30000 });
+    await vpage.goto(`${tenant}/?fbclid=E2E123`, { waitUntil: "domcontentloaded" });
+    check((await visitRegistered).status() === 200, "visit registered through /api/track");
     const cookies = await vctx.cookies();
     const code = cookies.find((c) => c.name === "dk_vid")?.value ?? "";
     check(/^\d{6}$/.test(code), `visitor id cookie assigned (${code})`);
     const waHref = await vpage.locator('a[href^="https://wa.me/"]').first().getAttribute("href");
     check(!!waHref && decodeURIComponent(waHref).includes(code), "WhatsApp link on the site carries the visitor id");
-    await vpage.waitForTimeout(800);
+    check((await vpage.locator('a[href="?lang=en"]').count()) > 0, "language toggle is a crawlable link to the English version");
+    const htmlEl = vpage.locator("html");
+    check((await htmlEl.getAttribute("lang")) === "ar" && (await htmlEl.getAttribute("dir")) === "rtl", "document language and direction are server-rendered for the site");
     const trackResp = vpage.waitForResponse((r) => r.url().includes("/api/track/event"));
     await vpage.evaluate(() => (window as unknown as { __dkTrack?: (k: string) => void }).__dkTrack?.("whatsapp_click"));
     check((await trackResp).status() === 200, "WhatsApp click is recorded through /api/track/event");
@@ -109,7 +114,8 @@ async function main() {
     await page.click('button[value="first_payment"]');
     await page.waitForURL(/saved=/);
     const body = await page.locator("body").innerText();
-    check(/saved=(failed|sent|partial)/.test(page.url()), `first payment mark attempted delivery to Meta (${page.url().split("saved=")[1]})`);
+    // The token is invalid on purpose: Meta must be attempted and must reject it, never "sent" or silently skipped.
+    check(page.url().includes("saved=failed"), `first payment mark attempted delivery to Meta and Meta rejected the invalid token (${page.url().split("saved=")[1]})`);
     check(body.includes("Purchase"), "event history shows the Meta Purchase event with its delivery result");
     await snap(page, "visitor-history");
     const testBtn = page.locator("form").filter({ has: page.locator('button:has-text("تجريبي"), button:has-text("test event")') });
@@ -157,7 +163,7 @@ async function main() {
     await page.locator('button[type="submit"]').last().click();
     await page.waitForURL(/\/admin\/projects\/[0-9a-f-]+\?saved=created/);
     const projectUrl = page.url().split("?")[0];
-    check(true, "project created and editor opened");
+    check(/\/admin\/projects\/[0-9a-f-]{36}$/.test(projectUrl) && (await page.locator('input[name="title.en"]').inputValue()) === "E2E project", "project created and editor opened with its title");
     const uploadForm = page.locator("form").filter({ has: page.locator('input[name="imageUrl"]') }).last();
     await uploadForm.locator('input[type="file"]').first().setInputFiles(pngPath);
     await page.waitForFunction(() => {
@@ -168,7 +174,7 @@ async function main() {
     await page.waitForURL(/saved=media/);
     check((await page.locator('form input[name="op"], form button[name="op"][value="delete"]').count()) > 0, "uploaded image added as project media");
     const mediaUrl = await page.locator("img").filter({ hasNot: page.locator("[alt]:not([alt=''])") }).last().getAttribute("src");
-    if (mediaUrl) check((await hfetch("demo", mediaUrl)).status === 200, "uploaded file is served back");
+    check(!!mediaUrl && (await hfetch("demo", mediaUrl)).status === 200, `uploaded file is served back (${mediaUrl ?? "no media url"})`);
     const publicSite = await (await hfetch("demo", "/", "dk_lang=en")).text();
     check(publicSite.includes("E2E project"), "new finished project appears on the public site");
     await page.goto(projectUrl);
@@ -177,6 +183,58 @@ async function main() {
     await page.waitForURL(/saved=1/);
     check(!(await (await hfetch("demo", "/", "dk_lang=en")).text()).includes("E2E project"), "unpublished project disappears from the site");
     await snap(page, "project-editor");
+
+    // before/after project through the admin form (roles before + after, warning badge disappears)
+    await page.goto(`${tenant}/admin/projects/new?type=before_after`);
+    await page.fill('input[name="title.ar"]', "قبل وبعد تجريبي");
+    await page.fill('input[name="title.en"]', "E2E before after");
+    await page.locator('button[type="submit"]').last().click();
+    await page.waitForURL(/\/admin\/projects\/[0-9a-f-]+\?saved=created/);
+    const baUrl = page.url().split("?")[0];
+    const addMedia = async (role: string) => {
+      const form = page.locator("form").filter({ has: page.locator('input[name="imageUrl"]') }).last();
+      const roleSelect = form.locator('select[name="role"]');
+      if (await roleSelect.count()) await roleSelect.selectOption(role);
+      await form.locator('input[type="file"]').first().setInputFiles(pngPath);
+      await page.waitForFunction(() => {
+        const el = document.querySelector('form input[name="imageUrl"]') as HTMLInputElement | null;
+        return !!el && el.value.includes("/api/files/");
+      }, null, { timeout: 20000 });
+      await form.locator('button[type="submit"]').last().click();
+      await page.waitForURL(/saved=media/);
+    };
+    const needsBoth = (text: string) => text.includes("يحتاج صورة قبل") || text.includes("Needs one before");
+    await addMedia("before");
+    const incomplete = needsBoth(await page.locator("body").innerText());
+    await addMedia("after");
+    const baHtml = await (await hfetch("demo", "/", "dk_lang=en")).text();
+    check(incomplete && baHtml.includes("E2E before after") && baHtml.includes('id="before-after"'), "before/after project built from the admin form renders on the site");
+    await page.goto(baUrl);
+    check(!needsBoth(await page.locator("body").innerText()), "before/after warning cleared once both roles exist");
+
+    // progress project with two labelled steps, reordered
+    await page.goto(`${tenant}/admin/projects/new?type=progress`);
+    await page.fill('input[name="title.ar"]', "مشروع قيد التنفيذ تجريبي");
+    await page.fill('input[name="title.en"]', "E2E progress");
+    await page.locator('button[type="submit"]').last().click();
+    await page.waitForURL(/\/admin\/projects\/[0-9a-f-]+\?saved=created/);
+    const addStep = async (ar: string, en: string) => {
+      const form = page.locator("form").filter({ has: page.locator('input[name="imageUrl"]') }).last();
+      await form.locator('input[name="stepLabel.ar"]').fill(ar);
+      await form.locator('input[name="stepLabel.en"]').fill(en);
+      await form.locator('input[type="file"]').first().setInputFiles(pngPath);
+      await page.waitForFunction(() => {
+        const el = document.querySelector('form input[name="imageUrl"]') as HTMLInputElement | null;
+        return !!el && el.value.includes("/api/files/");
+      }, null, { timeout: 20000 });
+      await form.locator('button[type="submit"]').last().click();
+      await page.waitForURL(/saved=media/);
+    };
+    await addStep("اليوم الأول", "Day one");
+    await addStep("اليوم الثاني", "Day two");
+    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.locator('button[name="op"][value="up"]:not([disabled])').last().click()]);
+    const progressHtml = await (await hfetch("demo", "/", "dk_lang=en")).text();
+    check(progressHtml.includes("E2E progress") && progressHtml.indexOf("Day two") < progressHtml.indexOf("Day one"), "progress project steps render on the site in the reordered sequence");
 
     // project type toggle
     await page.goto(`${tenant}/admin/projects`);
@@ -214,8 +272,8 @@ async function main() {
     await sp.fill('input[name="adminPassword"]', "Ceramic123!");
     await sp.check('input[name="template"][value="404"]', { force: true });
     await sp.locator('button[type="submit"]').last().click();
-    await sp.waitForURL(/\/super\/sites\/[0-9a-f-]+\?saved=1/, { timeout: 30000 });
-    check(true, "super admin created a new site from template 404");
+    await sp.waitForURL(/\/super\/sites\/[0-9a-f-]+\?saved=(1|created)/, { timeout: 30000 });
+    check(/\/super\/sites\/[0-9a-f-]{36}\?saved=created$/.test(sp.url()), "super admin created a new site from template 404 with its admin account");
     const newSiteHtml = await (await hfetch("e2e-ceramic")).text();
     check(newSiteHtml.includes('data-template="404"') && newSiteHtml.includes("wa.me/96599999999"), "new site is live on its subdomain with its template and WhatsApp number");
     // Server-action redirects to the same URL are soft navigations: wait for the action's POST to finish
@@ -232,7 +290,10 @@ async function main() {
     await submitAndSettle(sp, sp.locator("form").filter({ has: sp.locator('input[name="hostname"]') }).locator("button"));
     await sp.waitForSelector("text=ceramic-company.com", { timeout: 15000 }).catch(() => {});
     const domainsText = await sp.locator("body").innerText();
-    check(domainsText.includes("ceramic-company.com") && domainsText.includes("76.76.21.21"), "custom domain added with DNS instructions");
+    check(domainsText.includes("ceramic-company.com") && /\bA\s+@\s+76\.76\.21\.21/.test(domainsText) && /CNAME\s+www/.test(domainsText), "custom domain added with A + www CNAME instructions");
+    await sp.fill('input[name="hostname"]', "www.ceramic-company.com");
+    await submitAndSettle(sp, sp.locator("form").filter({ has: sp.locator('input[name="hostname"]') }).locator("button"));
+    check(sp.url().includes("error=domain_taken") || (await sp.locator("body").innerText()).match(/ceramic-company\.com/g)!.length >= 1, "www variant of an existing domain is normalised and refused as a duplicate");
     await snap(sp, "super-site");
     await sp.goto(`${rootUrl}/super/users`);
     check((await sp.locator("body").innerText()).includes("ceramic-admin@example.com"), "new site admin user listed in users");

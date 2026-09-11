@@ -24,9 +24,9 @@ export function FinishedMasonry({ ctx }: SectionProps) {
                   <Img src={coverOf(pr)} alt={ctx.text(pr.title)} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent opacity-90 transition group-hover:opacity-100" />
                   {hasVideo && <PlayBadge className="opacity-90" />}
-                  <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                  <div className="tone-dark absolute inset-x-0 bottom-0 p-4 text-white">
                     <div className="font-heading text-lg font-bold drop-shadow">{ctx.text(pr.title)}</div>
-                    {ctx.text(pr.location) && <div className="text-xs font-semibold text-accent">{ctx.text(pr.location)}</div>}
+                    {ctx.text(pr.location) && <div className="text-xs font-semibold text-accent-text">{ctx.text(pr.location)}</div>}
                     <div className="mt-1 max-h-0 overflow-hidden text-xs text-white/80 transition-all duration-500 group-hover:max-h-16">{ctx.text(pr.description)}</div>
                   </div>
                   {items.length > 1 && <span className="absolute end-3 top-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white">{items.length}</span>}

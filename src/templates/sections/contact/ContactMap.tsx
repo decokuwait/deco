@@ -30,7 +30,7 @@ export function ContactMap({ ctx }: SectionProps) {
       </div>
       <Container className={cx("pointer-events-none relative flex", hasMap ? "min-h-[640px] items-end pb-8 pt-72 lg:items-center lg:py-20" : "min-h-[520px] items-center py-16 lg:py-20")}>
         <div className="pointer-events-auto w-full max-w-md rounded-card border border-line bg-bg/95 p-6 shadow-2xl shadow-secondary/25 backdrop-blur sm:p-8">
-          {ctx.text(c.subtitle) && <span className="text-xs font-bold uppercase tracking-widest text-accent">{ctx.text(c.subtitle)}</span>}
+          {ctx.text(c.subtitle) && <span className="text-xs font-bold uppercase tracking-widest text-accent-text">{ctx.text(c.subtitle)}</span>}
           <h2 className="mt-2 font-heading text-2xl font-extrabold sm:text-3xl">{ctx.text(c.title) || ctx.ui("nav_contact")}</h2>
           <div className="mt-6 flex flex-col gap-3">
             <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(btn, "primary", "lg")}>

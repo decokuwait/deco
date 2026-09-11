@@ -1,23 +1,36 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-process.env.PGLITE_MEMORY = "1";
-process.env.DATABASE_URL = "";
+// PGlite in memory by default; a real Postgres (CI service, local Supabase) when TEST_DATABASE_URL is set.
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
+if (!process.env.TEST_DATABASE_URL) process.env.PGLITE_MEMORY = "1";
 process.env.PIXEL_SECRET_KEY = "a".repeat(64);
 
 import { rateLimit, resetRateLimits } from "@/lib/rate-limit";
 import { safeUrl, safeMapEmbed, safeMediaUrl } from "@/lib/safe-url";
 import { decryptSecret, encryptSecret, secretsEncrypted } from "@/lib/secrets";
 import { getDb, resetDb } from "@/lib/db/client";
-import { authenticate, createUser, TooManyAttemptsError } from "@/lib/db/users";
+import { authenticate, createSession, createUser, getUserBySessionToken, TooManyAttemptsError } from "@/lib/db/users";
 import { upsertPixel, getPixel } from "@/lib/db/pixels";
 import { createSite } from "@/lib/db/sites";
 
 describe("rate limiter", () => {
   it("allows a burst up to the limit then blocks, and refills over time", () => {
     resetRateLimits();
-    for (let i = 0; i < 5; i++) expect(rateLimit("k", 5, 1000)).toBe(true);
-    expect(rateLimit("k", 5, 1000)).toBe(false);
-    expect(rateLimit("other", 5, 1000)).toBe(true);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+      for (let i = 0; i < 5; i++) expect(rateLimit("k", 5, 1000)).toBe(true);
+      expect(rateLimit("k", 5, 1000)).toBe(false);
+      expect(rateLimit("other", 5, 1000)).toBe(true);
+      vi.setSystemTime(new Date("2026-01-01T00:00:00.250Z"));
+      expect(rateLimit("k", 5, 1000)).toBe(true); // a quarter of the window refills one token
+      expect(rateLimit("k", 5, 1000)).toBe(false);
+      vi.setSystemTime(new Date("2026-01-01T00:00:05Z"));
+      for (let i = 0; i < 5; i++) expect(rateLimit("k", 5, 1000)).toBe(true);
+      expect(rateLimit("k", 5, 1000)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -64,6 +77,21 @@ describe("database security behaviours", () => {
     await expect(authenticate("victim@example.com", "Correct-horse-1", "10.0.0.1")).rejects.toBeInstanceOf(TooManyAttemptsError);
     // A different account from a different IP is unaffected.
     expect(await authenticate("nobody@example.com", "x", "10.0.0.2")).toBeNull();
+  });
+  it("throttles repeated failed logins per client IP across different emails", async () => {
+    for (let i = 0; i < 10; i++) expect(await authenticate(`guess${i}@example.com`, "wrong", "10.0.0.9")).toBeNull();
+    await expect(authenticate("victim@example.com", "Correct-horse-1", "10.0.0.9")).rejects.toBeInstanceOf(TooManyAttemptsError);
+    // The same account from a clean IP is unaffected once its own email counter is not exhausted.
+    await createUser({ email: "clean@example.com", password: "Correct-horse-2", isSuper: false });
+    expect((await authenticate("clean@example.com", "Correct-horse-2", "10.0.0.10"))?.email).toBe("clean@example.com");
+  });
+  it("sessions expire absolutely", async () => {
+    const u = await createUser({ email: "session@example.com", password: "Correct-horse-3", isSuper: false });
+    const { token } = await createSession(u.id);
+    expect((await getUserBySessionToken(token))?.id).toBe(u.id);
+    await (await getDb()).query(`update sessions set expires_at = now() - interval '1 minute' where user_id = $1`, [u.id]);
+    expect(await getUserBySessionToken(token)).toBeNull();
+    expect(await getUserBySessionToken("short")).toBeNull();
   });
   it("stores pixel tokens encrypted at rest and decrypts them on read", async () => {
     const site = await createSite({ slug: "sec", name: "Sec", category: "gypsum", templateCode: "101" });

@@ -328,7 +328,7 @@ export const ALUMINUM_TEMPLATES: TemplateDef[] = [
   {
     code: "208",
     category: "aluminum",
-    name: { ar: "الفنار", en: "Lighthouse" },
+    name: { ar: "المنارة", en: "Beacon" },
     description: { ar: "أبيض وأسود صناعي حاد بلمسة صفراء واحدة كضوء الفنار", en: "Sharp black-and-white industrial look with a single beacon-yellow accent" },
     tokens: {
       primary: "#161616",
@@ -647,7 +647,7 @@ export const ALUMINUM_TEMPLATES: TemplateDef[] = [
   {
     code: "215",
     category: "aluminum",
-    name: { ar: "الرمال", en: "Sands" },
+    name: { ar: "الواحة", en: "Oasis" },
     description: { ar: "رمال دافئة مع طين محروق وفيروزي الواحة بأشكال مستديرة", en: "Warm sands with terracotta and oasis teal in fully rounded shapes" },
     tokens: {
       primary: "#b5533c",

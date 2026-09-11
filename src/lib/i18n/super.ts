@@ -10,7 +10,7 @@ export const SUPER_UI = {
   login: { ar: "تسجيل الدخول", en: "Log in" },
   email: { ar: "البريد الإلكتروني", en: "Email" },
   password: { ar: "كلمة المرور", en: "Password" },
-  login_hint: { ar: "عند أول تسجيل دخول، إذا كان البريد ضمن SUPER_ADMIN_EMAILS يتم إنشاء حساب المالك تلقائياً بكلمة المرور المدخلة.", en: "On the very first login, an address listed in SUPER_ADMIN_EMAILS creates the owner account with the password you enter." },
+  login_hint: { ar: "الدخول لمالك المنصة فقط. يُنشأ حساب المالك عند أول دخول ببيانات المتغيرات SUPER_ADMIN_EMAILS و SUPER_ADMIN_PASSWORD.", en: "Platform owner access only. The owner account is created on first login from the SUPER_ADMIN_EMAILS and SUPER_ADMIN_PASSWORD environment variables." },
   invalid_login: { ar: "بيانات الدخول غير صحيحة", en: "Invalid email or password" },
   not_super: { ar: "هذا الحساب ليس مشرفاً عاماً", en: "This account is not a super admin" },
   save: { ar: "حفظ", en: "Save" },
@@ -58,7 +58,7 @@ export const SUPER_UI = {
   add_member: { ar: "إضافة عضو", en: "Add member" },
   member_password_hint: { ar: "كلمة المرور مطلوبة فقط عند إنشاء حساب جديد", en: "Password only needed when creating a new account" },
   danger: { ar: "منطقة الخطر", en: "Danger zone" },
-  delete_site_hint: { ar: "حذف الموقع يحذف كل محتواه وزواره وأحداثه.", en: "Deleting a site removes all its content, visitors and events." },
+  delete_site_hint: { ar: "حذف الموقع يحذف كل محتواه وزواره وأحداثه وملفاته المرفوعة، ويحذف حسابات المشرفين التي لا تملك مواقع أخرى.", en: "Deleting a site removes all its content, visitors, events and uploaded files, and deletes admin accounts that have no other site." },
   no_sites: { ar: "لا توجد مواقع بعد", en: "No sites yet" },
   is_super: { ar: "مشرف عام", en: "Super admin" },
   make_super: { ar: "تعيين مشرفاً عاماً", en: "Make super admin" },
@@ -95,6 +95,13 @@ export const SUPER_UI = {
   coming_soon: { ar: "قريباً", en: "Coming soon" },
   this_is_you: { ar: "هذا حسابك", en: "This is you" },
   change_template_hint: { ar: "تغيير القالب يطبَّق فوراً على المحتوى الحالي", en: "Changing the template applies instantly to the existing content" },
+  reserved_slug: { ar: "هذا النطاق الفرعي محجوز للمنصة", en: "This subdomain is reserved by the platform" },
+  user_exists_attach: { ar: "هذا البريد مسجّل مسبقاً. اترك كلمة المرور فارغة لربط الحساب الموجود بهذا الموقع.", en: "This email already has an account. Leave the password empty to attach the existing account to this site." },
+  saved_attached: { ar: "تم ربط الحساب الموجود بهذا الموقع (كلمة المرور الحالية لم تتغير)", en: "Existing account attached to this site (its current password is unchanged)" },
+  saved_created: { ar: "تم الحفظ وإنشاء حساب المشرف", en: "Saved and the admin account was created" },
+  vercel_unreachable: { ar: "تعذّر الوصول إلى Vercel الآن؛ الحالة ستُحدَّث عند الضغط على «تحقق من الحالة» لاحقاً", en: "Vercel could not be reached; press “check status” later to refresh" },
+  dns_verify_hint: { ar: "سجل TXT لإثبات الملكية (إذا ظهر) مطلوب بالإضافة إلى سجلات التوجيه أعلاه.", en: "The TXT ownership record (when shown) is required in addition to the routing records above." },
+  member_sites: { ar: "مواقع أخرى", en: "Other sites" },
 } satisfies Record<string, LText>;
 
 export type SuperUiKey = keyof typeof SUPER_UI;

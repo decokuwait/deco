@@ -19,7 +19,7 @@ export function ProgressFilmstrip({ ctx }: SectionProps) {
               <Container className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="font-heading text-xl font-extrabold sm:text-2xl">{ctx.text(pr.title)}</h3>
-                  {ctx.text(pr.location) && <p className="text-xs font-semibold text-accent">{ctx.text(pr.location)}</p>}
+                  {ctx.text(pr.location) && <p className="text-xs font-semibold text-accent-text">{ctx.text(pr.location)}</p>}
                 </div>
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-bold">
                   {slides.length} {ctx.ui("step")}

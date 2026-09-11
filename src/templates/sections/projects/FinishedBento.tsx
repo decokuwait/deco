@@ -29,9 +29,9 @@ export function FinishedBento({ ctx }: SectionProps) {
                   <Img src={coverOf(pr)} alt={ctx.text(pr.title)} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                   {hasVideo && <PlayBadge />}
-                  <div className="absolute inset-x-0 bottom-0 p-3 text-white sm:p-4">
+                  <div className="tone-dark absolute inset-x-0 bottom-0 p-3 text-white sm:p-4">
                     <div className={cx("font-heading font-bold drop-shadow", big ? "text-xl sm:text-2xl" : "text-sm sm:text-base")}>{ctx.text(pr.title)}</div>
-                    {ctx.text(pr.location) && <div className="text-[11px] font-semibold text-accent">{ctx.text(pr.location)}</div>}
+                    {ctx.text(pr.location) && <div className="text-[11px] font-semibold text-accent-text">{ctx.text(pr.location)}</div>}
                     {big && ctx.text(pr.description) && <p className="mt-1 hidden max-w-md text-xs text-white/80 sm:block">{ctx.text(pr.description)}</p>}
                   </div>
                 </GalleryOpen>

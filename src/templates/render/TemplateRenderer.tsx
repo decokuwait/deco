@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { preconnect } from "react-dom";
 import type { RenderCtx, SectionKey, SectionProps } from "../types";
 import { DEFAULT_ORDER } from "../types";
 import { effectiveTokens, fontKeysOf, tokensToStyle } from "../ctx";
@@ -19,6 +20,12 @@ import { FOOTER } from "../sections/footer";
 import { FloatingWhatsApp } from "../sections/shared/FloatingWhatsApp";
 import { ScrollTop } from "../ui/client/ScrollTop";
 import { HtmlLang } from "../ui/client/HtmlLang";
+
+/** Google Fonts are on two origins; opening both connections early shortens the font download path. */
+function fontHints() {
+  preconnect("https://fonts.googleapis.com");
+  preconnect("https://fonts.gstatic.com", { crossOrigin: "anonymous" });
+}
 
 function pick(ctx: RenderCtx, key: SectionKey): ComponentType<SectionProps> {
   const l = ctx.def.layout;
@@ -53,12 +60,13 @@ function pick(ctx: RenderCtx, key: SectionKey): ComponentType<SectionProps> {
 /** Site chrome (theme wrapper, fonts, nav, footer, floating WhatsApp) around any inner page such as /privacy. */
 export function TemplateShell({ ctx, children }: { ctx: RenderCtx; children: React.ReactNode }) {
   const tokens = effectiveTokens(ctx.def, ctx.site);
+  fontHints();
   const Nav = NAV[ctx.def.layout.nav];
   const Footer = FOOTER[ctx.def.layout.footer];
   return (
     <div className="tpl min-h-dvh" style={tokensToStyle(tokens)} dir={ctx.dir} lang={ctx.locale} data-template={ctx.def.code}>
       <link rel="stylesheet" href={googleFontsHref(fontKeysOf(tokens))} precedence="fonts" />
-      <HtmlLang locale={ctx.locale} />
+      {ctx.preview && <HtmlLang locale={ctx.locale} />}
       <Nav ctx={ctx} />
       <main>{children}</main>
       <Footer ctx={ctx} />
@@ -70,6 +78,7 @@ export function TemplateShell({ ctx, children }: { ctx: RenderCtx; children: Rea
 /** Composes a full site page from the template layout, tokens and site content. Pure. */
 export function TemplateRenderer({ ctx }: { ctx: RenderCtx }) {
   const tokens = effectiveTokens(ctx.def, ctx.site);
+  fontHints();
   const templateOrder = ctx.def.layout.order ?? DEFAULT_ORDER;
   const custom = (ctx.site.content.sections.order || []).filter((k): k is SectionKey => (DEFAULT_ORDER as string[]).includes(k));
   // A site-level order wins when it is a complete permutation; otherwise fall back to the template order.
@@ -79,7 +88,7 @@ export function TemplateRenderer({ ctx }: { ctx: RenderCtx }) {
   return (
     <div className="tpl min-h-dvh" style={tokensToStyle(tokens)} dir={ctx.dir} lang={ctx.locale} data-template={ctx.def.code}>
       <link rel="stylesheet" href={googleFontsHref(fontKeysOf(tokens))} precedence="fonts" />
-      <HtmlLang locale={ctx.locale} />
+      {ctx.preview && <HtmlLang locale={ctx.locale} />}
       <Nav ctx={ctx} />
       <main>
         {order.map((key) => {

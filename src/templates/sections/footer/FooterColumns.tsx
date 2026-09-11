@@ -8,7 +8,7 @@ export function FooterColumns({ ctx }: SectionProps) {
   const socials = socialLinks(ctx);
   const year = new Date().getFullYear();
   return (
-    <footer className="relative bg-secondary text-secondary-fg">
+    <footer className="tone-dark relative bg-secondary text-secondary-fg">
       <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-30" />
       <Container className="relative grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>

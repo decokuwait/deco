@@ -16,19 +16,23 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
   const preset = getTemplate(sp1(sp.template));
   const category: Category | undefined = (CATEGORIES as string[]).includes(catRaw) ? (catRaw as Category) : preset?.category;
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "template_category_mismatch", "domain_taken"];
+  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "template_category_mismatch", "domain_taken", "reserved_slug", "user_exists", "user_exists_attach"];
   const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
+  // Values typed before a validation error come back through the query string (never the password).
+  const prev = { name: sp1(sp.name), slug: sp1(sp.slug), customDomain: sp1(sp.customDomain), whatsapp: sp1(sp.whatsapp), adminEmail: sp1(sp.adminEmail) };
+  const seedDemo = sp1(sp.seedDemo) === "" ? true : sp1(sp.seedDemo) === "1";
+  const startPaused = sp1(sp.startPaused) === "1";
   const root = ROOT_DOMAIN.replace(/:\d+$/, "");
 
   return (
     <SuperPanel ctx={ctx} active="new">
       <PageHeader title={t("new_site")} />
-      <Flash error={errorText} savedText={t("saved")} errorText={t("error")} />
+      <Flash error={errorText} savedText={t("saved")} errorText={t("error")} locale={locale} />
       <form action={createSiteAction} className="grid gap-5">
         <Card title={t("site_name")}>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("site_name")}>
-              <Input name="name" required />
+              <Input name="name" required defaultValue={prev.name} />
             </Field>
             <Field label={t("category")}>
               <Select name="category" defaultValue={category ?? "gypsum"}>
@@ -40,25 +44,25 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
               </Select>
             </Field>
             <Field label={t("slug")} hint={`${t("slug_hint")} <slug>.${root}`}>
-              <Input name="slug" required pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" dir="ltr" placeholder="elite-decor" />
+              <Input name="slug" required pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?" dir="ltr" placeholder="elite-decor" defaultValue={prev.slug} />
             </Field>
             <Field label={t("custom_domain")} hint={t("custom_domain_hint")}>
-              <Input name="customDomain" dir="ltr" placeholder="company.com" />
+              <Input name="customDomain" dir="ltr" placeholder="company.com" defaultValue={prev.customDomain} />
             </Field>
             <Field label={t("whatsapp")}>
-              <Input name="whatsapp" dir="ltr" placeholder="96550000000" required />
+              <Input name="whatsapp" dir="ltr" placeholder="96550000000" required defaultValue={prev.whatsapp} />
             </Field>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Toggle name="seedDemo" defaultChecked label={t("seed_demo")} />
-            <Toggle name="startPaused" label={t("start_paused")} />
+            <Toggle name="seedDemo" defaultChecked={seedDemo} label={t("seed_demo")} />
+            <Toggle name="startPaused" defaultChecked={startPaused} label={t("start_paused")} />
           </div>
         </Card>
         <Card title={t("admin_user")}>
           <p className="mb-3 text-sm text-slate-600">{t("admin_user_hint")}</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t("admin_email")}>
-              <Input name="adminEmail" type="email" dir="ltr" />
+              <Input name="adminEmail" type="email" dir="ltr" defaultValue={prev.adminEmail} />
             </Field>
             <Field label={t("admin_password")}>
               <Input name="adminPassword" type="password" autoComplete="new-password" dir="ltr" />

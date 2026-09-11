@@ -9,6 +9,7 @@
   --color-secondary-fg: var(--t-secondary-fg);
   --color-accent: var(--t-accent);
   --color-accent-fg: var(--t-accent-fg);
+  --color-accent-text: var(--t-accent-text);
   --color-bg: var(--t-bg);
   --color-surface: var(--t-surface);
   --color-surface-2: var(--t-surface-2);
@@ -27,6 +28,9 @@
   --t-secondary-fg: #ffffff;
   --t-accent: #d4a017;
   --t-accent-fg: #111111;
+  --t-accent-text: #8a6a0c;
+  --t-accent-on-dark: #e6b422;
+  --t-accent-on-primary: #f5d76e;
   --t-bg: #ffffff;
   --t-surface: #f8fafc;
   --t-surface-2: #f1f5f9;
@@ -43,6 +47,13 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  .scroll-smooth {
+    scroll-behavior: auto !important;
+  }
 }
 
 body {
@@ -172,4 +183,13 @@ body {
 .admin textarea,
 .admin select {
   font-family: inherit;
+}
+
+/* Accent used as text: the template's accent adjusted for legibility on the page background. Dark bands
+   (secondary sections, footers, image overlays) and primary bands switch to the variant computed for them. */
+.tone-dark {
+  --t-accent-text: var(--t-accent-on-dark);
+}
+.tone-primary {
+  --t-accent-text: var(--t-accent-on-primary);
 }

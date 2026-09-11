@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-process.env.PGLITE_MEMORY = "1";
-process.env.DATABASE_URL = "";
+// PGlite in memory by default; a real Postgres (CI service, local Supabase) when TEST_DATABASE_URL is set.
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
+if (!process.env.TEST_DATABASE_URL) process.env.PGLITE_MEMORY = "1";
 process.env.SUPER_ADMIN_EMAILS = "owner@example.com";
 
 import { getDb, resetDb } from "@/lib/db/client";
@@ -12,7 +13,10 @@ import { addMember, isSiteMember, listMembers, removeMember } from "@/lib/db/mem
 import { addMedia, createProject, deleteMedia, deleteProject, getProject, listProjects, moveMedia, moveProject, updateMedia, updateProject, countProjects } from "@/lib/db/projects";
 import { getActivePixels, listPixels, upsertPixel } from "@/lib/db/pixels";
 import { getVisitorByCode, incrementWhatsappClicks, searchVisitors, trackVisit, updateVisitor, visitorStats } from "@/lib/db/visitors";
-import { createEvent, listRecentEvents, listVisitorEvents, setEventDeliveries } from "@/lib/db/events";
+import { createEvent, hasRecentEvent, listRecentEvents, listVisitorEvents, setEventDeliveries } from "@/lib/db/events";
+import { listOrphanMemberIds } from "@/lib/db/members";
+import { listMediaKeys } from "@/lib/db/media";
+import { q } from "@/lib/db/client";
 import { demoContent } from "@/lib/demo/content";
 
 let siteId = "";
@@ -20,7 +24,7 @@ let userId = "";
 
 beforeAll(async () => {
   const db = await getDb();
-  expect(db.backend).toBe("pglite");
+  expect(db.backend).toBe(process.env.TEST_DATABASE_URL ? "postgres" : "pglite");
 });
 
 afterAll(async () => {
@@ -246,5 +250,36 @@ describe("visitors & events", () => {
     expect(stats.bySource.meta).toBe(1);
     expect(stats.bySource.snapchat).toBe(1);
     expect(stats.byStage.first_payment).toBe(1);
+  });
+});
+
+describe("click dedupe, site cleanup lookups", () => {
+  it("hasRecentEvent only sees the same event type inside the window", async () => {
+    const site = await createSite({ slug: "dedupe", name: "Dedupe", category: "gypsum", templateCode: "101" });
+    const { visitor } = await trackVisit({ siteId: site.id, code: "424242", fresh: true });
+    expect(await hasRecentEvent(visitor.id, "whatsapp_click", 10)).toBe(false);
+    const ev = await createEvent({ visitorId: visitor.id, siteId: site.id, eventType: "whatsapp_click", eventId: "d1" });
+    expect(await hasRecentEvent(visitor.id, "whatsapp_click", 10)).toBe(true);
+    expect(await hasRecentEvent(visitor.id, "call_click", 10)).toBe(false);
+    await q(`update visitor_events set created_at = now() - interval '11 minutes' where id = $1`, [ev.id]);
+    expect(await hasRecentEvent(visitor.id, "whatsapp_click", 10)).toBe(false);
+    await deleteSite(site.id);
+  });
+  it("finds the admin accounts and storage keys that belong only to a site", async () => {
+    const a = await createSite({ slug: "clean-a", name: "A", category: "gypsum", templateCode: "101" });
+    const b = await createSite({ slug: "clean-b", name: "B", category: "gypsum", templateCode: "102" });
+    const onlyA = await createUser({ email: "only-a@example.com", password: "Password1!", isSuper: false });
+    const shared = await createUser({ email: "shared@example.com", password: "Password1!", isSuper: false });
+    const boss = await createUser({ email: "boss@example.com", password: "Password1!", isSuper: true });
+    await addMember(a.id, onlyA.id);
+    await addMember(a.id, shared.id);
+    await addMember(b.id, shared.id);
+    await addMember(a.id, boss.id);
+    expect(await listOrphanMemberIds(a.id)).toEqual([onlyA.id]);
+    await q(`insert into media_assets (site_id, key, url, kind, content_type, size) values ($1, $2, $3, 'image', 'image/png', 10)`, [a.id, `sites/${a.id}/2026/01/x.png`, "/api/files/x"]);
+    expect(await listMediaKeys(a.id)).toEqual([`sites/${a.id}/2026/01/x.png`]);
+    expect(await listMediaKeys(b.id)).toEqual([]);
+    await deleteSite(a.id);
+    await deleteSite(b.id);
   });
 });
