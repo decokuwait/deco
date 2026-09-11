@@ -14,6 +14,9 @@ import { fmtDateTime, fmtMoney } from "../../_lib/format";
 import { markStage, saveVisitorInfo } from "./actions";
 import { StageButtons } from "./StageButtons";
 
+// Stage marking / test events fan out to the ad platforms (8 s timeout each, in parallel): allow more than the 10 s default.
+export const maxDuration = 30;
+
 const MARK_STAGES: Stage[] = ["contacted", "called_for_visit", "ordered", "first_payment", "order_complete"];
 const VALUE_STAGES: Stage[] = ["ordered", "first_payment", "order_complete"];
 

@@ -10,6 +10,8 @@ import { VISITOR_COOKIE } from "@/lib/config";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+// Server-side deliveries to up to five ad platforms run in after(); give the function room beyond the 10 s default.
+export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
 /** The same click from the same visitor within this window is not re-sent to the ad platforms. */

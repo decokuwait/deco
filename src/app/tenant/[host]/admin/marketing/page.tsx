@@ -9,6 +9,9 @@ import { serverReady } from "@/lib/marketing/dispatch";
 import { savePixel, saveSignalMode, sendTestEvent } from "./actions";
 import type { AdminUiKey } from "@/lib/i18n/admin";
 
+// Stage marking / test events fan out to the ad platforms (8 s timeout each, in parallel): allow more than the 10 s default.
+export const maxDuration = 30;
+
 const ID_LABEL: Record<Platform, AdminUiKey> = { meta: "meta_pixel_id", tiktok: "tiktok_pixel_code", snapchat: "snap_pixel_id", google: "ga4_measurement_id", x: "x_pixel_id" };
 const TOKEN_LABEL: Record<Platform, AdminUiKey> = { meta: "meta_token", tiktok: "tiktok_token", snapchat: "snap_token", google: "api_secret", x: "x_access_token" };
 

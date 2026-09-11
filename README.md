@@ -16,11 +16,12 @@ marking, and server-side conversion signals to Meta, TikTok, Snapchat, Google an
 | Tracking APIs | `POST /api/track` (visit), `POST /api/track/event` (WhatsApp / call click) |
 | Uploads | `POST /api/upload` → presigned R2 PUT (local-disk fallback in development) |
 | Legal | `<site host>/privacy` (editable privacy policy, linked from every footer) |
+| SEO | `robots.txt`, `sitemap.xml` (per host, canonical apex, both languages), `?lang=en` crawlable English version with hreflang, LocalBusiness JSON-LD, per-site favicon (`/icon` monogram fallback) |
 
 ### Visitor ID and WhatsApp
-Every visitor to a tenant host receives a 6-digit ID (`dk_vid` cookie, set by `src/proxy.ts`). The ID is
-embedded in every WhatsApp link (`https://wa.me/<number>?text=...{id}...`), so the first message the visitor
-sends contains it. Attribution (fbclid / ttclid / sc_click_id / gclid, utm_source, referrer) is stored with
+Every visitor to a tenant host receives a 6-digit ID (`dk_vid` cookie, set by `src/proxy.ts`; the row is
+created during the first render so the id always exists). The ID is embedded in every WhatsApp link
+(`https://wa.me/<number>?text=...{id}...`), so the first message the visitor sends contains it. Attribution (fbclid / ttclid / sc_click_id / gclid, utm_source, referrer) is stored with
 the visitor.
 
 ### Lead stages and signals
@@ -73,9 +74,14 @@ npm run typecheck   # tsc
 npm test            # vitest: routing, attribution, marketing payloads, database (PGlite), registry, rendering of all 60 templates
 npm run build && npm run smoke   # boots the production build and exercises pages, tenant routing, tracking APIs, robots/sitemap, auth guards, admin pages
 npm run e2e         # Playwright: real browser flows (visitor id + WhatsApp click, admin login, stage marking with signal delivery, content/list editors, project + media upload, pixels, settings, super admin site creation, template switch, domains, users)
-npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; `tsx scripts/contact-sheet.ts` builds per-category contact sheets
-npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .github/workflows/ci.yml)
+npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; SHOTS_STRICT=1 fails on browser errors / horizontal overflow, SHOTS_ONLY=101,207 samples; `tsx scripts/contact-sheet.ts` builds per-category contact sheets
+npm run thumbs      # gallery thumbnails (public/templates) from the screenshots
+npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .github/workflows/ci.yml, which also runs a strict screenshot sample and the database suites against a real Postgres)
 ```
+
+The QA scripts always run against an isolated PGlite database and local uploads; production variables
+(`R2_*`, `VERCEL_*`, `AUTO_MIGRATE`) are cleared for the run. Set `TEST_DATABASE_URL` to run the database
+and security suites against a real Postgres (the CI `postgres` job does this and applies the migrations twice).
 
 ## Production setup
 
@@ -87,7 +93,8 @@ npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .gith
    Vercel runs pending migrations on boot under an advisory lock, but running them at deploy time is preferred.
 3. Seed the owner account: `DATABASE_URL=... SUPER_ADMIN_EMAILS=you@x.com SUPER_ADMIN_PASSWORD=... npm run db:seed`
    (or open `/super/login` on the first deploy: while the users table is empty, the first login with an
-   address listed in `SUPER_ADMIN_EMAILS` and the password from `SUPER_ADMIN_PASSWORD` creates the owner).
+   address listed in `SUPER_ADMIN_EMAILS` and exactly the password from `SUPER_ADMIN_PASSWORD` creates the
+   owner; without that variable the bootstrap is refused).
    Demo sites (`npm run db:seed:demo`) are for local evaluation; in production they are refused unless
    `DEMO_ADMIN_PASSWORD` is set explicitly.
 
@@ -107,9 +114,17 @@ npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .gith
    plus `CNAME * cname.vercel-dns.com`). With the wildcard domain on the project, every site slug created
    in super admin resolves immediately. When `VERCEL_TOKEN` / `VERCEL_PROJECT_ID` (/ `VERCEL_TEAM_ID`) are
    set, the platform also registers each subdomain and custom domain with the Vercel project through the API.
-4. **Custom domains (manual DNS):** add the domain in super admin → site → domains. The panel shows the
-   records the owner must configure (`A 76.76.21.21` for apex, `CNAME cname.vercel-dns.com` for subdomains)
-   and a "check status" button.
+3b. **Function region:** in the Vercel project settings (Functions → region) pick the region closest to
+   the Supabase project (for example `fra1` for eu-central-1, `bom1` for ap-south-1) so every page render
+   pays one short database round trip instead of a transatlantic one.
+4. **Custom domains (manual DNS):** add the domain in super admin → site → domains (type it with or
+   without `www.`; it is stored as the apex and `www.` redirects to it). The panel shows the records the
+   owner must configure: for an apex such as `company.com` or `company.com.kw` an `A @` record plus a
+   `CNAME www` record (project-specific values from Vercel when available, otherwise `76.76.21.21` /
+   `cname.vercel-dns.com`), for a subdomain a single CNAME, plus Vercel's TXT ownership record when it asks
+   for one. "Check status" refreshes verification. Slugs such as `www`, `api`, `mail` are reserved.
+5. **Deleting a site** removes its rows, its uploaded files from storage, its Vercel domain registrations and
+   admin accounts that had no other site.
 
 ### Environment variables
 See `.env.example`. Authentication is self-contained: passwords are scrypt-hashed and sessions are
