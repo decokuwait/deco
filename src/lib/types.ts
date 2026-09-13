@@ -12,6 +12,10 @@ export const CATEGORY_LABELS: Record<Category, LText> = {
   ceramic: { ar: "سيراميك", en: "Ceramic" },
 };
 
+export function isCategory(v: unknown): v is Category {
+  return typeof v === "string" && (CATEGORIES as string[]).includes(v);
+}
+
 export type ProjectType = "finished" | "before_after" | "progress";
 export const PROJECT_TYPES: ProjectType[] = ["finished", "before_after", "progress"];
 export function isProjectType(v: unknown): v is ProjectType {

@@ -46,6 +46,17 @@ async function main() {
     const galleryHtml = await gallery.text();
     check(gallery.status === 200 && galleryHtml.includes("/template/101") && galleryHtml.includes("/template/415"), "GET /templates lists 101..415");
 
+    // Picking a category must narrow the gallery to that trade only.
+    const gyp = await fetch(`http://${ROOT}/templates/gypsum`);
+    const gypHtml = await gyp.text();
+    const onlyGypsum = gypHtml.includes("/template/101") && gypHtml.includes("/template/115") && !gypHtml.includes("/template/201") && !gypHtml.includes("/template/415");
+    check(gyp.status === 200 && onlyGypsum, "GET /templates/gypsum shows only 101..115");
+    const cer = await fetch(`http://${ROOT}/templates/ceramic`);
+    const cerHtml = await cer.text();
+    check(cer.status === 200 && cerHtml.includes("/template/401") && !cerHtml.includes("/template/101"), "GET /templates/ceramic shows only the ceramic templates");
+    check(gypHtml.includes('aria-current="page"') && gypHtml.includes('href="/templates"'), "active category pill is marked and links back to the full gallery");
+    check((await fetch(`http://${ROOT}/templates/nonsense`)).status === 404, "unknown category -> 404");
+
     const { TEMPLATES } = await import("../src/templates/registry");
     let previewOk = 0;
     for (const t of TEMPLATES) {
@@ -221,6 +232,7 @@ async function main() {
     check(sitemapTenant.status === 200 && sitemapHtml.includes("<urlset") && sitemapHtml.includes("?lang=en") && sitemapHtml.includes("/privacy"), "tenant sitemap.xml lists both languages and the privacy page");
     const sitemapRoot = await (await fetch(`http://${ROOT}/sitemap.xml`)).text();
     check(sitemapRoot.includes("/template/101") && sitemapRoot.includes("/template/415"), "platform sitemap lists every template preview");
+    check(sitemapRoot.includes("/templates/gypsum") && sitemapRoot.includes("/templates/ceramic"), "platform sitemap lists the category pages");
     const superOnTenant = await tfetch("/super");
     check(superOnTenant.status === 404 && (await superOnTenant.text()).includes("wa.me/96550000000"), "platform routes are hidden on tenant hosts (branded 404)");
     check((await tfetch("/", {}, `unknown.${ROOT}`)).status === 404, "unknown subdomain -> 404");

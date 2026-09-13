@@ -40,7 +40,7 @@ export default function PlatformHome() {
             const list = templatesFor(cat);
             const first = list[0];
             return (
-              <Link key={cat} href={`/templates#${cat}`} className="group rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-amber-300/50 hover:bg-white/10">
+              <Link key={cat} href={`/templates/${cat}`} className="group rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-amber-300/50 hover:bg-white/10">
                 <div className="flex gap-1.5">
                   {list.slice(0, 6).map((t) => (
                     <span key={t.code} className="h-3 w-3 rounded-full ring-1 ring-white/20" style={{ background: t.tokens.primary }} />

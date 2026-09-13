@@ -3,6 +3,7 @@ import { canonicalHost, parseHost } from "@/lib/tenant";
 import { ROOT_DOMAIN, rootUrl, siteUrl } from "@/lib/config";
 import { getSiteByHost } from "@/lib/db/sites";
 import { TEMPLATES } from "@/templates/registry";
+import { CATEGORIES } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,12 @@ export async function GET() {
     if (alternates) urls.push({ loc: `${base}?lang=${other}`, lastmod: site.updatedAt, priority: "0.8", alternates });
     urls.push({ loc: `${base}privacy`, lastmod: site.updatedAt, priority: "0.2" });
   } else {
-    urls = [{ loc: rootUrl("/"), priority: "1.0" }, { loc: rootUrl("/templates"), priority: "0.9" }, ...TEMPLATES.map((t) => ({ loc: rootUrl(`/template/${t.code}`), priority: "0.6" }))];
+    urls = [
+      { loc: rootUrl("/"), priority: "1.0" },
+      { loc: rootUrl("/templates"), priority: "0.9" },
+      ...CATEGORIES.map((c) => ({ loc: rootUrl(`/templates/${c}`), priority: "0.8" })),
+      ...TEMPLATES.map((t) => ({ loc: rootUrl(`/template/${t.code}`), priority: "0.6" })),
+    ];
   }
   return new Response(xml(urls), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
 }

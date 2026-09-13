@@ -1,18 +1,42 @@
-import { requireSuper } from "../_lib/guard";
+import Link from "next/link";
+import { requireSuper, sp1, type SearchParams } from "../_lib/guard";
 import { SuperPanel } from "../_components/Panel";
 import { PageHeader } from "@/components/admin/ui";
-import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
+import { CATEGORIES, CATEGORY_LABELS, isCategory, type Category } from "@/lib/types";
 import { templatesFor } from "@/templates/registry";
 import { FONTS } from "@/templates/fonts";
 import { TemplateThumb } from "@/templates/Thumb";
 
-export default async function SuperTemplatesPage() {
+export default async function SuperTemplatesPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
   const ctx = await requireSuper();
   const { t, locale } = ctx;
+  const catRaw = sp1(sp.cat);
+  const active: Category | "all" = isCategory(catRaw) ? catRaw : "all";
+  const shown: Category[] = active === "all" ? CATEGORIES : [active];
+  const tabs: { key: Category | "all"; href: string; label: string }[] = [
+    { key: "all", href: "/super/templates", label: t("all") },
+    ...CATEGORIES.map((c) => ({ key: c as Category | "all", href: `/super/templates?cat=${c}`, label: CATEGORY_LABELS[c][locale] })),
+  ];
   return (
     <SuperPanel ctx={ctx} active="templates">
       <PageHeader title={t("templates")} subtitle="101–115 · 201–215 · 301–315 · 401–415" />
-      {CATEGORIES.map((cat) => (
+      <nav aria-label={t("templates")} className="mb-6 flex flex-wrap gap-2 text-sm font-bold">
+        {tabs.map((tab) => {
+          const on = tab.key === active;
+          return (
+            <Link
+              key={tab.key}
+              href={tab.href}
+              aria-current={on ? "page" : undefined}
+              className={`rounded-full px-3.5 py-1.5 transition ${on ? "bg-slate-900 text-white" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
+      {shown.map((cat) => (
         <section key={cat} className="mb-8">
           <h2 className="mb-3 text-lg font-black text-slate-900">
             {CATEGORY_LABELS[cat][locale]} <span className="text-sm font-semibold text-slate-500">({templatesFor(cat).length})</span>
