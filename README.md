@@ -110,8 +110,9 @@ and security suites against a real Postgres (the CI `postgres` job does this and
 1. Import the repo, framework Next.js. Add all variables from `.env.example`.
 2. Set `NEXT_PUBLIC_ROOT_DOMAIN` to your platform domain (e.g. `decokuwait.com`) and add both
    `decokuwait.com` and the wildcard `*.decokuwait.com` to the project's domains.
-3. **Subdomains (automatic):** point the root domain's DNS to Vercel (nameservers, or `A 76.76.21.21`
-   plus `CNAME * cname.vercel-dns.com`). With the wildcard domain on the project, every site slug created
+3. **Subdomains (automatic):** add the wildcard domain `*.<root>` to the project. Vercel verifies a
+   wildcard **only through its own nameservers**, so move the root domain's nameservers to Vercel (copy the
+   existing MX/TXT records over first). With the wildcard domain on the project, every site slug created
    in super admin resolves immediately. When `VERCEL_TOKEN` / `VERCEL_PROJECT_ID` (/ `VERCEL_TEAM_ID`) are
    set, the platform also registers each subdomain and custom domain with the Vercel project through the API.
 3b. **Function region:** in the Vercel project settings (Functions → region) pick the region closest to
