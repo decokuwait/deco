@@ -102,6 +102,20 @@ export const SUPER_UI = {
   vercel_unreachable: { ar: "تعذّر الوصول إلى Vercel الآن؛ الحالة ستُحدَّث عند الضغط على «تحقق من الحالة» لاحقاً", en: "Vercel could not be reached; press “check status” later to refresh" },
   dns_verify_hint: { ar: "سجل TXT لإثبات الملكية (إذا ظهر) مطلوب بالإضافة إلى سجلات التوجيه أعلاه.", en: "The TXT ownership record (when shown) is required in addition to the routing records above." },
   member_sites: { ar: "مواقع أخرى", en: "Other sites" },
+  // Login failures that are about the deployment, not the credentials. Shown on /super/login so a first
+  // deploy explains what to fix; the raw errors stay in the function logs.
+  bootstrap: {
+    ar: "لا يوجد حساب مالك بعد، والمتغيران SUPER_ADMIN_EMAILS و SUPER_ADMIN_PASSWORD غير مضبوطين على الخادم (أو كلمة المرور أقصر من 8 أحرف). بعد إضافتهما في Vercel أعد النشر: المتغيرات تُطبَّق على النشر التالي فقط.",
+    en: "No owner account exists yet and SUPER_ADMIN_EMAILS / SUPER_ADMIN_PASSWORD are not set on the server (or the password is shorter than 8 characters). After adding them in Vercel, redeploy: environment variables apply to the next deployment only.",
+  },
+  db_config: { ar: "قاعدة البيانات غير مضبوطة: المتغير DATABASE_URL مفقود أو غير صالح على الخادم.", en: "The database is not configured: DATABASE_URL is missing or malformed on the server." },
+  db_unreachable: {
+    ar: "تعذّر الاتصال بقاعدة البيانات. تحقق من DATABASE_URL (استخدم Transaction pooler من Supabase، المنفذ 6543) ومن أن المشروع غير متوقف.",
+    en: "Could not connect to the database. Check DATABASE_URL (use the Supabase transaction pooler, port 6543) and that the project is not paused.",
+  },
+  db_auth: { ar: "قاعدة البيانات رفضت بيانات الاتصال في DATABASE_URL (كلمة المرور أو اسم المستخدم).", en: "The database rejected the credentials in DATABASE_URL (password or user name)." },
+  db_schema: { ar: "جداول قاعدة البيانات غير موجودة: شغّل npm run db:migrate (أو اضبط AUTO_MIGRATE=true) ثم أعد النشر.", en: "The database tables are missing: run npm run db:migrate (or set AUTO_MIGRATE=true) and redeploy." },
+  server_error: { ar: "خطأ غير متوقع في الخادم — راجع سجلات الدوال في Vercel (السطر [super-login]).", en: "Unexpected server error — check the Vercel function logs (the [super-login] line)." },
 } satisfies Record<string, LText>;
 
 export type SuperUiKey = keyof typeof SUPER_UI;

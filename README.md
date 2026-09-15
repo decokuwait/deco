@@ -107,7 +107,13 @@ and security suites against a real Postgres (the CI `postgres` job does this and
 ```
 
 ### 3. Vercel
-1. Import the repo, framework Next.js. Add all variables from `.env.example`.
+1. Import the repo, framework Next.js. Add all variables from `.env.example`. Variables added or changed
+   in Vercel apply to the **next deployment only**, so redeploy after editing them. Then open
+   `https://<root>/api/health`: it answers `{"ok":true,"database":"ok"}` when `DATABASE_URL` works and the
+   migrations are applied; otherwise `database` names what to fix — `config` (variable missing or
+   malformed), `unreachable` (wrong host, direct IPv6 connection instead of the pooler, paused project),
+   `auth` (wrong password or user) or `schema` (run `npm run db:migrate`). A failed `/super/login` shows
+   the same category instead of a generic server error.
 2. Set `NEXT_PUBLIC_ROOT_DOMAIN` to your platform domain (e.g. `decokuwait.com`) and add both
    `decokuwait.com` and the wildcard `*.decokuwait.com` to the project's domains.
 3. **Subdomains (automatic):** add the wildcard domain `*.<root>` to the project. Vercel verifies a

@@ -259,6 +259,12 @@ async function main() {
     const sp = await sctx.newPage();
     await sp.goto(`${rootUrl}/super/login`);
     await sp.fill('input[name="email"]', "owner@example.com");
+    await sp.fill('input[name="password"]', "wrong-password");
+    await sp.click('button[type="submit"]');
+    await sp.waitForURL(/\/super\/login\?error=invalid$/);
+    const loginError = (await sp.locator("main").innerText()).trim();
+    check(/Invalid email or password|بيانات الدخول غير صحيحة/.test(loginError), "a wrong super admin password returns to the form with a message, not a server error");
+    await sp.fill('input[name="email"]', "owner@example.com");
     await sp.fill('input[name="password"]', "Owner123!");
     await sp.click('button[type="submit"]');
     await sp.waitForURL(/\/super$/);

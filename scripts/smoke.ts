@@ -156,6 +156,9 @@ async function main() {
     const superRedirect = await fetch(`http://${ROOT}/super`, { redirect: "manual" });
     check([302, 303, 307, 308].includes(superRedirect.status) && (superRedirect.headers.get("location") || "").includes("/super/login"), "/super redirects to login when signed out");
     check((await fetch(`http://${ROOT}/super/login`)).status === 200, "/super/login renders");
+    const health = await fetch(`http://${ROOT}/api/health`);
+    const healthBody = (await health.json()) as { ok?: boolean; database?: string; pendingMigrations?: string[] };
+    check(health.status === 200 && healthBody.ok === true && healthBody.database === "ok" && healthBody.pendingMigrations?.length === 0, "/api/health reports the database ready with no pending migrations");
 
     // 3d. authenticated admin + super admin pages render (session cookies created during seeding)
     const adminPages = [

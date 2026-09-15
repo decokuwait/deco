@@ -22,6 +22,20 @@ function migrationsDir() {
 
 const MIGRATION_LOCK = 7241001;
 
+function migrationFiles(): string[] {
+  return fs
+    .readdirSync(/*turbopackIgnore: true*/ migrationsDir())
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+}
+
+/** Migration files not yet recorded in `_migrations` — all of them on a database that was never migrated. Read-only. */
+export async function pendingMigrations(db: DbClient): Promise<string[]> {
+  const [bookkeeping] = await db.query<{ present: boolean }>(`select to_regclass('public._migrations') is not null as present`);
+  const applied = new Set(bookkeeping?.present ? (await db.query<{ name: string }>(`select name from _migrations`)).map((r) => r.name) : []);
+  return migrationFiles().filter((f) => !applied.has(f));
+}
+
 /**
  * Applies pending SQL files from supabase/migrations. All pending files run inside ONE transaction that
  * holds an advisory lock, so concurrent cold starts (AUTO_MIGRATE on Vercel) serialise instead of racing.
@@ -29,14 +43,9 @@ const MIGRATION_LOCK = 7241001;
  */
 export async function runMigrations(db: DbClient): Promise<string[]> {
   await db.exec(`create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())`);
-  const applied = new Set((await db.query<{ name: string }>(`select name from _migrations`)).map((r) => r.name));
-  const dir = migrationsDir();
-  const files = fs
-    .readdirSync(/*turbopackIgnore: true*/ dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-  const pending = files.filter((f) => !applied.has(f));
+  const pending = await pendingMigrations(db);
   if (!pending.length) return [];
+  const dir = migrationsDir();
   const parts = [`begin;`, `select pg_advisory_xact_lock(${MIGRATION_LOCK});`];
   for (const f of pending) {
     parts.push(fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8"));
@@ -110,7 +119,8 @@ export function getDb(): Promise<DbClient> {
     const url = process.env.DATABASE_URL?.trim();
     if (!url && (process.env.VERCEL || process.env.DK_REQUIRE_DATABASE_URL === "true")) {
       // Serverless file systems are read-only and ephemeral: the embedded database is for local use only.
-      return Promise.reject(new Error("DATABASE_URL is not set. Configure the Supabase connection string in the Vercel project environment variables."));
+      const err = new Error("DATABASE_URL is not set. Configure the Supabase connection string in the Vercel project environment variables.");
+      return Promise.reject(Object.assign(err, { code: "DB_NOT_CONFIGURED" }));
     }
     g.__dkDbPromise = url ? createPostgres(url) : createPglite();
     g.__dkDbPromise.catch(() => {
@@ -133,6 +143,37 @@ export async function resetDb() {
       /* ignore */
     }
   }
+}
+
+/** What an operator can act on when the database fails, or null for an ordinary query error. */
+export type DbFailure = "config" | "unreachable" | "auth" | "schema";
+
+// SQLSTATE codes (postgres.js and PGlite both attach them as `code`) plus Node / driver network codes.
+const SCHEMA_CODES = new Set(["42P01", "42703", "42704", "3F000"]); // undefined table / column / object, invalid schema
+const AUTH_CODES = new Set(["28P01", "28000", "3D000"]); // invalid password, no pg_hba entry, unknown database
+const NETWORK_CODES = new Set([
+  ...["ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "ENETUNREACH", "EHOSTUNREACH", "EPIPE"],
+  ...["CONNECT_TIMEOUT", "CONNECTION_CLOSED", "CONNECTION_ENDED", "CONNECTION_DESTROYED"],
+  ...["08000", "08001", "08003", "08006", "53300", "57P01", "57P02", "57P03"],
+]);
+
+/**
+ * Sorts a database error into the bucket an operator can fix: DATABASE_URL missing or malformed, host not
+ * reachable (wrong host, IPv6-only direct connection, paused project), credentials rejected, or migrations
+ * not applied. Errors about the query itself (a constraint violation, a syntax error) return null so callers
+ * keep treating them as bugs.
+ */
+export function classifyDbError(e: unknown): DbFailure | null {
+  const code = typeof e === "object" && e !== null && "code" in e ? String((e as { code?: unknown }).code ?? "") : "";
+  if (code === "DB_NOT_CONFIGURED" || code === "ERR_INVALID_URL") return "config";
+  if (SCHEMA_CODES.has(code)) return "schema";
+  if (AUTH_CODES.has(code)) return "auth";
+  if (NETWORK_CODES.has(code)) return "unreachable";
+  const msg = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  if (/password authentication failed|tenant or user not found|no pg_hba\.conf entry/i.test(msg)) return "auth";
+  if (/(relation|table|column) .* does not exist/i.test(msg)) return "schema";
+  if (/timeout|timed out|ECONN|ENOTFOUND|socket hang up|certificate|\bssl\b|\btls\b/i.test(msg)) return "unreachable";
+  return null;
 }
 
 export async function q<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSuperAccess } from "@/lib/auth/session";
 import { getAdminLocale } from "@/components/admin/admin-locale";
-import { ts } from "@/lib/i18n/super";
+import { ts, type SuperUiKey } from "@/lib/i18n/super";
 import { AdminLangToggle } from "@/components/admin/AdminLangToggle";
 import { Field, Input } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -9,13 +9,25 @@ import { superLogin } from "./actions";
 import { sp1, type SearchParams } from "../_lib/guard";
 import { APP_NAME } from "@/lib/config";
 
+/** `?error=` codes produced by superLogin; anything else reads as invalid credentials. */
+const LOGIN_ERRORS: Record<string, SuperUiKey> = {
+  not_super: "not_super",
+  too_many: "too_many",
+  bootstrap: "bootstrap",
+  db_config: "db_config",
+  db_unreachable: "db_unreachable",
+  db_auth: "db_auth",
+  db_schema: "db_schema",
+  server: "server_error",
+};
+
 export default async function SuperLoginPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   if (await getSuperAccess()) redirect("/super");
   const locale = await getAdminLocale();
   const t = (k: Parameters<typeof ts>[1]) => ts(locale, k);
   const error = sp1(sp.error);
-  const errorText = error === "not_super" ? t("not_super") : error === "too_many" ? t("too_many") : error ? t("invalid_login") : "";
+  const errorText = error ? t(LOGIN_ERRORS[error] ?? "invalid_login") : "";
   return (
     <div className="admin flex min-h-dvh flex-col" dir={locale === "ar" ? "rtl" : "ltr"} lang={locale}>
       <div className="flex items-center justify-between px-4 py-3">
