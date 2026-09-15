@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { LText, Locale, SiteData } from "@/lib/types";
 import { lt, t as uiT, dirOf, SITE_UI, type SiteUiKey } from "@/lib/i18n/site";
 import { whatsappLink, telLink } from "@/lib/content/defaults";
-import { FONTS, isFontKey, type FontKey } from "./fonts";
+import { FONTS, isFontKey } from "./fonts";
 import { patternCss, PATTERN_KEYS, type PatternKey } from "./decor/patterns";
 import type { ButtonStyle, DesignTokens, Radius, RenderCtx, TemplateDef } from "./types";
 
@@ -161,10 +161,6 @@ export function tokensToStyle(tokens: DesignTokens): CSSProperties {
     color: tokens.text,
     fontFamily: FONTS[tokens.bodyFont].css,
   } as CSSProperties;
-}
-
-export function fontKeysOf(tokens: DesignTokens): FontKey[] {
-  return [tokens.headingFont, tokens.bodyFont];
 }
 
 /** Site-editable chrome labels (nav, buttons, footer) fall back to the dictionary. */

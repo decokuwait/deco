@@ -117,28 +117,32 @@ export default async function TenantSite({ params }: { params: Promise<{ host: s
   let visitorCode = await getRequestVisitorCode();
   const h = await headers();
 
-  // First visit: create the visitor row synchronously (one insert), so the id printed inside the WhatsApp
+  // First visit: create the visitor row before rendering (one insert), so the id printed inside the WhatsApp
   // message always exists in the database. If the proxy's provisional id collided with another visitor,
-  // a new id is allocated here and the page (links + cookie) uses that one.
+  // a new id is allocated here and the page (links + cookie) uses that one. It runs alongside the content
+  // queries: every awaited round trip here is time the visitor spends on a blank screen.
   const fresh = !!visitorCode && h.get("x-dk-vid-new") === "1";
-  if (visitorCode && fresh) {
-    try {
-      const r = await trackVisit({
-        siteId: site.id,
-        code: visitorCode,
-        fresh: true,
-        landingUrl: siteUrl(host) + (h.get("x-dk-path") || "").replace(/^\//, ""),
-        referrer: h.get("referer"),
-        userAgent: h.get("user-agent"),
-        ip: clientIp(h),
-      });
-      visitorCode = r.visitor.code;
-    } catch (err) {
-      console.error("server-side visit tracking failed", err);
-    }
-  }
+  const visit =
+    visitorCode && fresh
+      ? trackVisit({
+          siteId: site.id,
+          code: visitorCode,
+          fresh: true,
+          landingUrl: siteUrl(host) + (h.get("x-dk-path") || "").replace(/^\//, ""),
+          referrer: h.get("referer"),
+          userAgent: h.get("user-agent"),
+          ip: clientIp(h),
+        }).then(
+          (r) => r.visitor.code,
+          (err: unknown) => {
+            console.error("server-side visit tracking failed", err);
+            return visitorCode;
+          },
+        )
+      : Promise.resolve(visitorCode);
 
-  const [data, pixels] = await Promise.all([getSiteData(site, { publishedOnly: true }), getActivePixels(site.id)]);
+  const [data, pixels, trackedCode] = await Promise.all([getSiteData(site, { publishedOnly: true }), getActivePixels(site.id), visit]);
+  visitorCode = trackedCode;
   const ctx = buildCtx({ site: data, def, locale, visitorCode, preview: false });
   const browserPixels: BrowserPixel[] = pixels.map((p) => ({
     platform: p.platform,

@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
-import { Container, Section, SectionHeading, Stars } from "../../ui/primitives";
+import { Container, Section, SectionHeading, Stars, cx } from "../../ui/primitives";
+import { longTextFont } from "../shared/helpers";
 import { QuoteCarousel } from "../../ui/client/QuoteCarousel";
 import { QuoteGlyph, initialOf } from "./shared";
 
@@ -24,7 +25,7 @@ export function TestimonialsCarousel({ ctx }: SectionProps) {
                   <QuoteGlyph className="h-5 w-5" />
                 </span>
                 <Stars n={it.rating ?? 5} />
-                <blockquote className="mt-5 font-heading text-lg font-semibold leading-relaxed sm:text-2xl">{ctx.text(it.text)}</blockquote>
+                <blockquote className={cx("mt-5 text-lg font-semibold leading-relaxed sm:text-2xl", longTextFont(ctx))}>{ctx.text(it.text)}</blockquote>
                 <figcaption className="mt-8 flex flex-col items-center gap-2">
                   <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary font-heading text-xl font-black text-primary-fg ring-4 ring-accent/30">
                     {initialOf(name)}

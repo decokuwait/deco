@@ -59,12 +59,27 @@ async function shot(browser: Browser, url: string, file: string, viewport: { wid
     await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(OUT, file), fullPage, timeout: 60000 });
     const h = await page.evaluate(() => ({ scrollW: document.documentElement.scrollWidth, clientW: document.documentElement.clientWidth, height: document.documentElement.scrollHeight }));
+    // The template root clips horizontal overflow, so scrollWidth alone cannot tell that a button was pushed
+    // off the screen (a nav whose actions do not fit on a phone). Interactive elements outside the viewport
+    // that are not inside a horizontal scroller are unreachable for the visitor: report them.
+    const offscreen = await page.evaluate(() => {
+      const vw = window.innerWidth;
+      const out: string[] = [];
+      document.querySelectorAll<HTMLElement>("a, button, input, select, textarea, [role=button]").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0 || (r.right <= vw + 1 && r.left >= -1)) return;
+        if (el.closest("[class*=overflow-x-auto],[class*=overflow-auto],[class*=snap-x],[class*=overflow-x-scroll]")) return;
+        const label = (el.innerText || el.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ").slice(0, 30);
+        out.push(`${el.tagName.toLowerCase()} "${label}" left=${Math.round(r.left)} right=${Math.round(r.right)}`);
+      });
+      return out.slice(0, 10);
+    });
     await ctx.close();
-    return { file, url, viewport, errors: errors.filter((e) => !e.includes("fonts.googleapis") && !e.includes("net::ERR") && !e.includes("images.unsplash")), overflowX: h.scrollW > h.clientW + 1, height: h.height };
+    return { file, url, viewport, errors: errors.filter((e) => !e.includes("fonts.googleapis") && !e.includes("net::ERR") && !e.includes("images.unsplash")), overflowX: h.scrollW > h.clientW + 1, offscreen, height: h.height };
   } catch (err) {
     await ctx.close().catch(() => {});
     console.log(`  FAIL ${file}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
-    return { file, url, viewport, errors: [`capture failed: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`], overflowX: false, height: 0 };
+    return { file, url, viewport, errors: [`capture failed: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`], overflowX: false, offscreen: [], height: 0 };
   }
 }
 
@@ -117,8 +132,11 @@ async function main() {
   for (const r of withErrors) console.log(`   ${r.file}: ${r.errors.slice(0, 3).join(" | ")}`);
   console.log(`[shots] pages with horizontal overflow: ${overflow.length}`);
   for (const r of overflow) console.log(`   ${r.file}`);
-  // SHOTS_STRICT=1 turns the visual sweep into a gate: any browser error or horizontal overflow fails the run.
-  if (process.env.SHOTS_STRICT === "1" && (withErrors.length || overflow.length)) {
+  const clipped = results.filter((r) => r.offscreen.length);
+  console.log(`[shots] pages with interactive elements outside the viewport: ${clipped.length}`);
+  for (const r of clipped) console.log(`   ${r.file}: ${r.offscreen.slice(0, 3).join(" | ")}`);
+  // SHOTS_STRICT=1 turns the visual sweep into a gate: any browser error, horizontal overflow or unreachable control fails the run.
+  if (process.env.SHOTS_STRICT === "1" && (withErrors.length || overflow.length || clipped.length)) {
     console.log("[shots] STRICT mode: failing because of the pages listed above");
     process.exit(1);
   }

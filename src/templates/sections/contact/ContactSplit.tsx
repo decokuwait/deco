@@ -43,8 +43,8 @@ export function ContactSplit({ ctx }: SectionProps) {
               {c.phone && (
                 <div>
                   <dt className="text-xs font-bold uppercase tracking-wider text-muted">{ctx.ui("phone")}</dt>
-                  <dd className="mt-1 font-semibold" dir="ltr">
-                    {formatPhone(c.phone)}
+                  <dd className="mt-1 font-semibold">
+                    <span dir="ltr">{formatPhone(c.phone)}</span>
                   </dd>
                 </div>
               )}

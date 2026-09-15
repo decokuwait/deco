@@ -40,7 +40,7 @@ export function NavSplit({ ctx }: SectionProps) {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "hidden sm:inline-flex")}>
+          <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "max-sm:hidden")}>
             <WhatsAppIcon />
             {ctx.ui("whatsapp")}
           </WhatsAppLink>

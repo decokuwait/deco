@@ -28,9 +28,9 @@ export function NavTransparent({ ctx }: SectionProps) {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <VisitorChip ctx={ctx} className="hidden md:inline-flex" />
+          <VisitorChip ctx={ctx} className="max-md:hidden" />
           {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="rounded-full border border-fg/20 px-3 py-1.5 text-xs font-bold hover:bg-fg/5" />}
-          <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "hidden sm:inline-flex")}>
+          <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "max-sm:hidden")}>
             <WhatsAppIcon />
             {ctx.ui("whatsapp")}
           </WhatsAppLink>

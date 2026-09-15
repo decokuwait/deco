@@ -1,5 +1,6 @@
 "use client";
 
+import { responsiveSrc } from "../img";
 import { useCallback, useRef, useState } from "react";
 
 /** Draggable before/after comparison. Works with mouse, touch and keyboard. */
@@ -48,10 +49,10 @@ export function BeforeAfterSlider({
       onPointerCancel={() => (dragging.current = false)}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={after} alt={afterLabel} className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <img src={after} {...responsiveSrc(after)} alt={afterLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
       <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={before} alt={beforeLabel} className="absolute inset-0 h-full max-w-none object-cover" style={{ width: ref.current?.clientWidth || "100%" }} draggable={false} />
+        <img src={before} {...responsiveSrc(before)} alt={beforeLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full max-w-none object-cover" style={{ width: ref.current?.clientWidth || "100%" }} draggable={false} />
       </div>
       <div className="pointer-events-none absolute inset-y-0" style={{ left: `calc(${pos}% - 1px)` }}>
         <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,.2)]" />

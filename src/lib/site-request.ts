@@ -7,14 +7,20 @@ import type { Locale, SiteRecord } from "@/lib/types";
 import { isLocale } from "@/lib/i18n/site";
 import { isValidVisitorCode } from "@/lib/visitor/code";
 
-/** Resolve the tenant site for the current request (server components, route handlers, actions). */
-export const getRequestSite = cache(async (hostParam?: string): Promise<SiteRecord | null> => {
-  const h = await headers();
-  const host = hostParam || h.get("x-dk-host") || h.get("x-forwarded-host") || h.get("host");
+// Keyed by the resolved host, so the root layout (no route param) and the page / metadata / viewport
+// (host param) share one lookup per request instead of each paying a database round trip.
+const siteByHost = cache(async (host: string): Promise<SiteRecord | null> => {
   const info = parseHost(host, ROOT_DOMAIN);
   if (info.kind !== "site") return null;
   return getSiteByHost(info.candidates, info.subdomain);
 });
+
+/** Resolve the tenant site for the current request (server components, route handlers, actions). */
+export async function getRequestSite(hostParam?: string): Promise<SiteRecord | null> {
+  const h = await headers();
+  const host = hostParam || h.get("x-dk-host") || h.get("x-forwarded-host") || h.get("host") || "";
+  return siteByHost(host.trim().toLowerCase());
+}
 
 /** Language of the current request: `?lang=` (forwarded by the proxy as a header) wins over the cookie. */
 export async function getRequestLocale(fallback: Locale = "ar"): Promise<Locale> {

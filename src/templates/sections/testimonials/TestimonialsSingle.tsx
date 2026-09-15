@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
-import { Container, Section, SectionHeading, Stars } from "../../ui/primitives";
+import { Container, Section, SectionHeading, Stars, cx } from "../../ui/primitives";
+import { longTextFont } from "../shared/helpers";
 import { QuoteGlyph, initialOf } from "./shared";
 
 /** One featured testimonial in large heading type on the secondary colour; the rest listed as small chips. */
@@ -16,7 +17,7 @@ export function TestimonialsSingle({ ctx }: SectionProps) {
       <Container className="max-w-4xl text-center">
         <SectionHeading title={ctx.text(t.title)} subtitle={ctx.text(t.subtitle)} light />
         <QuoteGlyph className="mx-auto h-12 w-12 text-accent" />
-        <blockquote className="mt-4 font-heading text-2xl font-bold leading-snug sm:text-3xl lg:text-[2.5rem] lg:leading-tight">{ctx.text(featured.text)}</blockquote>
+        <blockquote className={cx("mt-4 text-2xl font-bold leading-snug sm:text-3xl lg:text-[2.5rem] lg:leading-tight", longTextFont(ctx))}>{ctx.text(featured.text)}</blockquote>
         <div className="mt-8 flex flex-col items-center gap-4">
           <Stars n={featured.rating ?? 5} />
           <div className="flex items-center gap-3">

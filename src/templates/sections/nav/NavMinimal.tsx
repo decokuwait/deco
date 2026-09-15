@@ -15,7 +15,7 @@ export function NavMinimal({ ctx }: SectionProps) {
       <Container wide className="flex h-14 items-center justify-between gap-3">
         <Brand ctx={ctx} size="sm" />
         <div className="flex items-center gap-1.5">
-          <VisitorChip ctx={ctx} className="hidden sm:inline-flex" />
+          <VisitorChip ctx={ctx} className="max-sm:hidden" />
           {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="px-2 py-1 text-xs font-bold text-muted hover:text-fg" />}
           <WhatsAppLink href={ctx.whatsappHref} ariaLabel={ctx.ui("whatsapp")} className={cx("flex h-10 w-10 items-center justify-center rounded-card bg-primary text-primary-fg transition hover:opacity-90")}>
             <WhatsAppIcon />

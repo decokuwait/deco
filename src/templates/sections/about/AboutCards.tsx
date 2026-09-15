@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, Section } from "../../ui/primitives";
+import { Container, Img, Section, cx } from "../../ui/primitives";
+import { longTextFont } from "../shared/helpers";
 import { Icon } from "../../ui/icons";
 
 const POINT_ICONS = ["check", "star", "shield", "gem", "sparkle", "crown", "ruler", "tools"];
@@ -33,7 +34,7 @@ export function AboutCards({ ctx }: SectionProps) {
                   </span>
                   <div>
                     <span className="text-xs font-black tracking-widest text-accent-text tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                    <p className="mt-1 font-heading text-lg font-bold leading-snug">{ctx.text(p)}</p>
+                    <p className={cx("mt-1 text-lg font-bold leading-snug", longTextFont(ctx))}>{ctx.text(p)}</p>
                   </div>
                 </div>
               </li>

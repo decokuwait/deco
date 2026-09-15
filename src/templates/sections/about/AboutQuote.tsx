@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
+import { longTextFont } from "../shared/helpers";
 
 function QuoteMark({ className = "" }: { className?: string }) {
   return (
@@ -32,7 +33,7 @@ export function AboutQuote({ ctx }: SectionProps) {
           )}
           <figure className="relative mt-8">
             <QuoteMark className="pointer-events-none absolute -top-8 start-0 h-16 w-16 text-accent/30 sm:-top-12 sm:h-24 sm:w-24" />
-            <blockquote className="relative font-heading text-2xl font-extrabold leading-[1.55] sm:text-3xl lg:text-4xl">{ctx.text(a.body)}</blockquote>
+            <blockquote className={cx("relative text-2xl font-extrabold leading-[1.55] sm:text-3xl lg:text-4xl", longTextFont(ctx))}>{ctx.text(a.body)}</blockquote>
             <figcaption className="mt-8 flex flex-col items-center gap-2">
               <span aria-hidden className="h-10 w-px bg-accent" />
               <span className="font-heading text-xl font-black text-primary sm:text-2xl">{ctx.text(brand.name)}</span>

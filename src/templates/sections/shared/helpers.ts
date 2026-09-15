@@ -2,6 +2,17 @@ import type { MediaItem, Project, ProjectType } from "@/lib/types";
 import type { RenderCtx, SectionKey } from "../../types";
 import type { LightboxItem } from "../../ui/client/Lightbox";
 import type { ProgressSlide } from "../../ui/client/ProgressSlideshow";
+import { effectiveTokens } from "../../ctx";
+import { isDisplayFont } from "../../fonts";
+
+/**
+ * Font class for long text that a section wants in the heading face (a story quote, a testimonial): the
+ * heading font when it is a text face, the body font when it is a calligraphic / display face that only
+ * works at headline size.
+ */
+export function longTextFont(ctx: RenderCtx): "font-heading" | "font-body" {
+  return isDisplayFont(effectiveTokens(ctx.def, ctx.site).headingFont) ? "font-body" : "font-heading";
+}
 
 export function projectsOf(ctx: RenderCtx, type: ProjectType): Project[] {
   return ctx.site.projects.filter((p) => p.type === type && p.published);

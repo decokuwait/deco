@@ -13,13 +13,13 @@ export function NavClassic({ ctx }: SectionProps) {
   return (
     <header id="top" className="sticky top-0 z-50 border-b border-line bg-bg/85 backdrop-blur">
       <Container className="flex h-16 items-center justify-between gap-4 sm:h-20">
-        <a href="#top" className="flex items-center gap-3">
+        <a href="#top" className="flex min-w-0 items-center gap-3">
           {c.brand.logoUrl ? (
-            <Img src={c.brand.logoUrl} alt={ctx.text(c.brand.name)} className="h-10 w-auto object-contain sm:h-12" eager />
+            <Img src={c.brand.logoUrl} alt={ctx.text(c.brand.name)} className="h-10 w-auto shrink-0 object-contain sm:h-12" eager />
           ) : (
-            <span className="flex h-10 w-10 items-center justify-center rounded-card bg-primary font-heading text-lg font-black text-primary-fg">{ctx.text(c.brand.name).slice(0, 1)}</span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-primary font-heading text-lg font-black text-primary-fg">{ctx.text(c.brand.name).slice(0, 1)}</span>
           )}
-          <span className="font-heading text-lg font-extrabold leading-tight sm:text-xl">{ctx.text(c.brand.name)}</span>
+          <span className="line-clamp-2 font-heading text-base font-extrabold leading-tight sm:text-xl">{ctx.text(c.brand.name)}</span>
         </a>
         <nav className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
@@ -29,9 +29,9 @@ export function NavClassic({ ctx }: SectionProps) {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <VisitorChip ctx={ctx} className="hidden md:inline-flex" />
+          <VisitorChip ctx={ctx} className="max-md:hidden" />
           {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="rounded-card border border-line px-3 py-2 text-xs font-bold hover:bg-surface-2" />}
-          <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "hidden sm:inline-flex")}>
+          <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "max-sm:hidden")}>
             <WhatsAppIcon />
             {ctx.ui("whatsapp")}
           </WhatsAppLink>

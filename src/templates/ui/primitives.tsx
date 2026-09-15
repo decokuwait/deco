@@ -1,3 +1,4 @@
+import { responsiveSrc } from "./img";
 import type { CSSProperties, ReactNode } from "react";
 import type { MediaItem } from "@/lib/types";
 import type { ButtonStyle, RenderCtx } from "../types";
@@ -127,11 +128,11 @@ export function Btn({
   );
 }
 
-export function Img({ src, alt = "", className = "", eager = false, style }: { src?: string | null; alt?: string; className?: string; eager?: boolean; style?: CSSProperties }) {
+export function Img({ src, alt = "", className = "", eager = false, sizes, style }: { src?: string | null; alt?: string; className?: string; eager?: boolean; sizes?: string; style?: CSSProperties }) {
   if (!src) return <div className={cx("bg-surface-2", className)} style={style} aria-hidden />;
   // eslint-disable-next-line @next/next/no-img-element
   // Eager images are the LCP candidates (hero, first cards): tell the browser to fetch them first.
-  return <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className={className} style={style} />;
+  return <img src={src} {...responsiveSrc(src, sizes)} alt={alt} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className={className} style={style} />;
 }
 
 export function Video({ item, className = "", autoPlay = false, controls = true }: { item: Pick<MediaItem, "url" | "posterUrl">; className?: string; autoPlay?: boolean; controls?: boolean }) {

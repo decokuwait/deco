@@ -59,22 +59,17 @@ function mapProject(r: ProjectRow, media: MediaItem[]): Project {
   };
 }
 
+/** Projects with their media in one round trip (the public page renders every published project). */
 export async function listProjects(siteId: string, opts: { type?: ProjectType; publishedOnly?: boolean } = {}): Promise<Project[]> {
-  const rows = await q<ProjectRow>(
-    `select * from projects where site_id = $1 and ($2::text is null or type = $2) and ($3::boolean = false or published = true)
-     order by type, sort_order, created_at`,
+  const rows = await q<ProjectRow & { media: unknown }>(
+    `select p.*,
+       coalesce((select json_agg(m order by m.sort_order, m.created_at) from project_media m where m.project_id = p.id), '[]'::json) as media
+     from projects p
+     where p.site_id = $1 and ($2::text is null or p.type = $2) and ($3::boolean = false or p.published = true)
+     order by p.type, p.sort_order, p.created_at`,
     [siteId, opts.type ?? null, opts.publishedOnly ?? false],
   );
-  if (!rows.length) return [];
-  const ids = rows.map((r) => r.id);
-  const media = await q<MediaRow>(`select * from project_media where project_id = any($1::uuid[]) order by sort_order, created_at`, [ids]);
-  const byProject = new Map<string, MediaItem[]>();
-  for (const m of media) {
-    const arr = byProject.get(m.project_id) ?? [];
-    arr.push(mapMedia(m));
-    byProject.set(m.project_id, arr);
-  }
-  return rows.map((r) => mapProject(r, byProject.get(r.id) ?? []));
+  return rows.map((r) => mapProject(r, parseJson<MediaRow[]>(r.media, []).map(mapMedia)));
 }
 
 export async function getProject(id: string): Promise<(Project & { siteId: string }) | null> {

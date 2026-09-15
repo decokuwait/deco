@@ -22,8 +22,8 @@ export function NavPill({ ctx }: SectionProps) {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <VisitorChip ctx={ctx} className="hidden xl:inline-flex" />
-          {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="hidden rounded-full px-3 py-1.5 text-xs font-bold text-muted hover:text-fg sm:inline-flex" />}
+          <VisitorChip ctx={ctx} className="max-xl:hidden" />
+          {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="max-sm:hidden sm:inline-flex rounded-full px-3 py-1.5 text-xs font-bold text-muted hover:text-fg" />}
           <WhatsAppLink href={ctx.whatsappHref} className={cx("flex h-10 items-center gap-2 rounded-full bg-primary px-3 text-sm font-bold text-primary-fg shadow-md transition hover:-translate-y-0.5 sm:h-11 sm:px-5")}>
             <WhatsAppIcon />
             <span className="hidden sm:inline">{ctx.ui("whatsapp")}</span>

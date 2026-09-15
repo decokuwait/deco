@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Section, SectionHeading, Stars, cx } from "../../ui/primitives";
+import { longTextFont } from "../shared/helpers";
 import { QuoteGlyph, initialOf } from "./shared";
 
 /** Masonry-style wall of quote cards in CSS columns, with varied card sizes and a giant quotation glyph. */
@@ -27,7 +28,7 @@ export function TestimonialsQuoteWall({ ctx }: SectionProps) {
               >
                 <QuoteGlyph className={cx("absolute end-5 top-5 h-8 w-8", feature ? "text-primary-fg/25" : deep ? "text-accent" : "text-accent/50")} />
                 <Stars n={it.rating ?? 5} />
-                <blockquote className={cx("mt-4 leading-relaxed", feature ? "font-heading text-lg font-semibold sm:text-xl" : "text-base")}>{ctx.text(it.text)}</blockquote>
+                <blockquote className={cx("mt-4 leading-relaxed", feature ? cx(longTextFont(ctx), "text-lg font-semibold sm:text-xl") : "text-base")}>{ctx.text(it.text)}</blockquote>
                 <figcaption className="mt-5 flex items-center gap-3">
                   <span
                     className={cx(

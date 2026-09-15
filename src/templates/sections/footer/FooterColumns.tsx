@@ -56,8 +56,8 @@ export function FooterColumns({ ctx }: SectionProps) {
           <ul className="mt-4 space-y-2 text-sm opacity-85">
             {ctx.text(c.contact.address) && <li>{ctx.text(c.contact.address)}</li>}
             {c.contact.phone && (
-              <li dir="ltr" className="text-start">
-                <a href={ctx.telHref} className="hover:text-accent">
+              <li>
+                <a href={ctx.telHref} dir="ltr" className="inline-block hover:text-accent">
                   {formatPhone(c.contact.phone)}
                 </a>
               </li>

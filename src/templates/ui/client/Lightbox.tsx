@@ -1,5 +1,6 @@
 "use client";
 
+import { responsiveSrc } from "../img";
 import { useEffect, useState, type ReactNode } from "react";
 
 export interface LightboxItem {
@@ -68,7 +69,7 @@ export function Gallery({
               <video src={cur.url} poster={cur.posterUrl || undefined} controls autoPlay playsInline className="max-h-[80vh] w-auto max-w-full rounded-lg" />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cur.url} alt={cur.caption || ""} className="max-h-[80vh] w-auto max-w-full rounded-lg object-contain" />
+              <img src={cur.url} {...responsiveSrc(cur.url, "100vw")} alt={cur.caption || ""} decoding="async" className="max-h-[80vh] w-auto max-w-full rounded-lg object-contain" />
             )}
             {cur.caption && <figcaption className="mt-3 text-center text-sm text-white/80">{cur.caption}</figcaption>}
             <div className="mt-2 text-center text-xs text-white/60">

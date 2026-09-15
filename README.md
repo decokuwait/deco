@@ -74,7 +74,7 @@ npm run typecheck   # tsc
 npm test            # vitest: routing, attribution, marketing payloads, database (PGlite), registry, rendering of all 60 templates
 npm run build && npm run smoke   # boots the production build and exercises pages, tenant routing, tracking APIs, robots/sitemap, auth guards, admin pages
 npm run e2e         # Playwright: real browser flows (visitor id + WhatsApp click, admin login, stage marking with signal delivery, content/list editors, project + media upload, pixels, settings, super admin site creation, template switch, domains, users)
-npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; SHOTS_STRICT=1 fails on browser errors / horizontal overflow, SHOTS_ONLY=101,207 samples; `tsx scripts/contact-sheet.ts` builds per-category contact sheets
+npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; SHOTS_STRICT=1 fails on browser errors / horizontal overflow / controls pushed outside the viewport, SHOTS_ONLY=101,207 samples; `tsx scripts/contact-sheet.ts` builds per-category contact sheets
 npm run thumbs      # gallery thumbnails (public/templates) from the screenshots
 npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .github/workflows/ci.yml, which also runs a strict screenshot sample and the database suites against a real Postgres)
 ```
@@ -121,9 +121,11 @@ and security suites against a real Postgres (the CI `postgres` job does this and
    existing MX/TXT records over first). With the wildcard domain on the project, every site slug created
    in super admin resolves immediately. When `VERCEL_TOKEN` / `VERCEL_PROJECT_ID` (/ `VERCEL_TEAM_ID`) are
    set, the platform also registers each subdomain and custom domain with the Vercel project through the API.
-3b. **Function region:** in the Vercel project settings (Functions → region) pick the region closest to
-   the Supabase project (for example `fra1` for eu-central-1, `bom1` for ap-south-1) so every page render
-   pays one short database round trip instead of a transatlantic one.
+3b. **Function region:** `vercel.json` pins the functions to `bom1` (Mumbai), next to a Supabase project in
+   `ap-south-1`; a tenant page needs a few database round trips, and from the default `iad1` each one costs
+   ~190 ms instead of ~2 ms. If the Supabase project lives elsewhere, change `regions` to the matching
+   Vercel region (`fra1` for eu-central-1, `sin1` for ap-southeast-1 ...). `/api/health` reports the
+   function region, the database region and the measured latency, so a mismatch is visible at once.
 4. **Custom domains (manual DNS):** add the domain in super admin → site → domains (type it with or
    without `www.`; it is stored as the apex and `www.` redirects to it). The panel shows the records the
    owner must configure: for an apex such as `company.com` or `company.com.kw` an `A @` record plus a
@@ -147,6 +149,7 @@ revocable tokens stored in the database, so no external auth provider is require
 * Uploads are restricted to images/videos (SVG refused), size-capped, and keys are validated; the local
   disk fallback is disabled on Vercel.
 * Admin and super admin pages send `X-Frame-Options: DENY` / `frame-ancestors 'none'` (clickjacking); public sites stay embeddable for the platform preview.
+* Template fonts are self-hosted through `next/font` (built into the deployment at build time): a visitor makes no request to Google Fonts and the page never waits on a third-party stylesheet.
 
 ### Marketing credentials per platform
 | Platform | Needed in admin → marketing |

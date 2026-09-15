@@ -24,9 +24,9 @@ export function NavBoxed({ ctx }: SectionProps) {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <VisitorChip ctx={ctx} className="hidden xl:inline-flex" />
+            <VisitorChip ctx={ctx} className="max-xl:hidden" />
             {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="rounded-card border border-line px-3 py-2 text-xs font-bold hover:bg-surface-2" />}
-            <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "hidden sm:inline-flex")}>
+            <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "max-sm:hidden")}>
               <WhatsAppIcon />
               {ctx.ui("whatsapp")}
             </WhatsAppLink>

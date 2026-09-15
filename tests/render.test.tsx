@@ -37,10 +37,28 @@ describe("template rendering", () => {
       expect(html, `${def.code}/${locale} progress step label`).toContain(firstStep);
       // before/after labels present
       expect(html).toContain(locale === "ar" ? "قبل" : "Before");
-      // fonts link
-      expect(html).toContain("fonts.googleapis.com/css2");
+      // fonts are self-hosted: no third-party stylesheet
+      expect(html).not.toContain("fonts.googleapis.com");
       expect(html).not.toContain("undefined");
       expect(html).not.toContain("[object Object]");
+    }
+  });
+
+  // Tailwind v4 orders single-property utilities alphabetically, so `hidden` (display:none) loses to any
+  // later display utility on the same element: `inline-flex hidden md:inline-flex` never hides. Such an
+  // element stays visible on phones and pushes its neighbours off the screen. Hide with `max-md:hidden`.
+  it.each(TEMPLATES.map((t) => [t.code, t] as const))("template %s never pairs `hidden` with a stronger display utility", (_code, def) => {
+    const inlineFamily = new Set(["inline", "inline-block", "inline-flex", "inline-grid", "inline-table", "table", "table-cell", "table-row"]);
+    for (const locale of LOCALES) {
+      const site = previewSiteData(def);
+      const ctx = buildCtx({ site, def, locale, visitorCode: "654321", preview: true });
+      const html = renderToStaticMarkup(<TemplateRenderer ctx={ctx} />);
+      for (const m of html.matchAll(/class="([^"]*)"/g)) {
+        const tokens = m[1].split(/\s+/).filter((t) => t && !t.includes(":"));
+        if (!tokens.includes("hidden")) continue;
+        const clash = tokens.filter((t) => inlineFamily.has(t));
+        expect(clash, `${def.code}/${locale}: "${m[1]}" combines hidden with ${clash.join(", ")}`).toEqual([]);
+      }
     }
   });
 
