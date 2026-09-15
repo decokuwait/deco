@@ -107,6 +107,16 @@ describe("sites, domains, members", () => {
     expect(s2?.content.brand.name.ar).not.toBe(""); // untouched
     await updateSite(siteId, { status: "active" });
   });
+  // PGlite’s now() only ticks in milliseconds, so a JS Date round-trip happens to match there; real
+  // Postgres stores microseconds and the truncated Date never matches the row again. Force a microsecond
+  // timestamp so both backends exercise what production does.
+  it("patches content when the row carries a microsecond updated_at", async () => {
+    await q(`update sites set updated_at = $2::timestamptz where id = $1`, [siteId, "2026-01-02 03:04:05.264891+00"]);
+    await patchSiteContent(siteId, { contact: { phone: "96512345678" } });
+    const s = await getSiteById(siteId);
+    expect(s?.content.contact.phone).toBe("96512345678");
+    expect(s?.content.contact.whatsapp).toBe("96511111111"); // untouched by the patch
+  });
   it("manages members", async () => {
     const u = await createUser({ email: "admin@site.com", password: "Pass1!" });
     expect(u.isSuper).toBe(false);
@@ -141,6 +151,10 @@ describe("projects & media", () => {
     const upd = await getProject(projectId);
     expect(upd?.media.find((m) => m.id === m1.id)?.caption?.en).toBe("Caption");
     expect(upd?.media.find((m) => m.id === m1.id)?.stepDate).toBeNull();
+    await q(`update project_media set created_at = $2::timestamptz where id = $1`, [m2.id, "2026-01-02 03:04:05.264891+00"]);
+    await q(`update project_media set created_at = $2::timestamptz where id = $1`, [m1.id, "2026-01-02 03:04:06.135794+00"]);
+    await moveMedia(m2.id, "down");
+    expect((await getProject(projectId))?.media.map((m) => m.id)).toEqual([m1.id, m2.id]);
     await deleteMedia(m1.id);
     expect((await getProject(projectId))?.media.length).toBe(1);
   });
@@ -152,6 +166,12 @@ describe("projects & media", () => {
     await updateProject(b.id, { published: true, coverUrl: "https://x/c.jpg" });
     await moveProject(b.id, "up");
     expect((await listProjects(siteId, { type: "finished" })).map((p) => p.id)).toEqual([b.id, a.id]);
+    // Same microsecond hazard as the site patch: a truncated created_at sorts before the row itself, so a
+    // "down" move would pick the row as its own neighbour instead of swapping with the next one.
+    await q(`update projects set created_at = $2::timestamptz where id = $1`, [b.id, "2026-01-02 03:04:05.264891+00"]);
+    await q(`update projects set created_at = $2::timestamptz where id = $1`, [a.id, "2026-01-02 03:04:06.135794+00"]);
+    await moveProject(b.id, "down");
+    expect((await listProjects(siteId, { type: "finished" })).map((p) => p.id)).toEqual([a.id, b.id]);
     const counts = await countProjects(siteId);
     expect(counts.finished).toBe(2);
     expect(counts.progress).toBe(1);

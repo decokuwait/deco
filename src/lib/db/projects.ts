@@ -1,4 +1,4 @@
-import { q, one, iso, json, parseJson } from "./client";
+import { q, one, json, parseJson } from "./client";
 import type { LText, MediaItem, MediaKind, MediaRole, Project, ProjectType } from "@/lib/types";
 
 interface ProjectRow {
@@ -144,13 +144,16 @@ export async function deleteProject(id: string) {
  * (sort_order, created_at) and swaps both rows in one statement; equal sort_orders are split apart.
  */
 export async function moveProject(id: string, direction: "up" | "down") {
-  const p = await one<ProjectRow & { created_at: unknown }>(`select * from projects where id = $1`, [id]);
+  // created_at is read back as text: the driver hands timestamps over as JS Date objects (milliseconds),
+  // while Postgres stores microseconds. A truncated value sorts *before* the row itself, so a "down" move
+  // would find the row as its own neighbour and shuffle its sort_order instead of swapping with the next one.
+  const p = await one<ProjectRow & { created_at_text: string }>(`select *, created_at::text as created_at_text from projects where id = $1`, [id]);
   if (!p) return;
-  const neighbor = await one<ProjectRow & { created_at: unknown }>(
+  const neighbor = await one<ProjectRow>(
     direction === "up"
       ? `select * from projects where site_id = $1 and type = $2 and (sort_order, created_at) < ($3, $4::timestamptz) order by sort_order desc, created_at desc limit 1`
       : `select * from projects where site_id = $1 and type = $2 and (sort_order, created_at) > ($3, $4::timestamptz) order by sort_order asc, created_at asc limit 1`,
-    [p.site_id, p.type, p.sort_order, iso(p.created_at)],
+    [p.site_id, p.type, p.sort_order, p.created_at_text],
   );
   if (!neighbor) return;
   const [mine, theirs] = p.sort_order === neighbor.sort_order ? (direction === "up" ? [neighbor.sort_order - 1, p.sort_order] : [neighbor.sort_order + 1, p.sort_order]) : [neighbor.sort_order, p.sort_order];
@@ -222,13 +225,14 @@ export async function getMedia(id: string): Promise<(MediaItem & { projectId: st
 
 /** Moves a media item one step within its project (same total order as the listing; single-statement swap). */
 export async function moveMedia(id: string, direction: "up" | "down") {
-  const m = await one<MediaRow & { created_at: unknown }>(`select * from project_media where id = $1`, [id]);
+  // Full-precision created_at, for the same reason as moveProject.
+  const m = await one<MediaRow & { created_at_text: string }>(`select *, created_at::text as created_at_text from project_media where id = $1`, [id]);
   if (!m) return;
-  const neighbor = await one<MediaRow & { created_at: unknown }>(
+  const neighbor = await one<MediaRow>(
     direction === "up"
       ? `select * from project_media where project_id = $1 and (sort_order, created_at) < ($2, $3::timestamptz) order by sort_order desc, created_at desc limit 1`
       : `select * from project_media where project_id = $1 and (sort_order, created_at) > ($2, $3::timestamptz) order by sort_order asc, created_at asc limit 1`,
-    [m.project_id, m.sort_order, iso(m.created_at)],
+    [m.project_id, m.sort_order, m.created_at_text],
   );
   if (!neighbor) return;
   const [mine, theirs] = m.sort_order === neighbor.sort_order ? (direction === "up" ? [neighbor.sort_order - 1, m.sort_order] : [neighbor.sort_order + 1, m.sort_order]) : [neighbor.sort_order, m.sort_order];

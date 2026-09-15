@@ -119,11 +119,14 @@ export async function setSiteContent(id: string, content: SiteContent): Promise<
  */
 export async function patchSiteContent(id: string, patch: unknown): Promise<SiteRecord | null> {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const row = await one<SiteRow>(`select * from sites where id = $1`, [id]);
+    // updated_at is read back as text: the driver represents timestamps as JS Date objects, which carry
+    // only milliseconds, while Postgres stores microseconds. Comparing against a Date would never match the
+    // row again, so every attempt would fail and the patch would always end in "concurrent_update".
+    const row = await one<SiteRow & { updated_at_text: string }>(`select *, updated_at::text as updated_at_text from sites where id = $1`, [id]);
     if (!row) return null;
     const current = normalizeContent(parseJson(row.content, {}));
     const merged = deepMerge(current, patch);
-    const updated = await one<SiteRow>(`update sites set content = $2::jsonb, updated_at = now() where id = $1 and updated_at = $3::timestamptz returning *`, [id, json(merged), iso(row.updated_at)]);
+    const updated = await one<SiteRow>(`update sites set content = $2::jsonb, updated_at = now() where id = $1 and updated_at = $3::timestamptz returning *`, [id, json(merged), row.updated_at_text]);
     if (updated) return mapSite(updated);
   }
   throw new Error("concurrent_update");

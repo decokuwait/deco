@@ -186,6 +186,11 @@ export async function one<T = Record<string, unknown>>(text: string, params: unk
   return rows[0] ?? null;
 }
 
+/**
+ * Timestamp as an ISO string for output (API responses, rendering). Lossy: the drivers hand timestamps
+ * over as JS Date objects, which hold milliseconds, while Postgres stores microseconds. Never feed the
+ * result back into a query that compares a timestamp — select `col::text` and pass that instead.
+ */
 export function iso(v: unknown): string {
   if (v instanceof Date) return v.toISOString();
   if (typeof v === "string") return v;
