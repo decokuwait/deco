@@ -54,6 +54,11 @@ async function s3() {
     region: "auto",
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
     credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID!, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY! },
+    // Since v3.729 the SDK signs a CRC32 of the request body into every PutObject by default. A presigned
+    // URL is signed with no body, so it carries the checksum of *nothing* (x-amz-checksum-crc32=AAAAAA==)
+    // and the real upload is rejected by the bucket. Only send checksums when an operation requires them.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
 }
 
@@ -69,11 +74,18 @@ export interface StorageStatus {
 
 // A bucket policy changes rarely, and the upload route consults it on every request: remember the
 // verdict per origin for a few minutes so an upload never waits on a second round trip to Cloudflare.
-const corsCache = new Map<string, { verdict: "ok" | "missing" | "unreachable"; at: number }>();
+const corsCache = new Map<string, { verdict: CorsVerdict; at: number }>();
 const CORS_TTL_MS = 5 * 60_000;
 
+type CorsVerdict = "ok" | "missing" | "unreachable";
+
+/** Test helper: forget the cached CORS verdicts. */
+export function resetStorageChecks() {
+  corsCache.clear();
+}
+
 /** Does the bucket answer a browser preflight for a presigned PUT from `origin`? */
-async function corsCheck(origin: string): Promise<"ok" | "missing" | "unreachable"> {
+async function corsCheck(origin: string): Promise<CorsVerdict> {
   const hit = corsCache.get(origin);
   if (hit && Date.now() - hit.at < CORS_TTL_MS) return hit.verdict;
   const verdict = await probeCors(origin);
@@ -83,10 +95,12 @@ async function corsCheck(origin: string): Promise<"ok" | "missing" | "unreachabl
   return verdict;
 }
 
-async function probeCors(origin: string): Promise<"ok" | "missing" | "unreachable"> {
-  const url = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET}/cors-preflight-probe`;
+async function probeCors(origin: string): Promise<CorsVerdict> {
   try {
-    const res = await fetch(url, {
+    // Preflight the very URL a browser would be handed. The SDK addresses the bucket as a subdomain, so
+    // guessing a path-style URL here would test a different host than the upload actually uses.
+    const target = await presignPut(`health/cors-preflight-probe`, "image/png", 1);
+    const res = await fetch(target.uploadUrl, {
       method: "OPTIONS",
       headers: { origin, "access-control-request-method": "PUT", "access-control-request-headers": "content-type" },
       signal: AbortSignal.timeout(6000),
@@ -98,16 +112,11 @@ async function probeCors(origin: string): Promise<"ok" | "missing" | "unreachabl
 }
 
 /**
- * Whether media uploads can work here, checked the way the browser performs them. The three ways this is
- * silently broken in production all look identical in the admin panel (an opaque network error), so each
- * one is named here instead: no bucket at all, a bucket whose public URL is missing (uploaded files would
- * be stored with a URL that 404s), and a bucket whose CORS policy blocks the presigned PUT.
+ * Whether media uploads can work here, checked the way the browser performs them. The ways this breaks in
+ * production all look identical in the admin panel (an opaque network error), so each one is named here
+ * instead: no bucket at all, a bucket whose public URL is missing (uploaded files would be stored with a
+ * URL that 404s), and a bucket whose CORS policy blocks the presigned PUT.
  */
-/** Test helper: forget the cached CORS verdicts. */
-export function resetStorageChecks() {
-  corsCache.clear();
-}
-
 export async function storageStatus(origin: string | null): Promise<StorageStatus> {
   if (!r2Configured()) {
     // Serverless file systems are read-only, so the local-disk fallback cannot stand in on Vercel.
@@ -126,6 +135,44 @@ export async function storageStatus(origin: string | null): Promise<StorageStatu
   };
 }
 
+/** Presigned PUT for one object; the browser sends exactly these headers, which are part of the signature. */
+async function presignPut(key: string, contentType: string, size: number): Promise<Extract<UploadTarget, { mode: "put" }>> {
+  const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+  const client = await s3();
+  // ContentLength is part of the signature, so R2 rejects uploads larger than what was approved.
+  const cmd = new PutObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key, ContentType: contentType, ContentLength: size });
+  const uploadUrl = await getSignedUrl(client, cmd, { expiresIn: 60 * 10, signableHeaders: new Set(["content-type", "content-length"]) });
+  return { mode: "put", uploadUrl, publicUrl: publicUrlFor(key), key, headers: { "Content-Type": contentType, "Content-Length": String(size) } };
+}
+
+export interface UploadProbe {
+  ok: boolean;
+  status: number | null;
+  /** First line of the bucket error, or the network error, when the upload failed. */
+  error: string | null;
+}
+
+/**
+ * Performs one real presigned PUT from the server and deletes the object again. No browser and no CORS
+ * are involved, so a failure here is the bucket rejecting what our own code signs (credentials, bucket
+ * name, signature, checksum parameters) — the same rejection a site admin would see as "connection lost".
+ */
+export async function uploadProbe(): Promise<UploadProbe> {
+  if (!r2Configured()) return { ok: false, status: null, error: "r2_not_configured" };
+  const body = Buffer.from("ok");
+  const key = `health/probe-${randomUUID()}.png`;
+  try {
+    const target = await presignPut(key, "image/png", body.length);
+    const res = await fetch(target.uploadUrl, { method: "PUT", headers: target.headers, body, signal: AbortSignal.timeout(10_000) });
+    const text = res.ok ? "" : (await res.text().catch(() => "")).replace(/s+/g, " ").slice(0, 200);
+    if (res.ok) await deleteObject(key).catch(() => undefined);
+    return { ok: res.ok, status: res.status, error: res.ok ? null : text || res.statusText };
+  } catch (e) {
+    return { ok: false, status: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function createUploadTarget(input: { siteId: string; filename: string; contentType: string; size?: number }): Promise<UploadTarget> {
   if (!ALLOWED_TYPES.has(input.contentType)) throw new Error("unsupported_type");
   const isVideo = input.contentType.startsWith("video/");
@@ -133,15 +180,7 @@ export async function createUploadTarget(input: { siteId: string; filename: stri
   if (!Number.isInteger(size) || size <= 0) throw new Error("size_required");
   if (size > (isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES)) throw new Error("too_large");
   const key = buildKey(input.siteId, input.filename);
-  if (r2Configured()) {
-    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
-    const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
-    const client = await s3();
-    // ContentLength is part of the signature, so R2 rejects uploads larger than what was approved.
-    const cmd = new PutObjectCommand({ Bucket: process.env.R2_BUCKET!, Key: key, ContentType: input.contentType, ContentLength: size });
-    const uploadUrl = await getSignedUrl(client, cmd, { expiresIn: 60 * 10, signableHeaders: new Set(["content-type", "content-length"]) });
-    return { mode: "put", uploadUrl, publicUrl: publicUrlFor(key), key, headers: { "Content-Type": input.contentType, "Content-Length": String(size) } };
-  }
+  if (r2Configured()) return presignPut(key, input.contentType, size);
   // Local disk is only a development convenience; serverless file systems are ephemeral and read-only.
   if (process.env.VERCEL) throw new Error("storage_not_configured");
   return { mode: "post", uploadUrl: `/api/upload/local?key=${encodeURIComponent(key)}`, publicUrl: publicUrlFor(key), key };

@@ -29,7 +29,7 @@ describe("storage readiness", () => {
   });
 
   it("reports the CORS verdict for the origin the admin panel runs on", async () => {
-    Object.assign(process.env, R2, { R2_PUBLIC_URL: "https://pub-x.r2.dev" });
+    Object.assign(process.env, { R2_ACCOUNT_ID: "0123456789abcdef0123456789abcdef", R2_ACCESS_KEY_ID: "AKIAFAKEFAKEFAKEFAKE", R2_SECRET_ACCESS_KEY: "fakefakefakefakefakefakefakefakefakefake", R2_BUCKET: "bucket", R2_PUBLIC_URL: "https://pub-x.r2.dev" });
     const calls: { url: string; init: RequestInit }[] = [];
     const real = globalThis.fetch;
     globalThis.fetch = (async (url: string | URL | Request, init: RequestInit = {}) => {
@@ -39,7 +39,9 @@ describe("storage readiness", () => {
     let allow = true;
     try {
       expect(await storageStatus("https://demo.example.com")).toMatchObject({ backend: "r2", ok: true, cors: "ok", problem: null });
-      expect(calls[0].url).toBe("https://acc.r2.cloudflarestorage.com/bucket/cors-preflight-probe");
+      // The preflight must go to the host the browser will PUT to, which the SDK addresses as a subdomain.
+      expect(new URL(calls[0].url).host).toBe("bucket.0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com");
+      expect(new URL(calls[0].url).pathname).toBe("/health/cors-preflight-probe");
       expect(calls[0].init.method).toBe("OPTIONS");
       expect((calls[0].init.headers as Record<string, string>).origin).toBe("https://demo.example.com");
       allow = false;
@@ -59,6 +61,27 @@ describe("storage readiness", () => {
     } finally {
       globalThis.fetch = real;
     }
+  });
+});
+
+describe("presigned R2 uploads", () => {
+  afterEach(() => {
+    for (const k of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_PUBLIC_URL"]) delete process.env[k];
+  });
+
+  // Signing is offline, so fake credentials are enough to see exactly what the browser would send.
+  it("signs only the headers the browser sends, with no SDK checksum parameters", async () => {
+    Object.assign(process.env, { R2_ACCOUNT_ID: "0123456789abcdef0123456789abcdef", R2_ACCESS_KEY_ID: "AKIAFAKEFAKEFAKEFAKE", R2_SECRET_ACCESS_KEY: "fakefakefakefakefakefakefakefakefakefake", R2_BUCKET: "decokuwait", R2_PUBLIC_URL: "https://pub-x.r2.dev" });
+    const t = await createUploadTarget({ siteId: SITE, filename: "logo.png", contentType: "image/png", size: 12345 });
+    expect(t.mode).toBe("put");
+    const u = new URL(t.uploadUrl);
+    expect(u.host).toBe("decokuwait.0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com");
+    expect(u.searchParams.get("X-Amz-SignedHeaders")).toBe("content-length;content-type;host");
+    // The SDK default since v3.729 adds a body checksum to PutObject; for a presigned URL that is the CRC32
+    // of an empty body, and the bucket rejects the real file against it. Any such parameter is a regression.
+    for (const k of u.searchParams.keys()) expect(k.toLowerCase(), `unexpected query parameter ${k}`).not.toMatch(/checksum/);
+    expect(t.publicUrl).toBe(`https://pub-x.r2.dev/${t.key}`);
+    expect(t.mode === "put" && t.headers).toEqual({ "Content-Type": "image/png", "Content-Length": "12345" });
   });
 });
 
