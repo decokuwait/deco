@@ -5,6 +5,7 @@ import { Card, PageHeader, Flash, Field, Input, Select, Toggle, BilingualInput, 
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { Uploader } from "@/components/admin/Uploader";
+import { uploadErrorLabels } from "@/lib/i18n/admin";
 import { getProject } from "@/lib/db/projects";
 import type { MediaRole, ProjectType } from "@/lib/types";
 import { addMediaAction, deleteProjectAction, saveMediaAction, saveProject } from "./actions";
@@ -64,7 +65,7 @@ export default async function EditProjectPage({ params, searchParams }: { params
             <BilingualInput name="description" value={project.description} label={t("description")} textarea />
             <BilingualInput name="location" value={project.location ?? null} label={t("location")} />
             <Field label={t("cover")}>
-              <Uploader name="coverUrl" siteId={site.id} value={project.coverUrl ?? ""} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
+              <Uploader name="coverUrl" siteId={site.id} value={project.coverUrl ?? ""} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} errorLabels={uploadErrorLabels(t)} />
             </Field>
             <Toggle name="published" defaultChecked={project.published} label={t("published")} hint={t("published_hint")} />
           </div>
@@ -118,7 +119,7 @@ export default async function EditProjectPage({ params, searchParams }: { params
                           )}
                           {m.kind === "video" && (
                             <Field label={t("poster")}>
-                              <Uploader name="posterUrl" siteId={site.id} value={m.posterUrl ?? ""} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
+                              <Uploader name="posterUrl" siteId={site.id} value={m.posterUrl ?? ""} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} errorLabels={uploadErrorLabels(t)} />
                             </Field>
                           )}
                         </div>
@@ -151,15 +152,15 @@ export default async function EditProjectPage({ params, searchParams }: { params
           <form action={addMedia} className="grid gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("image")}>
-                <Uploader name="imageUrl" siteId={site.id} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
+                <Uploader name="imageUrl" siteId={site.id} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} errorLabels={uploadErrorLabels(t)} />
               </Field>
               <Field label={t("video")} hint={t("poster")}>
-                <Uploader name="videoUrl" siteId={site.id} kind="video" accept="video/*" label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
+                <Uploader name="videoUrl" siteId={site.id} kind="video" accept="video/*" label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} errorLabels={uploadErrorLabels(t)} />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("poster")} hint={t("optional")}>
-                <Uploader name="posterUrl" siteId={site.id} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
+                <Uploader name="posterUrl" siteId={site.id} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} errorLabels={uploadErrorLabels(t)} />
               </Field>
               <div className="grid gap-3">
                 <Field label={t("role")}>

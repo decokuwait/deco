@@ -1,8 +1,62 @@
 import { afterEach, describe, expect, it } from "vitest";
 import path from "node:path";
-import { createUploadTarget, keyFromUrl, localPathFor, safeFilename, buildKey, ALLOWED_TYPES, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/storage";
+import { createUploadTarget, keyFromUrl, localPathFor, safeFilename, buildKey, storageStatus, resetStorageChecks, ALLOWED_TYPES, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/storage";
 
 const SITE = "11111111-2222-3333-4444-555555555555";
+
+describe("storage readiness", () => {
+  const R2 = { R2_ACCOUNT_ID: "acc", R2_ACCESS_KEY_ID: "key", R2_SECRET_ACCESS_KEY: "secret", R2_BUCKET: "bucket" };
+  afterEach(() => {
+    for (const k of [...Object.keys(R2), "VERCEL", "R2_PUBLIC_URL"]) delete process.env[k];
+    resetStorageChecks();
+  });
+
+  it("accepts the local-disk fallback in development and refuses it on Vercel", async () => {
+    expect(await storageStatus(null)).toMatchObject({ backend: "local", ok: true, problem: null });
+    process.env.VERCEL = "1";
+    const onVercel = await storageStatus(null);
+    expect(onVercel.ok).toBe(false);
+    expect(onVercel.problem).toContain("R2 is not configured");
+  });
+
+  // The public URL is what gets written into the database with every uploaded file: without it the admin
+  // panel appears to work and every saved image 404s afterwards, which is worse than refusing the upload.
+  it("refuses an R2 bucket with no public URL", async () => {
+    Object.assign(process.env, R2);
+    const s = await storageStatus(null);
+    expect(s).toMatchObject({ backend: "r2", ok: false, cors: null });
+    expect(s.problem).toContain("R2_PUBLIC_URL");
+  });
+
+  it("reports the CORS verdict for the origin the admin panel runs on", async () => {
+    Object.assign(process.env, R2, { R2_PUBLIC_URL: "https://pub-x.r2.dev" });
+    const calls: { url: string; init: RequestInit }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request, init: RequestInit = {}) => {
+      calls.push({ url: String(url), init });
+      return new Response(null, { status: 200, headers: allow ? { "access-control-allow-origin": "*" } : {} });
+    }) as typeof fetch;
+    let allow = true;
+    try {
+      expect(await storageStatus("https://demo.example.com")).toMatchObject({ backend: "r2", ok: true, cors: "ok", problem: null });
+      expect(calls[0].url).toBe("https://acc.r2.cloudflarestorage.com/bucket/cors-preflight-probe");
+      expect(calls[0].init.method).toBe("OPTIONS");
+      expect((calls[0].init.headers as Record<string, string>).origin).toBe("https://demo.example.com");
+      allow = false;
+      resetStorageChecks();
+      const blocked = await storageStatus("https://demo.example.com");
+      expect(blocked).toMatchObject({ ok: false, cors: "missing" });
+      expect(blocked.problem).toContain("https://demo.example.com");
+      globalThis.fetch = (() => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
+      resetStorageChecks();
+      expect(await storageStatus("https://demo.example.com")).toMatchObject({ ok: true, cors: "unreachable" });
+      // A transient failure is never cached as the bucket policy: the next call probes again.
+      expect(calls.length).toBe(2);
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+});
 
 describe("upload validation", () => {
   afterEach(() => {

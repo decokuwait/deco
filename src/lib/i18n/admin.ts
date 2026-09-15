@@ -343,12 +343,26 @@ export const ADMIN_UI = {
   err_too_large: { ar: "الملف كبير جداً (الحد 15 م.ب للصور و300 م.ب للفيديو)", en: "File too large (limit 15 MB for images, 300 MB for videos)" },
   err_network: { ar: "انقطع الاتصال، حاول مرة أخرى", en: "Connection lost, please try again" },
   err_storage_not_configured: { ar: "التخزين غير مضبوط (Cloudflare R2)", en: "Storage is not configured (Cloudflare R2)" },
+  err_storage_cors: { ar: "التخزين يرفض الرفع من هذا النطاق: أضف سياسة CORS إلى حاوية R2 (تسمح بـ PUT).", en: "Storage blocks uploads from this domain: add a CORS policy allowing PUT to the R2 bucket." },
+  err_storage_public_url: { ar: "المتغير R2_PUBLIC_URL غير مضبوط على الخادم، لذلك لا يمكن حفظ الملفات المرفوعة.", en: "R2_PUBLIC_URL is not set on the server, so uploaded files could not be saved." },
   err_not_found: { ar: "العنصر غير موجود", en: "Item not found" },
   err_media_required: { ar: "ارفع صورة أو فيديو أولاً", en: "Upload an image or a video first" },
   err_title_required: { ar: "العنوان مطلوب", en: "Title is required" },
 } satisfies Record<string, LText>;
 
 export type AdminUiKey = keyof typeof ADMIN_UI;
+
+/** Messages for the error codes an upload can fail with, so the panel never shows a bare code. */
+export function uploadErrorLabels(t: (key: AdminUiKey) => string): Record<string, string> {
+  return {
+    network: t("err_network"),
+    unsupported_type: t("err_unsupported_type"),
+    too_large: t("err_too_large"),
+    storage_not_configured: t("err_storage_not_configured"),
+    storage_cors: t("err_storage_cors"),
+    storage_public_url: t("err_storage_public_url"),
+  };
+}
 
 export function ta(locale: Locale, key: AdminUiKey): string {
   return ADMIN_UI[key][locale];

@@ -52,6 +52,7 @@ export function Uploader({
   uploadingLabel,
   removeLabel,
   kind = "image",
+  errorLabels,
   onUploaded,
 }: {
   name: string;
@@ -62,6 +63,8 @@ export function Uploader({
   uploadingLabel: string;
   removeLabel?: string;
   kind?: "image" | "video";
+  /** Error code -> message, from uploadErrorLabels(t); an unknown code is shown as-is. */
+  errorLabels?: Record<string, string>;
   onUploaded?: (url: string) => void;
 }) {
   const [url, setUrl] = useState(value || "");
@@ -97,7 +100,8 @@ export function Uploader({
       setUrl(target.publicUrl);
       onUploaded?.(target.publicUrl);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "error");
+      const code = e instanceof Error ? e.message : "error";
+      setError(errorLabels?.[code] ?? code);
     } finally {
       setBusy(false);
     }

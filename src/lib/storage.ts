@@ -57,6 +57,74 @@ async function s3() {
   });
 }
 
+export interface StorageStatus {
+  backend: "r2" | "local";
+  /** Whether a site admin could actually upload a file in this deployment. */
+  ok: boolean;
+  /** What an operator has to fix, when uploads cannot work. */
+  problem: string | null;
+  /** Whether the bucket lets a browser on `origin` run the presigned PUT (R2 only). */
+  cors: "ok" | "missing" | "unreachable" | null;
+}
+
+// A bucket policy changes rarely, and the upload route consults it on every request: remember the
+// verdict per origin for a few minutes so an upload never waits on a second round trip to Cloudflare.
+const corsCache = new Map<string, { verdict: "ok" | "missing" | "unreachable"; at: number }>();
+const CORS_TTL_MS = 5 * 60_000;
+
+/** Does the bucket answer a browser preflight for a presigned PUT from `origin`? */
+async function corsCheck(origin: string): Promise<"ok" | "missing" | "unreachable"> {
+  const hit = corsCache.get(origin);
+  if (hit && Date.now() - hit.at < CORS_TTL_MS) return hit.verdict;
+  const verdict = await probeCors(origin);
+  // A transient failure must not be remembered as the bucket policy.
+  if (verdict !== "unreachable") corsCache.set(origin, { verdict, at: Date.now() });
+  return verdict;
+}
+
+async function probeCors(origin: string): Promise<"ok" | "missing" | "unreachable"> {
+  const url = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET}/cors-preflight-probe`;
+  try {
+    const res = await fetch(url, {
+      method: "OPTIONS",
+      headers: { origin, "access-control-request-method": "PUT", "access-control-request-headers": "content-type" },
+      signal: AbortSignal.timeout(6000),
+    });
+    return res.headers.get("access-control-allow-origin") ? "ok" : "missing";
+  } catch {
+    return "unreachable";
+  }
+}
+
+/**
+ * Whether media uploads can work here, checked the way the browser performs them. The three ways this is
+ * silently broken in production all look identical in the admin panel (an opaque network error), so each
+ * one is named here instead: no bucket at all, a bucket whose public URL is missing (uploaded files would
+ * be stored with a URL that 404s), and a bucket whose CORS policy blocks the presigned PUT.
+ */
+/** Test helper: forget the cached CORS verdicts. */
+export function resetStorageChecks() {
+  corsCache.clear();
+}
+
+export async function storageStatus(origin: string | null): Promise<StorageStatus> {
+  if (!r2Configured()) {
+    // Serverless file systems are read-only, so the local-disk fallback cannot stand in on Vercel.
+    const onVercel = !!process.env.VERCEL;
+    return { backend: "local", ok: !onVercel, problem: onVercel ? "R2 is not configured, and the local-disk fallback is disabled on Vercel: uploads are refused" : null, cors: null };
+  }
+  if (!process.env.R2_PUBLIC_URL?.trim()) {
+    return { backend: "r2", ok: false, problem: "R2_PUBLIC_URL is not set: uploads would be stored with an /api/files/ URL that 404s in production", cors: null };
+  }
+  const cors = origin ? await corsCheck(origin) : null;
+  return {
+    backend: "r2",
+    ok: cors !== "missing",
+    problem: cors === "missing" ? `the bucket CORS policy does not allow browser uploads from ${origin}` : null,
+    cors,
+  };
+}
+
 export async function createUploadTarget(input: { siteId: string; filename: string; contentType: string; size?: number }): Promise<UploadTarget> {
   if (!ALLOWED_TYPES.has(input.contentType)) throw new Error("unsupported_type");
   const isVideo = input.contentType.startsWith("video/");

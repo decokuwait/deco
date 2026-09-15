@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isSiteMember } from "@/lib/db/members";
-import { createUploadTarget } from "@/lib/storage";
+import { createUploadTarget, storageStatus } from "@/lib/storage";
 import { q } from "@/lib/db/client";
 
 export const runtime = "nodejs";
@@ -20,6 +20,15 @@ export async function POST(req: NextRequest) {
   const siteId = typeof body.siteId === "string" ? body.siteId : "";
   if (!siteId) return NextResponse.json({ error: "site_required" }, { status: 400 });
   if (!user.isSuper && !(await isSiteMember(siteId, user.id))) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Refuse before handing out a presigned URL that is certain to fail: a browser upload blocked by the
+  // bucket CORS policy surfaces in the panel as an opaque network error, and a bucket with no public URL
+  // would store files under a URL that 404s. Both are deployment faults, so name them.
+  const origin = req.headers.get("origin") || (req.headers.get("x-forwarded-host") ? `https://${req.headers.get("x-forwarded-host")}` : null);
+  const storage = await storageStatus(origin);
+  if (!storage.ok) {
+    console.error(`[upload] refused: ${storage.problem}`);
+    return NextResponse.json({ error: storage.cors === "missing" ? "storage_cors" : storage.backend === "r2" ? "storage_public_url" : "storage_not_configured" }, { status: 503 });
+  }
   const filename = typeof body.filename === "string" ? body.filename : "file";
   const contentType = typeof body.contentType === "string" ? body.contentType : "";
   const size = typeof body.size === "number" ? body.size : undefined;

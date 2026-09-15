@@ -5,6 +5,7 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import type { FieldSpec, SectionSpec } from "../content/_lib/spec";
 import { getPath } from "../content/_lib/spec";
 import type { T } from "../_lib/guard";
+import { uploadErrorLabels } from "@/lib/i18n/admin";
 
 /** Renders one field of a section spec bound to a value at `name`. */
 export function FieldInput({ f, name, value, t, siteId }: { f: FieldSpec; name: string; value: unknown; t: T; siteId: string }) {
@@ -58,6 +59,7 @@ export function FieldInput({ f, name, value, t, siteId }: { f: FieldSpec; name: 
             label={t("upload")}
             uploadingLabel={t("uploading")}
             removeLabel={t("remove")}
+            errorLabels={uploadErrorLabels(t)}
           />
         </Field>
       );

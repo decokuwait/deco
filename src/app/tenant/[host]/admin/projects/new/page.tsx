@@ -3,6 +3,7 @@ import { Panel, SaveBar, BackLink } from "../../_components/Panel";
 import { Card, PageHeader, Flash, Field, Select, Toggle, BilingualInput } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { Uploader } from "@/components/admin/Uploader";
+import { uploadErrorLabels } from "@/lib/i18n/admin";
 import { PROJECT_TYPES, isProjectType, type ProjectType } from "@/lib/types";
 import { createProjectAction } from "../actions";
 
@@ -38,7 +39,7 @@ export default async function NewProjectPage({ params, searchParams }: { params:
             <BilingualInput name="description" label={t("description")} textarea />
             <BilingualInput name="location" label={t("location")} />
             <Field label={t("cover")}>
-              <Uploader name="coverUrl" siteId={site.id} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} />
+              <Uploader name="coverUrl" siteId={site.id} label={t("upload")} uploadingLabel={t("uploading")} removeLabel={t("remove")} errorLabels={uploadErrorLabels(t)} />
             </Field>
             <Toggle name="published" defaultChecked label={t("published")} hint={t("published_hint")} />
           </div>
