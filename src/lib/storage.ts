@@ -77,8 +77,9 @@ async function corsCheck(origin: string): Promise<"ok" | "missing" | "unreachabl
   const hit = corsCache.get(origin);
   if (hit && Date.now() - hit.at < CORS_TTL_MS) return hit.verdict;
   const verdict = await probeCors(origin);
-  // A transient failure must not be remembered as the bucket policy.
-  if (verdict !== "unreachable") corsCache.set(origin, { verdict, at: Date.now() });
+  // Only a working policy is worth remembering. Caching a failure would keep refusing uploads for minutes
+  // after the operator fixes the bucket, and a transient probe error is not evidence about the policy.
+  if (verdict === "ok") corsCache.set(origin, { verdict, at: Date.now() });
   return verdict;
 }
 

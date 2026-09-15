@@ -45,13 +45,17 @@ describe("storage readiness", () => {
       allow = false;
       resetStorageChecks();
       const blocked = await storageStatus("https://demo.example.com");
+      // A failure is never cached, so a bucket fixed in Cloudflare starts working on the very next upload.
+      expect(await storageStatus("https://demo.example.com")).toMatchObject({ cors: "missing" });
+      expect(calls.length).toBe(3);
       expect(blocked).toMatchObject({ ok: false, cors: "missing" });
       expect(blocked.problem).toContain("https://demo.example.com");
       globalThis.fetch = (() => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
       resetStorageChecks();
+      // A probe that cannot run is not evidence about the policy, so uploads stay allowed and nothing is cached.
       expect(await storageStatus("https://demo.example.com")).toMatchObject({ ok: true, cors: "unreachable" });
-      // A transient failure is never cached as the bucket policy: the next call probes again.
-      expect(calls.length).toBe(2);
+      expect(await storageStatus("https://demo.example.com")).toMatchObject({ ok: true, cors: "unreachable" });
+      expect(calls.length).toBe(3); // the offline probes went through the replaced fetch
     } finally {
       globalThis.fetch = real;
     }
