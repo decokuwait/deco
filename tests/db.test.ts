@@ -60,7 +60,11 @@ describe("users & sessions", () => {
     expect(a.id).toBe(userId);
     const b = await upsertSuperAdmin("second@example.com", "Pass1!");
     expect(b.isSuper).toBe(true);
-    expect((await listUsers()).length).toBe(2);
+    // Counted per address, not over the whole table: against a real Postgres these suites share one
+    // database, so a total row count would depend on what the other file happened to insert.
+    const emails = (await listUsers()).map((u) => u.email);
+    expect(emails.filter((e) => e === "owner@example.com").length).toBe(1);
+    expect(emails.filter((e) => e === "second@example.com").length).toBe(1);
   });
 });
 
@@ -107,15 +111,21 @@ describe("sites, domains, members", () => {
     expect(s2?.content.brand.name.ar).not.toBe(""); // untouched
     await updateSite(siteId, { status: "active" });
   });
-  // PGlite’s now() only ticks in milliseconds, so a JS Date round-trip happens to match there; real
-  // Postgres stores microseconds and the truncated Date never matches the row again. Force a microsecond
-  // timestamp so both backends exercise what production does.
-  it("patches content when the row carries a microsecond updated_at", async () => {
+  // The optimistic lock is a compare-and-swap on the stored content. It cannot key off updated_at: a real
+  // Postgres keeps microseconds and postgres.js truncates every timestamp parameter to milliseconds, so a
+  // timestamp read from a row can never be compared back to it and every save failed as concurrent_update.
+  it("patches content and refuses a write whose base content changed underneath", async () => {
     await q(`update sites set updated_at = $2::timestamptz where id = $1`, [siteId, "2026-01-02 03:04:05.264891+00"]);
     await patchSiteContent(siteId, { contact: { phone: "96512345678" } });
     const s = await getSiteById(siteId);
     expect(s?.content.contact.phone).toBe("96512345678");
     expect(s?.content.contact.whatsapp).toBe("96511111111"); // untouched by the patch
+
+    const [base] = await q<{ h: string }>(`select md5(content::text) as h from sites where id = $1`, [siteId]);
+    await patchSiteContent(siteId, { contact: { phone: "96500000000" } });
+    const stale = await q(`update sites set content = '{}'::jsonb where id = $1 and md5(content::text) = $2 returning id`, [siteId, base.h]);
+    expect(stale.length, "a write based on superseded content must not land").toBe(0);
+    expect((await getSiteById(siteId))?.content.contact.phone).toBe("96500000000");
   });
   it("manages members", async () => {
     const u = await createUser({ email: "admin@site.com", password: "Pass1!" });

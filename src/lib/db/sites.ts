@@ -116,17 +116,23 @@ export async function setSiteContent(id: string, content: SiteContent): Promise<
 /**
  * Deep-merge a partial patch into the stored content (arrays replace). Optimistic concurrency: the write
  * only succeeds if nobody changed the row in between, otherwise the merge is retried on fresh data.
+ *
+ * The version token is a hash of the content, not `updated_at`: postgres.js truncates every timestamp it
+ * sends as a *parameter* to millisecond precision, while Postgres stores microseconds, so a timestamp read
+ * from a row can never be compared back to it and the write would never match (every save then failed with
+ * "concurrent_update"). A hash is plain text, survives the round trip untouched, and says what the check
+ * actually means: write only if the content is still the content that was merged.
  */
 export async function patchSiteContent(id: string, patch: unknown): Promise<SiteRecord | null> {
   for (let attempt = 0; attempt < 5; attempt++) {
-    // updated_at is read back as text: the driver represents timestamps as JS Date objects, which carry
-    // only milliseconds, while Postgres stores microseconds. Comparing against a Date would never match the
-    // row again, so every attempt would fail and the patch would always end in "concurrent_update".
-    const row = await one<SiteRow & { updated_at_text: string }>(`select *, updated_at::text as updated_at_text from sites where id = $1`, [id]);
+    const row = await one<SiteRow & { content_hash: string }>(`select *, md5(content::text) as content_hash from sites where id = $1`, [id]);
     if (!row) return null;
     const current = normalizeContent(parseJson(row.content, {}));
     const merged = deepMerge(current, patch);
-    const updated = await one<SiteRow>(`update sites set content = $2::jsonb, updated_at = now() where id = $1 and updated_at = $3::timestamptz returning *`, [id, json(merged), row.updated_at_text]);
+    const updated = await one<SiteRow>(
+      `update sites set content = $2::jsonb, updated_at = now() where id = $1 and md5(content::text) = $3 returning *`,
+      [id, json(merged), row.content_hash],
+    );
     if (updated) return mapSite(updated);
   }
   throw new Error("concurrent_update");

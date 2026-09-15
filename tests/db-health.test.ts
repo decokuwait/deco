@@ -64,8 +64,9 @@ describe("pendingMigrations", () => {
     const db = await getDb();
     expect(await pendingMigrations(db)).toEqual([]);
   });
-  // Dropping the bookkeeping table is only safe on the private in-memory database.
-  it.skipIf(!!process.env.TEST_DATABASE_URL)("lists every file when the bookkeeping table is missing, and runMigrations settles it", async () => {
+  // Runs on a real Postgres too: applying the files is the step that differs between the backends, because
+  // postgres.js rejects a BEGIN it did not issue itself. Migrations are idempotent, so a repeat is harmless.
+  it("lists every file when the bookkeeping table is missing, and runMigrations settles it", async () => {
     const db = await getDb();
     await db.exec(`drop table _migrations`);
     const pending = await pendingMigrations(db);

@@ -10,6 +10,8 @@ import path from "node:path";
 export interface DbClient {
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
   exec(text: string): Promise<void>;
+  /** Runs every statement in one transaction on one connection (the migration advisory lock needs both). */
+  execTransaction(statements: string[]): Promise<void>;
   close(): Promise<void>;
   backend: "postgres" | "pglite";
 }
@@ -46,13 +48,12 @@ export async function runMigrations(db: DbClient): Promise<string[]> {
   const pending = await pendingMigrations(db);
   if (!pending.length) return [];
   const dir = migrationsDir();
-  const parts = [`begin;`, `select pg_advisory_xact_lock(${MIGRATION_LOCK});`];
+  const statements = [`select pg_advisory_xact_lock(${MIGRATION_LOCK});`];
   for (const f of pending) {
-    parts.push(fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8"));
-    parts.push(`insert into _migrations(name) values ('${f.replace(/'/g, "''")}') on conflict do nothing;`);
+    statements.push(fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8"));
+    statements.push(`insert into _migrations(name) values ('${f.replace(/'/g, "''")}') on conflict do nothing;`);
   }
-  parts.push(`commit;`);
-  await db.exec(parts.join("\n"));
+  await db.execTransaction(statements);
   return pending;
 }
 
@@ -81,6 +82,13 @@ async function createPostgres(url: string): Promise<DbClient> {
     async exec(text: string) {
       await sql.unsafe(text);
     },
+    // postgres.js refuses a BEGIN it did not issue itself (it would leak a transaction across the pool), so
+    // the statements go through sql.begin, which reserves one connection and commits or rolls back as a unit.
+    async execTransaction(statements: string[]) {
+      await sql.begin(async (t) => {
+        for (const stmt of statements) await t.unsafe(stmt);
+      });
+    },
     async close() {
       await sql.end({ timeout: 5 });
     },
@@ -104,6 +112,9 @@ async function createPglite(): Promise<DbClient> {
     },
     async exec(text: string) {
       await pg.exec(text);
+    },
+    async execTransaction(statements: string[]) {
+      await pg.exec(["begin;", ...statements, "commit;"].join("\n"));
     },
     async close() {
       await pg.close();
@@ -187,9 +198,11 @@ export async function one<T = Record<string, unknown>>(text: string, params: unk
 }
 
 /**
- * Timestamp as an ISO string for output (API responses, rendering). Lossy: the drivers hand timestamps
- * over as JS Date objects, which hold milliseconds, while Postgres stores microseconds. Never feed the
- * result back into a query that compares a timestamp — select `col::text` and pass that instead.
+ * Timestamp as an ISO string for output (API responses, rendering). Lossy, and in two ways: the drivers hand
+ * timestamps over as JS Date objects, which hold milliseconds where Postgres stores microseconds, and
+ * postgres.js truncates timestamps it sends *as parameters* the same way. A timestamp read from a row can
+ * therefore never be compared back to that row, not even via col::text. Compare something the driver leaves
+ * alone (a hash, an id) or keep the timestamp inside a single server-side statement.
  */
 export function iso(v: unknown): string {
   if (v instanceof Date) return v.toISOString();

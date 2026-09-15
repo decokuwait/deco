@@ -83,4 +83,6 @@ jobs:
           npm run db:migrate
           npm run db:migrate
       - name: Database and security suites on Postgres
-        run: npx vitest run tests/db.test.ts tests/security.test.ts
+        # db-health covers runMigrations, which is the step that behaves differently on a real Postgres:
+        # postgres.js rejects a BEGIN it did not issue itself, so the migration path only breaks here.
+        run: npx vitest run tests/db.test.ts tests/security.test.ts tests/db-health.test.ts

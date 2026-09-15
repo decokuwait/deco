@@ -144,16 +144,22 @@ export async function deleteProject(id: string) {
  * (sort_order, created_at) and swaps both rows in one statement; equal sort_orders are split apart.
  */
 export async function moveProject(id: string, direction: "up" | "down") {
-  // created_at is read back as text: the driver hands timestamps over as JS Date objects (milliseconds),
-  // while Postgres stores microseconds. A truncated value sorts *before* the row itself, so a "down" move
-  // would find the row as its own neighbour and shuffle its sort_order instead of swapping with the next one.
-  const p = await one<ProjectRow & { created_at_text: string }>(`select *, created_at::text as created_at_text from projects where id = $1`, [id]);
+  const p = await one<ProjectRow>(`select * from projects where id = $1`, [id]);
   if (!p) return;
+  // The neighbour is resolved in one statement so created_at never crosses the driver: postgres.js truncates
+  // timestamp parameters to milliseconds, and a truncated value sorts before the row itself, so a "down"
+  // move used to pick the row as its own neighbour and bump its own sort_order instead of swapping.
   const neighbor = await one<ProjectRow>(
     direction === "up"
-      ? `select * from projects where site_id = $1 and type = $2 and (sort_order, created_at) < ($3, $4::timestamptz) order by sort_order desc, created_at desc limit 1`
-      : `select * from projects where site_id = $1 and type = $2 and (sort_order, created_at) > ($3, $4::timestamptz) order by sort_order asc, created_at asc limit 1`,
-    [p.site_id, p.type, p.sort_order, p.created_at_text],
+      ? `with me as (select site_id, type, sort_order, created_at from projects where id = $1)
+         select p.* from projects p, me
+         where p.site_id = me.site_id and p.type = me.type and (p.sort_order, p.created_at) < (me.sort_order, me.created_at)
+         order by p.sort_order desc, p.created_at desc limit 1`
+      : `with me as (select site_id, type, sort_order, created_at from projects where id = $1)
+         select p.* from projects p, me
+         where p.site_id = me.site_id and p.type = me.type and (p.sort_order, p.created_at) > (me.sort_order, me.created_at)
+         order by p.sort_order asc, p.created_at asc limit 1`,
+    [id],
   );
   if (!neighbor) return;
   const [mine, theirs] = p.sort_order === neighbor.sort_order ? (direction === "up" ? [neighbor.sort_order - 1, p.sort_order] : [neighbor.sort_order + 1, p.sort_order]) : [neighbor.sort_order, p.sort_order];
@@ -225,14 +231,20 @@ export async function getMedia(id: string): Promise<(MediaItem & { projectId: st
 
 /** Moves a media item one step within its project (same total order as the listing; single-statement swap). */
 export async function moveMedia(id: string, direction: "up" | "down") {
-  // Full-precision created_at, for the same reason as moveProject.
-  const m = await one<MediaRow & { created_at_text: string }>(`select *, created_at::text as created_at_text from project_media where id = $1`, [id]);
+  const m = await one<MediaRow>(`select * from project_media where id = $1`, [id]);
   if (!m) return;
+  // Resolved server-side, for the same reason as moveProject.
   const neighbor = await one<MediaRow>(
     direction === "up"
-      ? `select * from project_media where project_id = $1 and (sort_order, created_at) < ($2, $3::timestamptz) order by sort_order desc, created_at desc limit 1`
-      : `select * from project_media where project_id = $1 and (sort_order, created_at) > ($2, $3::timestamptz) order by sort_order asc, created_at asc limit 1`,
-    [m.project_id, m.sort_order, m.created_at_text],
+      ? `with me as (select project_id, sort_order, created_at from project_media where id = $1)
+         select pm.* from project_media pm, me
+         where pm.project_id = me.project_id and (pm.sort_order, pm.created_at) < (me.sort_order, me.created_at)
+         order by pm.sort_order desc, pm.created_at desc limit 1`
+      : `with me as (select project_id, sort_order, created_at from project_media where id = $1)
+         select pm.* from project_media pm, me
+         where pm.project_id = me.project_id and (pm.sort_order, pm.created_at) > (me.sort_order, me.created_at)
+         order by pm.sort_order asc, pm.created_at asc limit 1`,
+    [id],
   );
   if (!neighbor) return;
   const [mine, theirs] = m.sort_order === neighbor.sort_order ? (direction === "up" ? [neighbor.sort_order - 1, m.sort_order] : [neighbor.sort_order + 1, m.sort_order]) : [neighbor.sort_order, m.sort_order];
