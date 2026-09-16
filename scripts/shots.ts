@@ -83,6 +83,41 @@ async function shot(browser: Browser, url: string, file: string, viewport: { wid
   }
 }
 
+/**
+ * Opens the mobile menu and reports a drawer that does not cover the viewport. Most nav bars carry
+ * `backdrop-blur`, and a backdrop-filter makes that bar the containing block for its fixed-position
+ * descendants: rendered inside the header, the drawer was measured against the bar and painted its panel
+ * across a 64px strip while the links fell onto the page behind it. Nothing else here opens the menu, so
+ * this ran unnoticed on most templates.
+ */
+async function drawerCheck(browser: Browser, url: string, label: string, scrollY: number) {
+  const ctx = await browser.newContext({ viewport: MOBILE, deviceScaleFactor: 1, locale: "ar-KW", isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+    const trigger = page.locator("header button[aria-expanded]").first();
+    if (!(await trigger.count())) return null;
+    await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+    await page.waitForTimeout(300);
+    await trigger.click();
+    await page.waitForTimeout(400);
+    const box = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('[class*="z-[100]"]');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height), vw: window.innerWidth, vh: window.innerHeight };
+    });
+    if (!box) return `${label}: the menu opened but no drawer rendered`;
+    // A drawer confined to its nav bar is the failure this exists to catch, so allow only rounding slack.
+    if (box.h < box.vh - 2 || box.w < box.vw - 2) return `${label}: drawer is ${box.w}x${box.h}, viewport is ${box.vw}x${box.vh}`;
+    return null;
+  } catch (err) {
+    return `${label}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`;
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
 async function main() {
   if (!(await portFree(env.port))) throw new Error(`port ${env.port} busy`);
   const seed = await seedQa({ slug: "shots", name: "Demo Decor", category: "gypsum", templateCode: "104" });
@@ -101,6 +136,24 @@ async function main() {
       results.push(await shot(browser, `http://${env.root}/template/${t.code}?lang=en`, `tpl-${t.code}-desktop-en.png`, DESKTOP));
       console.log(`[shots] ${i}/${list.length} template ${t.code}`);
     }
+    // One template per nav variant: the drawer markup is shared, the bar around it is not.
+    const seenNav = new Set<string>();
+    const drawerIssues: string[] = [];
+    for (const t of list) {
+      if (seenNav.has(t.layout.nav)) continue;
+      seenNav.add(t.layout.nav);
+      for (const [where, y] of [["at rest", 0], ["scrolled", 900]] as [string, number][]) {
+        const issue = await drawerCheck(browser, `http://${env.root}/template/${t.code}?lang=ar`, `${t.code} (${t.layout.nav}, ${where})`, y);
+        if (issue) drawerIssues.push(issue);
+      }
+    }
+    console.log(`[shots] mobile menu drawers checked: ${seenNav.size} nav variants, ${drawerIssues.length} broken`);
+    for (const d of drawerIssues) console.log(`   ${d}`);
+    if (process.env.SHOTS_STRICT === "1" && drawerIssues.length) {
+      console.log("[shots] STRICT mode: failing because of the drawers listed above");
+      process.exit(1);
+    }
+
     if (!SKIP_ADMIN) {
       const host = `shots.${env.root}`;
       const adminCookie = [{ name: "dk_session", value: seed.adminToken, domain: "shots.localhost" }];
