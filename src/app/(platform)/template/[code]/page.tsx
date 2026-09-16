@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import fs from "node:fs";
 import path from "node:path";
 import { notFound } from "next/navigation";
@@ -55,7 +56,7 @@ export default async function TemplatePreview({ params, searchParams }: { params
   const other = locale === "ar" ? "en" : "ar";
   return (
     <div>
-      <div className="sticky top-0 z-[60] flex items-center justify-between gap-3 bg-[#0b1220] px-4 py-2 text-xs text-white sm:text-sm" dir="rtl">
+      <div className="sticky top-0 z-[60] flex h-11 items-center justify-between gap-3 bg-[#0b1220] px-4 text-xs text-white sm:text-sm" dir="rtl">
         <div className="flex items-center gap-3">
           <Link href="/templates" className="rounded-full bg-white/10 px-3 py-1 font-bold hover:bg-white/20">
             ← القوالب
@@ -81,7 +82,10 @@ export default async function TemplatePreview({ params, searchParams }: { params
           )}
         </div>
       </div>
-      <TemplateRenderer ctx={ctx} />
+      {/* The toolbar above owns the top of the viewport, so the template's own sticky nav rests below it. */}
+      <div style={{ "--dk-chrome-top": "2.75rem" } as CSSProperties}>
+        <TemplateRenderer ctx={ctx} />
+      </div>
     </div>
   );
 }

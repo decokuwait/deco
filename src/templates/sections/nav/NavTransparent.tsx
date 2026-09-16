@@ -1,5 +1,5 @@
 import type { SectionProps } from "../../types";
-import { Container, VisitorChip, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
+import { CHROME_TOP, Container, VisitorChip, WhatsAppIcon, buttonClass, chromeButtonClass, cx } from "../../ui/primitives";
 import { MobileMenu } from "../../ui/client/MobileMenu";
 import { LangToggle } from "../../ui/client/LangToggle";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
@@ -14,7 +14,7 @@ export function NavTransparent({ ctx }: SectionProps) {
   const btn = buttonClass(ctx.def.tokens.buttonStyle, "primary", "md");
   return (
     <NavScrollState
-      className="fixed inset-x-0 top-0 z-50 text-fg transition-all duration-300"
+      className={cx("fixed inset-x-0 z-50 text-fg transition-all duration-300", CHROME_TOP)}
       topClassName="bg-gradient-to-b from-bg/95 via-bg/60 to-transparent"
       scrolledClassName="bg-bg/90 shadow-sm backdrop-blur border-b border-line"
     >
@@ -29,7 +29,7 @@ export function NavTransparent({ ctx }: SectionProps) {
         </nav>
         <div className="flex items-center gap-2">
           <VisitorChip ctx={ctx} className="max-md:hidden" />
-          {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="rounded-full border border-fg/20 px-3 py-1.5 text-xs font-bold hover:bg-fg/5" />}
+          {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className={chromeButtonClass({ round: true, slim: true })} />}
           <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "max-sm:hidden")}>
             <WhatsAppIcon />
             {ctx.ui("whatsapp")}
@@ -39,7 +39,7 @@ export function NavTransparent({ ctx }: SectionProps) {
             links={links}
             label={ctx.ui("menu")}
             closeLabel={ctx.ui("close")}
-            buttonClassName="inline-flex h-11 w-11 items-center justify-center rounded-full border border-fg/20"
+            buttonClassName={chromeButtonClass({ round: true, icon: true })}
             cta={
               <WhatsAppLink href={ctx.whatsappHref} className={cx(btn, "w-full")}>
                 <WhatsAppIcon />

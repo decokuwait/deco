@@ -104,6 +104,31 @@ export function buttonClass(style: ButtonStyle, variant: "primary" | "accent" | 
   return cx(base, sizes, shape, palette[variant]);
 }
 
+/**
+ * Where sticky and fixed site chrome comes to rest. Zero on a real site. A template preview puts the
+ * platform's own toolbar across the top of the viewport and sets --dk-chrome-top, so the site's nav rests
+ * below it instead of sliding underneath, where only the bottom edge of its buttons stayed visible.
+ */
+export const CHROME_TOP = "top-[var(--dk-chrome-top,0px)]";
+
+/** The same offset for a nav that floats a little below the top edge (the pill bar). */
+export const CHROME_TOP_FLOAT = "top-[calc(var(--dk-chrome-top,0px)+0.75rem)] sm:top-[calc(var(--dk-chrome-top,0px)+1rem)]";
+
+/**
+ * Tap target for the icon-only and short-label controls in the site chrome: the menu button and the
+ * language switch. They sit on patterned pages, on near-white surfaces and over photographs, where a
+ * hairline outline on its own disappears, so they carry the template's alternate surface as a fill plus
+ * a hairline border and a soft shadow. Shape follows each nav's own language (card or round).
+ */
+export function chromeButtonClass({ round = false, icon = false, slim = false }: { round?: boolean; icon?: boolean; slim?: boolean } = {}) {
+  return cx(
+    "inline-flex shrink-0 items-center justify-center gap-1.5 border border-line bg-surface-2 text-fg shadow-sm transition",
+    "hover:border-primary/40 hover:bg-surface hover:shadow active:scale-95",
+    round ? "rounded-full" : "rounded-card",
+    icon ? (slim ? "h-10 w-10" : "h-11 w-11") : cx("text-xs font-bold", slim ? "h-10 px-3" : "h-11 px-3.5"),
+  );
+}
+
 export function Btn({
   ctx,
   href,

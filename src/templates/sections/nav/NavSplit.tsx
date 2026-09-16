@@ -1,5 +1,5 @@
 import type { SectionProps } from "../../types";
-import { Container, PhoneIcon, VisitorChip, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
+import { CHROME_TOP, Container, PhoneIcon, VisitorChip, WhatsAppIcon, buttonClass, chromeButtonClass, cx } from "../../ui/primitives";
 import { MobileMenu } from "../../ui/client/MobileMenu";
 import { LangToggle } from "../../ui/client/LangToggle";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
@@ -12,7 +12,7 @@ export function NavSplit({ ctx }: SectionProps) {
   const links = navLinks(ctx);
   const btn = buttonClass(ctx.def.tokens.buttonStyle, "primary", "md");
   return (
-    <header id="top" className="sticky top-0 z-50 bg-bg shadow-sm">
+    <header id="top" className={cx("sticky z-50 bg-bg shadow-sm", CHROME_TOP)}>
       <div className="bg-secondary text-secondary-fg">
         <Container className="flex h-9 items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-4">
@@ -46,6 +46,7 @@ export function NavSplit({ ctx }: SectionProps) {
           </WhatsAppLink>
           <MobileMenu
             className="lg:hidden"
+            buttonClassName={chromeButtonClass({ icon: true })}
             links={links}
             label={ctx.ui("menu")}
             closeLabel={ctx.ui("close")}
