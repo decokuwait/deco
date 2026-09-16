@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { uploadRequestHeaders } from "./upload-headers";
 
 const MAX_EDGE = 2000;
 const SKIP_BELOW = 1.5 * 1024 * 1024;
@@ -89,9 +90,9 @@ export function Uploader({
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open(target.mode === "put" ? "PUT" : "POST", target.uploadUrl);
-        // Content-Length is a forbidden request header for XHR (the browser sets it); everything else is signed.
-        if (target.headers) for (const [k, v] of Object.entries(target.headers)) if (k.toLowerCase() !== "content-length") xhr.setRequestHeader(k, v);
-        else xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        // Exactly once per header name: XHR merges repeated names into one comma-joined value, which
+        // would no longer match what was signed. Content-Length is the browser's to set.
+        for (const [header, headerValue] of uploadRequestHeaders(target.headers, file.type)) xhr.setRequestHeader(header, headerValue);
         xhr.upload.onprogress = (e) => e.lengthComputable && setProgress(Math.round((e.loaded / e.total) * 100));
         xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload ${xhr.status}`)));
         xhr.onerror = () => reject(new Error("network"));
