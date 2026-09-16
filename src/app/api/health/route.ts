@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   // The upload probe writes a real object, so it is opt-in: /api/health?probe=upload. It answers the one
   // question a preflight cannot — whether the bucket accepts what our own code signs.
   const storage = { ...(await storageStatus(requestOrigin(req))), upload: null as Awaited<ReturnType<typeof uploadProbe>> | null };
-  if (storage.backend === "r2" && req.nextUrl.searchParams.get("probe") === "upload") storage.upload = await uploadProbe();
+  if (storage.backend === "r2" && req.nextUrl.searchParams.get("probe") === "upload") storage.upload = await uploadProbe(requestOrigin(req));
   const storageOk = storage.ok && (storage.upload?.ok ?? true);
   try {
     const db = await getDb();

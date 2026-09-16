@@ -28,15 +28,22 @@ describe("storage readiness", () => {
     expect(s.problem).toContain("R2_PUBLIC_URL");
   });
 
-  it("reports the CORS verdict for the origin the admin panel runs on", async () => {
+  // A browser only sends the upload once the preflight answers all three questions: is this origin
+  // allowed, is PUT allowed, is the content-type header allowed. Answering the first alone still ends in
+  // a blocked request that reaches the panel as nothing but "connection lost".
+  it("reports the CORS verdict the way a browser decides it", async () => {
     Object.assign(process.env, { R2_ACCOUNT_ID: "0123456789abcdef0123456789abcdef", R2_ACCESS_KEY_ID: "AKIAFAKEFAKEFAKEFAKE", R2_SECRET_ACCESS_KEY: "fakefakefakefakefakefakefakefakefakefake", R2_BUCKET: "bucket", R2_PUBLIC_URL: "https://pub-x.r2.dev" });
     const calls: { url: string; init: RequestInit }[] = [];
     const real = globalThis.fetch;
+    let headers: Record<string, string> = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "PUT, GET",
+      "access-control-allow-headers": "content-type",
+    };
     globalThis.fetch = (async (url: string | URL | Request, init: RequestInit = {}) => {
       calls.push({ url: String(url), init });
-      return new Response(null, { status: 200, headers: allow ? { "access-control-allow-origin": "*" } : {} });
+      return new Response(null, { status: 200, headers });
     }) as typeof fetch;
-    let allow = true;
     try {
       expect(await storageStatus("https://demo.example.com")).toMatchObject({ backend: "r2", ok: true, cors: "ok", problem: null });
       // The preflight must go to the host the browser will PUT to, which the SDK addresses as a subdomain.
@@ -44,20 +51,46 @@ describe("storage readiness", () => {
       expect(new URL(calls[0].url).pathname).toBe("/health/cors-preflight-probe");
       expect(calls[0].init.method).toBe("OPTIONS");
       expect((calls[0].init.headers as Record<string, string>).origin).toBe("https://demo.example.com");
-      allow = false;
+
+      // Each missing piece is reported as itself, so the operator knows which line of the policy to add.
+      for (const [drop, expected] of [
+        ["access-control-allow-origin", "does not cover this origin"],
+        ["access-control-allow-methods", "PUT is not allowed"],
+        ["access-control-allow-headers", "content-type is not allowed"],
+      ] as [string, string][]) {
+        resetStorageChecks();
+        const full: Record<string, string> = {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "PUT, GET",
+          "access-control-allow-headers": "content-type",
+        };
+        delete full[drop];
+        headers = full;
+        const blocked = await storageStatus("https://demo.example.com");
+        expect(blocked, drop).toMatchObject({ ok: false, cors: "missing" });
+        expect(blocked.problem, drop).toContain(expected);
+        expect(blocked.corsDetail?.blocked, drop).toContain(expected);
+      }
+
+      // An origin the policy does not list is named rather than guessed at.
       resetStorageChecks();
-      const blocked = await storageStatus("https://demo.example.com");
+      headers = {
+        "access-control-allow-origin": "https://other.example.com",
+        "access-control-allow-methods": "PUT",
+        "access-control-allow-headers": "content-type",
+      };
+      expect((await storageStatus("https://demo.example.com")).problem).toContain("https://other.example.com");
+
       // A failure is never cached, so a bucket fixed in Cloudflare starts working on the very next upload.
-      expect(await storageStatus("https://demo.example.com")).toMatchObject({ cors: "missing" });
-      expect(calls.length).toBe(3);
-      expect(blocked).toMatchObject({ ok: false, cors: "missing" });
-      expect(blocked.problem).toContain("https://demo.example.com");
+      const before = calls.length;
+      await storageStatus("https://demo.example.com");
+      expect(calls.length).toBe(before + 1);
+
       globalThis.fetch = (() => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
       resetStorageChecks();
       // A probe that cannot run is not evidence about the policy, so uploads stay allowed and nothing is cached.
       expect(await storageStatus("https://demo.example.com")).toMatchObject({ ok: true, cors: "unreachable" });
       expect(await storageStatus("https://demo.example.com")).toMatchObject({ ok: true, cors: "unreachable" });
-      expect(calls.length).toBe(3); // the offline probes went through the replaced fetch
     } finally {
       globalThis.fetch = real;
     }

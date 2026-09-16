@@ -69,15 +69,27 @@ export interface StorageStatus {
   /** What an operator has to fix, when uploads cannot work. */
   problem: string | null;
   /** Whether the bucket lets a browser on `origin` run the presigned PUT (R2 only). */
-  cors: "ok" | "missing" | "unreachable" | null;
+  cors: CorsVerdict | null;
+  /** What the bucket actually answered, for when the verdict alone is not enough to act on. */
+  corsDetail: CorsProbe | null;
+}
+
+type CorsVerdict = "ok" | "missing" | "unreachable";
+
+export interface CorsProbe {
+  verdict: CorsVerdict;
+  status: number | null;
+  allowOrigin: string | null;
+  allowMethods: string | null;
+  allowHeaders: string | null;
+  /** The browser requirement that is not met, in the browser's own terms. */
+  blocked: string | null;
 }
 
 // A bucket policy changes rarely, and the upload route consults it on every request: remember the
 // verdict per origin for a few minutes so an upload never waits on a second round trip to Cloudflare.
-const corsCache = new Map<string, { verdict: CorsVerdict; at: number }>();
+const corsCache = new Map<string, { probe: CorsProbe; at: number }>();
 const CORS_TTL_MS = 5 * 60_000;
-
-type CorsVerdict = "ok" | "missing" | "unreachable";
 
 /** Test helper: forget the cached CORS verdicts. */
 export function resetStorageChecks() {
@@ -85,29 +97,50 @@ export function resetStorageChecks() {
 }
 
 /** Does the bucket answer a browser preflight for a presigned PUT from `origin`? */
-async function corsCheck(origin: string): Promise<CorsVerdict> {
+async function corsCheck(origin: string): Promise<CorsProbe> {
   const hit = corsCache.get(origin);
-  if (hit && Date.now() - hit.at < CORS_TTL_MS) return hit.verdict;
-  const verdict = await probeCors(origin);
+  if (hit && Date.now() - hit.at < CORS_TTL_MS) return hit.probe;
+  const probe = await probeCors(origin);
   // Only a working policy is worth remembering. Caching a failure would keep refusing uploads for minutes
   // after the operator fixes the bucket, and a transient probe error is not evidence about the policy.
-  if (verdict === "ok") corsCache.set(origin, { verdict, at: Date.now() });
-  return verdict;
+  if (probe.verdict === "ok") corsCache.set(origin, { probe, at: Date.now() });
+  return probe;
 }
 
-async function probeCors(origin: string): Promise<CorsVerdict> {
+/** True when a comma-separated allow-list header covers `want` (or is the `*` wildcard). */
+function allows(header: string | null, want: string): boolean {
+  if (!header) return false;
+  if (header.trim() === "*") return true;
+  return header.split(",").some((v) => v.trim().toLowerCase() === want);
+}
+
+async function probeCors(origin: string): Promise<CorsProbe> {
   try {
     // Preflight the very URL a browser would be handed. The SDK addresses the bucket as a subdomain, so
     // guessing a path-style URL here would test a different host than the upload actually uses.
-    const target = await presignPut(`health/cors-preflight-probe`, "image/png", 1);
+    const target = await presignPut("health/cors-preflight-probe", "image/png", 1);
     const res = await fetch(target.uploadUrl, {
       method: "OPTIONS",
       headers: { origin, "access-control-request-method": "PUT", "access-control-request-headers": "content-type" },
       signal: AbortSignal.timeout(6000),
     });
-    return res.headers.get("access-control-allow-origin") ? "ok" : "missing";
+    const allowOrigin = res.headers.get("access-control-allow-origin");
+    const allowMethods = res.headers.get("access-control-allow-methods");
+    const allowHeaders = res.headers.get("access-control-allow-headers");
+    // A browser checks all three; answering only the first still ends in a blocked request and an opaque
+    // network error, which is exactly the failure this probe exists to name.
+    const blocked = !allowOrigin
+      ? "no access-control-allow-origin: the policy does not cover this origin"
+      : allowOrigin.trim() !== "*" && allowOrigin.trim().toLowerCase() !== origin.toLowerCase()
+        ? `access-control-allow-origin is ${allowOrigin}, not ${origin}`
+        : !allows(allowMethods, "put")
+          ? `access-control-allow-methods is ${allowMethods ?? "absent"}: PUT is not allowed`
+          : !allows(allowHeaders, "content-type")
+            ? `access-control-allow-headers is ${allowHeaders ?? "absent"}: content-type is not allowed`
+            : null;
+    return { verdict: blocked ? "missing" : "ok", status: res.status, allowOrigin, allowMethods, allowHeaders, blocked };
   } catch {
-    return "unreachable";
+    return { verdict: "unreachable", status: null, allowOrigin: null, allowMethods: null, allowHeaders: null, blocked: null };
   }
 }
 
@@ -121,17 +154,18 @@ export async function storageStatus(origin: string | null): Promise<StorageStatu
   if (!r2Configured()) {
     // Serverless file systems are read-only, so the local-disk fallback cannot stand in on Vercel.
     const onVercel = !!process.env.VERCEL;
-    return { backend: "local", ok: !onVercel, problem: onVercel ? "R2 is not configured, and the local-disk fallback is disabled on Vercel: uploads are refused" : null, cors: null };
+    return { backend: "local", ok: !onVercel, problem: onVercel ? "R2 is not configured, and the local-disk fallback is disabled on Vercel: uploads are refused" : null, cors: null, corsDetail: null };
   }
   if (!process.env.R2_PUBLIC_URL?.trim()) {
-    return { backend: "r2", ok: false, problem: "R2_PUBLIC_URL is not set: uploads would be stored with an /api/files/ URL that 404s in production", cors: null };
+    return { backend: "r2", ok: false, problem: "R2_PUBLIC_URL is not set: uploads would be stored with an /api/files/ URL that 404s in production", cors: null, corsDetail: null };
   }
-  const cors = origin ? await corsCheck(origin) : null;
+  const probe = origin ? await corsCheck(origin) : null;
   return {
     backend: "r2",
-    ok: cors !== "missing",
-    problem: cors === "missing" ? `the bucket CORS policy does not allow browser uploads from ${origin}` : null,
-    cors,
+    ok: probe?.verdict !== "missing",
+    problem: probe?.verdict === "missing" ? `the bucket blocks browser uploads from ${origin}: ${probe.blocked}` : null,
+    cors: probe?.verdict ?? null,
+    corsDetail: probe,
   };
 }
 
@@ -151,25 +185,34 @@ export interface UploadProbe {
   status: number | null;
   /** First line of the bucket error, or the network error, when the upload failed. */
   error: string | null;
+  /** access-control-allow-origin on the PUT response; a browser drops the response without it. */
+  allowOrigin: string | null;
 }
 
 /**
- * Performs one real presigned PUT from the server and deletes the object again. No browser and no CORS
- * are involved, so a failure here is the bucket rejecting what our own code signs (credentials, bucket
- * name, signature, checksum parameters) — the same rejection a site admin would see as "connection lost".
+ * Performs one real presigned PUT and deletes the object again, sending the browser's Origin so the
+ * response is judged the way a browser judges it. A failure here is the bucket rejecting what our own code
+ * signs (credentials, bucket name, signature, checksum parameters) or withholding the CORS header from the
+ * response - either one reaches a site admin as nothing but "connection lost".
  */
-export async function uploadProbe(): Promise<UploadProbe> {
-  if (!r2Configured()) return { ok: false, status: null, error: "r2_not_configured" };
+export async function uploadProbe(origin: string | null): Promise<UploadProbe> {
+  if (!r2Configured()) return { ok: false, status: null, error: "r2_not_configured", allowOrigin: null };
   const body = Buffer.from("ok");
   const key = `health/probe-${randomUUID()}.png`;
   try {
     const target = await presignPut(key, "image/png", body.length);
-    const res = await fetch(target.uploadUrl, { method: "PUT", headers: target.headers, body, signal: AbortSignal.timeout(10_000) });
-    const text = res.ok ? "" : (await res.text().catch(() => "")).replace(/s+/g, " ").slice(0, 200);
+    const res = await fetch(target.uploadUrl, {
+      method: "PUT",
+      headers: { ...target.headers, ...(origin ? { origin } : {}) },
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    const text = res.ok ? "" : (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
     if (res.ok) await deleteObject(key).catch(() => undefined);
-    return { ok: res.ok, status: res.status, error: res.ok ? null : text || res.statusText };
+    const allowOrigin = res.headers.get("access-control-allow-origin");
+    return { ok: res.ok, status: res.status, error: res.ok ? null : text || res.statusText, allowOrigin };
   } catch (e) {
-    return { ok: false, status: null, error: e instanceof Error ? e.message : String(e) };
+    return { ok: false, status: null, error: e instanceof Error ? e.message : String(e), allowOrigin: null };
   }
 }
 
