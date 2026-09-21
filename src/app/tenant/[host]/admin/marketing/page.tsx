@@ -1,6 +1,6 @@
 import { requireSiteAdmin, sp1, type SearchParams } from "../_lib/guard";
 import { Panel } from "../_components/Panel";
-import { Card, PageHeader, Flash, Field, Input, Toggle, Badge } from "@/components/admin/ui";
+import { Card, PageHeader, Flash, Field, Input, Toggle, Badge, translateCode } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listPixels } from "@/lib/db/pixels";
 import { PLATFORMS, PLATFORM_LABELS, type PixelConfig, type Platform } from "@/lib/types";
@@ -24,13 +24,16 @@ export default async function MarketingPage({ params, searchParams }: { params: 
   const byPlatform = new Map(pixels.map((p) => [p.platform, p]));
   const tested = sp1(sp.tested);
   const testOk = sp1(sp.ok) === "1";
+  // The test result is a code, not the provider's text: translate what we know, say nothing otherwise
+  // (the raw provider response is in the function log for whoever operates the platform).
   const testMsg = sp1(sp.msg);
+  const testDetail = testMsg === "pixel_not_configured" ? t("pixel_not_configured") : translateCode(locale, testMsg);
   const modeAction = saveSignalMode.bind(null, host);
 
   return (
     <Panel ctx={ctx} active="marketing">
       <PageHeader title={t("marketing")} subtitle={t("marketing_hint")} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
 
       <Card title={t("send_mode")} className="mb-5">
         <form action={modeAction} className="grid gap-3">
@@ -73,10 +76,8 @@ export default async function MarketingPage({ params, searchParams }: { params: 
               {tested === platform && (
                 <div className={`mb-4 rounded-xl border px-4 py-3 text-sm font-bold ${testOk ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
                   {testOk ? t("test_ok") : t("test_failed")}
-                  {testMsg && (
-                    <span className="mt-1 block break-all font-mono text-xs font-normal opacity-80" dir="ltr">
-                      {testMsg === "pixel_not_configured" ? t("pixel_not_configured") : testMsg}
-                    </span>
+                  {testDetail && (
+                    <span className="mt-1 block text-xs font-normal opacity-80">{testDetail}</span>
                   )}
                 </div>
               )}

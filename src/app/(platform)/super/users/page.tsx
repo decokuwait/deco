@@ -1,10 +1,9 @@
-import { requireSuper, sp1, type SearchParams } from "../_lib/guard";
+import { requireSuper, sp1, superError, type SearchParams } from "../_lib/guard";
 import { SuperPanel } from "../_components/Panel";
 import { Card, PageHeader, Flash, Field, Input, Toggle, Badge } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { listUsers } from "@/lib/db/users";
-import type { SuperUiKey } from "@/lib/i18n/super";
 import { createUserAction, deleteUserAction, resetPasswordAction, toggleSuperAction } from "./actions";
 
 function fmt(iso: string | null, locale: "ar" | "en") {
@@ -18,12 +17,10 @@ export default async function UsersPage({ searchParams }: { searchParams: Search
   const { t, locale, user: me } = ctx;
   const users = await listUsers();
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "password_short", "user_exists", "cannot_delete_self"];
-  const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
   return (
     <SuperPanel ctx={ctx} active="users">
       <PageHeader title={t("users")} subtitle={`${users.length}`} />
-      <Flash saved={sp1(sp.saved)} error={errorText} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={error} savedText={t("saved")} errorText={t("error")} translate={superError(t)} />
       <Card title={t("create_user")} className="mb-5">
         <form action={createUserAction} className="grid gap-3 sm:grid-cols-4 sm:items-end">
           <Field label={t("email")}>

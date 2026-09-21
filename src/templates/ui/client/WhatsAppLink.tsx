@@ -5,12 +5,18 @@ import type { ReactNode, MouseEvent } from "react";
 declare global {
   interface Window {
     __dkTrack?: (eventKey: "whatsapp_click" | "call_click") => void;
+    /** Clicks that happened before the tracking runtime mounted; SiteRuntime drains this on mount. */
+    __dkPending?: ("whatsapp_click" | "call_click")[];
   }
 }
 
 /**
  * Anchor that records a WhatsApp / call click (server event + browser pixels) before navigating.
  * The href already contains the visitor id inside the prefilled message.
+ *
+ * A click can land before the runtime has hydrated — on a phone that window is the first seconds of the
+ * page, which is exactly when visitors tap the floating WhatsApp button. Those clicks used to vanish:
+ * no pixel event, no server event, no conversion. They are queued instead and replayed on mount.
  */
 export function WhatsAppLink({
   href,
@@ -27,7 +33,8 @@ export function WhatsAppLink({
 }) {
   function onClick(_e: MouseEvent<HTMLAnchorElement>) {
     try {
-      window.__dkTrack?.(kind);
+      if (window.__dkTrack) window.__dkTrack(kind);
+      else (window.__dkPending ??= []).push(kind);
     } catch {
       /* ignore */
     }

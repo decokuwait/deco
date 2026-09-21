@@ -1,4 +1,5 @@
-import { requireSuper, sp1, type SearchParams } from "../../_lib/guard";
+import Link from "next/link";
+import { requireSuper, sp1, superError, type SearchParams } from "../../_lib/guard";
 import { SuperPanel, TemplatePicker } from "../../_components/Panel";
 import { Card, PageHeader, Flash, Field, Input, Select, Toggle } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -6,7 +7,6 @@ import { CATEGORIES, CATEGORY_LABELS, type Category } from "@/lib/types";
 import { getTemplate } from "@/templates/registry";
 import { ROOT_DOMAIN } from "@/lib/config";
 import { createSiteAction } from "./actions";
-import type { SuperUiKey } from "@/lib/i18n/super";
 
 export default async function NewSitePage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
@@ -16,8 +16,6 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
   const preset = getTemplate(sp1(sp.template));
   const category: Category | undefined = (CATEGORIES as string[]).includes(catRaw) ? (catRaw as Category) : preset?.category;
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "template_category_mismatch", "domain_taken", "reserved_slug", "user_exists", "user_exists_attach"];
-  const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
   // Values typed before a validation error come back through the query string (never the password).
   const prev = { name: sp1(sp.name), slug: sp1(sp.slug), customDomain: sp1(sp.customDomain), whatsapp: sp1(sp.whatsapp), adminEmail: sp1(sp.adminEmail) };
   const seedDemo = sp1(sp.seedDemo) === "" ? true : sp1(sp.seedDemo) === "1";
@@ -27,7 +25,7 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
   return (
     <SuperPanel ctx={ctx} active="new">
       <PageHeader title={t("new_site")} />
-      <Flash error={errorText} savedText={t("saved")} errorText={t("error")} locale={locale} />
+      <Flash error={error} savedText={t("saved")} errorText={t("error")} translate={superError(t)} />
       <form action={createSiteAction} className="grid gap-5">
         <Card title={t("site_name")}>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -73,13 +71,13 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
           title={t("template")}
           actions={
             <div className="flex flex-wrap gap-1.5 text-xs">
-              <a href="/super/sites/new" className={`rounded-full border px-3 py-1 font-bold ${!category ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300"}`}>
+              <Link href="/super/sites/new" className={`inline-flex min-h-11 items-center rounded-full border px-3 font-bold ${!category ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300"}`}>
                 {t("all")}
-              </a>
+              </Link>
               {CATEGORIES.map((c) => (
-                <a key={c} href={`/super/sites/new?cat=${c}`} className={`rounded-full border px-3 py-1 font-bold ${category === c ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300"}`}>
+                <Link key={c} href={`/super/sites/new?cat=${c}`} className={`inline-flex min-h-11 items-center rounded-full border px-3 font-bold ${category === c ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300"}`}>
                   {CATEGORY_LABELS[c][locale]}
-                </a>
+                </Link>
               ))}
             </div>
           }

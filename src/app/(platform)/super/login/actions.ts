@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { signInWithPassword, signOut } from "@/lib/auth/session";
-import { listUsers, superAdminEmails, upsertSuperAdmin, normalizeEmail } from "@/lib/db/users";
+import { hasAnyUser, superAdminEmails, upsertSuperAdmin, normalizeEmail } from "@/lib/db/users";
 import { classifyDbError } from "@/lib/db/client";
 import { readStr } from "@/components/admin/ui";
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -24,8 +24,8 @@ type Outcome = "ok" | "invalid" | "too_many" | "not_super" | "bootstrap" | "db_c
  * so a first deploy explains itself instead of answering "invalid credentials".
  */
 async function bootstrapOwner(email: string, password: string): Promise<"bootstrap" | null> {
-  const users = await listUsers();
-  if (users.length) return null;
+  // A bounded existence check, not a full table read: this runs on every super-login attempt.
+  if (await hasAnyUser()) return null;
   const emails = superAdminEmails();
   const expected = process.env.SUPER_ADMIN_PASSWORD?.trim() || "";
   const missing = !emails.length ? "SUPER_ADMIN_EMAILS is not set" : !expected ? "SUPER_ADMIN_PASSWORD is not set" : expected.length < 8 ? "SUPER_ADMIN_PASSWORD is shorter than 8 characters" : "";

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Locale } from "@/lib/types";
 import { AdminLangToggle } from "./AdminLangToggle";
@@ -32,6 +33,10 @@ function NavIcon({ name, className = "h-5 w-5" }: { name: NavItem["icon"]; class
 /**
  * Mobile-first admin shell: top bar, desktop sidebar, bottom tab bar on phones.
  * `nav` items are rendered in both places; `active` marks the current page.
+ *
+ * Navigation uses `next/link`, so moving between admin pages is a client transition with
+ * instead of a full document load. Every admin page is server-rendered against the database, and the
+ * functions run in one region: on a phone, a plain `<a>` meant a whole round trip for each tap.
  */
 export function AdminShell({
   title,
@@ -78,7 +83,7 @@ export function AdminShell({
         <aside className="hidden w-56 shrink-0 md:block">
           <nav className="sticky top-20 flex flex-col gap-1">
             {nav.map((n) => (
-              <a
+              <Link
                 key={n.href}
                 href={n.href}
                 aria-current={n.active ? "page" : undefined}
@@ -89,7 +94,7 @@ export function AdminShell({
               >
                 <NavIcon name={n.icon} />
                 {n.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </aside>
@@ -97,10 +102,10 @@ export function AdminShell({
       </div>
       <nav className="fixed inset-x-0 bottom-0 z-40 grid border-t border-slate-200 bg-white/95 backdrop-blur md:hidden" style={{ gridTemplateColumns: `repeat(${primary.length}, minmax(0, 1fr))`, paddingBottom: "env(safe-area-inset-bottom)" }}>
         {primary.map((n) => (
-          <a key={n.href} href={n.href} aria-current={n.active ? "page" : undefined} className={cx("flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-bold", n.active ? "text-emerald-700" : "text-slate-500")}>
+          <Link key={n.href} href={n.href} aria-current={n.active ? "page" : undefined} className={cx("flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-bold", n.active ? "text-emerald-700" : "text-slate-500")}>
             <NavIcon name={n.icon} className="h-6 w-6" />
             <span className="truncate">{n.label}</span>
-          </a>
+          </Link>
         ))}
       </nav>
     </div>

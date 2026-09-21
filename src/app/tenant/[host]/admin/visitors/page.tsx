@@ -39,7 +39,7 @@ export default async function VisitorsPage({ params, searchParams }: { params: P
   return (
     <Panel ctx={ctx} active="visitors">
       <PageHeader title={t("visitors")} subtitle={`${total} ${t("results")}`} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
 
       <Card className="mb-5">
         <form method="get" action="/admin/visitors" className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">

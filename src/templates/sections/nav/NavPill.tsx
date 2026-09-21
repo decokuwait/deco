@@ -16,7 +16,7 @@ export function NavPill({ ctx }: SectionProps) {
         <Brand ctx={ctx} size="sm" />
         <nav className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 lg:flex">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-full px-4 py-1.5 text-sm font-bold text-muted transition hover:bg-bg hover:text-fg hover:shadow-sm">
+            <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center rounded-full px-4 py-1.5 text-sm font-bold text-muted transition hover:bg-bg hover:text-fg hover:shadow-sm">
               {l.label}
             </a>
           ))}
@@ -36,7 +36,7 @@ export function NavPill({ ctx }: SectionProps) {
             buttonClassName={chromeButtonClass({ round: true, icon: true, slim: true })}
             cta={
               <div className="flex flex-col gap-2">
-                {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="rounded-full border border-line px-4 py-2 text-sm font-bold" />}
+                {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="inline-flex min-h-6 items-center rounded-full border border-line px-4 py-2 text-sm font-bold" />}
                 <WhatsAppLink href={ctx.whatsappHref} className="flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 font-bold text-primary-fg">
                   <WhatsAppIcon />
                   {ctx.ui("whatsapp")}

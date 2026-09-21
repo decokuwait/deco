@@ -22,7 +22,7 @@ export function NavTransparent({ ctx }: SectionProps) {
         <Brand ctx={ctx} />
         <nav className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-full px-3 py-2 text-sm font-bold transition hover:bg-fg/5">
+            <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center rounded-full px-3 py-2 text-sm font-bold transition hover:bg-fg/5">
               {l.label}
             </a>
           ))}

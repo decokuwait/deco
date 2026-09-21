@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireSuper, sp1, type SearchParams } from "../../_lib/guard";
+import { requireSuper, sp1, superError, type SearchParams } from "../../_lib/guard";
 import { SuperPanel, TemplatePicker } from "../../_components/Panel";
 import { Card, PageHeader, Flash, Field, Input, Select, Badge, LinkButton, EmptyState } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
@@ -10,7 +10,6 @@ import { listMembers } from "@/lib/db/members";
 import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
 import { recommendedRecords, vercelConfigured } from "@/lib/vercel";
 import { ROOT_DOMAIN, rootPort, siteUrl } from "@/lib/config";
-import type { SuperUiKey } from "@/lib/i18n/super";
 import { addCustomDomainAction, addMemberAction, checkDomainAction, deleteSiteAction, removeDomainAction, removeMemberAction, updateSiteAction } from "./actions";
 
 export default async function EditSitePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
@@ -22,8 +21,6 @@ export default async function EditSitePage({ params, searchParams }: { params: P
   if (!site) notFound();
   const [domains, members] = await Promise.all([listDomains(id), listMembers(id)]);
   const error = sp1(sp.error);
-  const known: SuperUiKey[] = ["required", "invalid_slug", "slug_taken", "invalid_domain", "password_short", "invalid_template", "not_found", "domain_taken", "template_category_mismatch", "reserved_slug", "user_exists", "user_exists_attach", "vercel_unreachable"];
-  const errorText = (known as string[]).includes(error) ? t(error as SuperUiKey) : error;
   const saved = sp1(sp.saved);
   const savedText = saved === "attached" ? t("saved_attached") : saved === "created" ? t("saved_created") : t("saved");
   const port = rootPort();
@@ -47,7 +44,7 @@ export default async function EditSitePage({ params, searchParams }: { params: P
           ) : undefined
         }
       />
-      <Flash saved={saved} error={errorText} savedText={savedText} errorText={t("error")} locale={locale} />
+      <Flash saved={saved} error={error} savedText={savedText} errorText={t("error")} translate={superError(t)} />
 
       <form action={updateSiteAction.bind(null, id)} className="grid gap-5">
         <Card title={t("site_name")}>

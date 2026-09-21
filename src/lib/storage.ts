@@ -90,6 +90,9 @@ export interface CorsProbe {
 // verdict per origin for a few minutes so an upload never waits on a second round trip to Cloudflare.
 const corsCache = new Map<string, { probe: CorsProbe; at: number }>();
 const CORS_TTL_MS = 5 * 60_000;
+// Keyed by the request's own origin, which a client influences, so the map needs a ceiling. A deployment
+// has a handful of real origins; anything past that is noise and the oldest entry can go.
+const CORS_CACHE_MAX = 64;
 
 /** Test helper: forget the cached CORS verdicts. */
 export function resetStorageChecks() {
@@ -103,7 +106,10 @@ async function corsCheck(origin: string): Promise<CorsProbe> {
   const probe = await probeCors(origin);
   // Only a working policy is worth remembering. Caching a failure would keep refusing uploads for minutes
   // after the operator fixes the bucket, and a transient probe error is not evidence about the policy.
-  if (probe.verdict === "ok") corsCache.set(origin, { probe, at: Date.now() });
+  if (probe.verdict === "ok") {
+    if (corsCache.size >= CORS_CACHE_MAX) corsCache.delete(corsCache.keys().next().value!);
+    corsCache.set(origin, { probe, at: Date.now() });
+  }
   return probe;
 }
 
@@ -230,9 +236,13 @@ export async function createUploadTarget(input: { siteId: string; filename: stri
 }
 
 export function localPathFor(key: string): string {
-  const root = localUploadsDir();
+  const root = path.resolve(/*turbopackIgnore: true*/ localUploadsDir());
   const p = path.resolve(/*turbopackIgnore: true*/ root, key);
-  if (!p.startsWith(path.resolve(/*turbopackIgnore: true*/ root))) throw new Error("bad_key");
+  // `startsWith(root)` also accepts a sibling directory whose name merely begins with the root's
+  // (".../uploads" vs ".../uploads-elsewhere"). Ask for the relative path instead: a key that stays
+  // inside the directory never starts with ".." and is never absolute.
+  const rel = path.relative(root, p);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) throw new Error("bad_key");
   return p;
 }
 
@@ -265,6 +275,20 @@ export function keyFromUrl(url: string | null | undefined): string | null {
   const base = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
   if (base && url.startsWith(`${base}/sites/`)) return url.slice(base.length + 1);
   return null;
+}
+
+/**
+ * Storage key for a URL, but only when the object belongs to `siteId`.
+ *
+ * Media rows store whatever URL the admin submitted, and every site's uploads are served from one public
+ * bucket, so the URLs of another tenant's files are visible in the HTML of its own website. Deleting by
+ * `keyFromUrl` alone therefore let any site admin delete any other site's media by pasting its URL into
+ * their own project and pressing delete. The site prefix is the only thing that makes a key ours.
+ */
+export function siteKeyFromUrl(siteId: string, url: string | null | undefined): string | null {
+  const key = keyFromUrl(url);
+  if (!key) return null;
+  return key.startsWith(`sites/${siteId}/`) ? key : null;
 }
 
 export function contentTypeFor(key: string): string {

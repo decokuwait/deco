@@ -318,6 +318,14 @@ export const ADMIN_UI = {
   x_social: { ar: "إكس (تويتر)", en: "X (Twitter)" },
   youtube: { ar: "يوتيوب", en: "YouTube" },
   url_hint: { ar: "رابط كامل يبدأ بـ https://", en: "Full link starting with https://" },
+  map_hint: {
+    ar: "في خرائط جوجل: مشاركة ← «تضمين خريطة» ← انسخ الرابط الموجود داخل src=\"...\". رابط المشاركة العادي لا يعمل كخريطة مضمّنة.",
+    en: "In Google Maps: Share → “Embed a map” → copy the link inside src=\"...\". The normal share link cannot be embedded.",
+  },
+  err_map_not_embed: {
+    ar: "هذا رابط خريطة عادي ولا يمكن تضمينه. استخدم «مشاركة ← تضمين خريطة» وانسخ الرابط من داخل src.",
+    en: "That is a normal Maps link and cannot be embedded. Use “Share → Embed a map” and copy the link from inside src.",
+  },
   invalid_whatsapp: { ar: "رقم واتساب غير صالح — استخدم الصيغة الدولية مثل 96555555555", en: "Invalid WhatsApp number — use the international format, e.g. 96555555555" },
   background_color: { ar: "لون الخلفية", en: "Background colour" },
   surface_color: { ar: "لون البطاقات", en: "Card colour" },
@@ -348,6 +356,36 @@ export const ADMIN_UI = {
   err_not_found: { ar: "العنصر غير موجود", en: "Item not found" },
   err_media_required: { ar: "ارفع صورة أو فيديو أولاً", en: "Upload an image or a video first" },
   err_title_required: { ar: "العنوان مطلوب", en: "Title is required" },
+  // Remaining `?error=` codes the admin actions can redirect with. Every code an action emits needs an
+  // entry here: Flash only renders known codes, so an unknown one shows the generic message instead of
+  // whatever text happened to be in the URL.
+  err_bad_type: { ar: "نوع المشروع غير صالح", en: "Invalid project type" },
+  err_bad_platform: { ar: "منصة غير معروفة", en: "Unknown platform" },
+  err_unknown_section: { ar: "هذا القسم غير موجود", en: "No such section" },
+  err_invalid_stage: { ar: "حالة غير صالحة", en: "Invalid stage" },
+  err_invalid_template: { ar: "القالب غير صالح", en: "Invalid template" },
+  err_invalid_whatsapp: { ar: "رقم واتساب غير صالح — استخدم الصيغة الدولية مثل 96555555555", en: "Invalid WhatsApp number — use the international format, e.g. 96555555555" },
+  err_value_required: { ar: "أدخل قيمة الطلب (د.ك) لهذه الحالة", en: "Enter the order value (KWD) for this stage" },
+  err_pixel_id_required: { ar: "لا يمكن تفعيل البكسل بدون معرّف", en: "A pixel cannot be active without an ID" },
+  err_password_short: { ar: "كلمة المرور قصيرة (8 أحرف على الأقل)", en: "Password too short (at least 8 characters)" },
+  err_password_mismatch: { ar: "كلمتا المرور غير متطابقتين", en: "Passwords do not match" },
+  err_invalid_login: { ar: "بيانات الدخول غير صحيحة", en: "Invalid email or password" },
+  err_concurrent_update: { ar: "حُفظ تعديل آخر في نفس الوقت — أعد المحاولة", en: "Another change was saved at the same time — please try again" },
+  err_required: { ar: "هذا الحقل مطلوب", en: "This field is required" },
+  contrast_title: { ar: "وضوح القراءة", en: "Readability" },
+  contrast_ok: { ar: "الألوان المختارة واضحة للقراءة ✓", en: "The chosen colours read clearly ✓" },
+  contrast_warn: { ar: "{pair} صعب القراءة ({ratio}:1). الحد الموصى به {need}:1.", en: "{pair} is hard to read ({ratio}:1). Aim for at least {need}:1." },
+  contrast_pair_text: { ar: "لون النص على الخلفية", en: "Text on background" },
+  contrast_pair_primary: { ar: "اللون الرئيسي على الخلفية", en: "Primary colour on background" },
+  contrast_pair_accent: { ar: "لون التمييز على الخلفية", en: "Accent colour on background" },
+  err_save_failed: { ar: "تعذّر الحفظ، حاول مرة أخرى", en: "Could not save, please try again" },
+  err_invalid_order: { ar: "ترتيب الأقسام غير صالح — تم استخدام ترتيب القالب", en: "Invalid section order — the template order was kept" },
+  // Outcome codes for "send test event" (the provider response itself stays in the function log).
+  err_no_delivery: { ar: "لم يُرسل شيء — تحقق من إعدادات البكسل", en: "Nothing was sent — check the pixel settings" },
+  err_status_400: { ar: "رفضت المنصة الطلب (400) — تحقق من المعرّف والرمز", en: "The platform rejected the request (400) — check the ID and token" },
+  err_status_401: { ar: "رمز الوصول غير مقبول (401)", en: "The access token was rejected (401)" },
+  err_status_403: { ar: "لا صلاحية لهذا البكسل (403)", en: "No permission for this pixel (403)" },
+  err_status_404: { ar: "المعرّف غير موجود على المنصة (404)", en: "The platform does not know this ID (404)" },
 } satisfies Record<string, LText>;
 
 export type AdminUiKey = keyof typeof ADMIN_UI;

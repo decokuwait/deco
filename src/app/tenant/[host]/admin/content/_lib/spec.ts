@@ -59,7 +59,7 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
       { kind: "ltext", key: "contact.hours", label: "hours" },
       { kind: "ltext", key: "contact.title", label: "contact_title" },
       { kind: "ltext", key: "contact.subtitle", label: "contact_subtitle" },
-      { kind: "text", key: "contact.mapEmbedUrl", label: "map_embed", type: "url", dir: "ltr", hint: "url_hint" },
+      { kind: "text", key: "contact.mapEmbedUrl", label: "map_embed", type: "url", dir: "ltr", hint: "map_hint" },
       { kind: "text", key: "socials.instagram", label: "instagram", type: "url", dir: "ltr", placeholder: "https://instagram.com/...", hint: "url_hint" },
       { kind: "text", key: "socials.tiktok", label: "tiktok", type: "url", dir: "ltr", placeholder: "https://tiktok.com/@..." },
       { kind: "text", key: "socials.snapchat", label: "snapchat", type: "url", dir: "ltr", placeholder: "https://snapchat.com/add/..." },
@@ -287,13 +287,21 @@ export function parseSectionForm(fd: FormData, spec: SectionSpec, current: SiteC
   }
 
   if (spec.list) {
-    const count = Math.min(Number(fd.get("rows.count") || 0), 200);
+    // A non-numeric rows.count used to collapse to NaN, the loop never ran, and the whole list was
+    // replaced by an empty array — a silent wipe of every service/stat/FAQ the owner had.
+    const rawCount = Number(fd.get("rows.count"));
+    const count = Number.isFinite(rawCount) ? Math.min(Math.max(Math.trunc(rawCount), 0), 200) : 0;
     const existing = (getPath(current, spec.list.path) as Array<Record<string, unknown>> | undefined) ?? [];
     const rows: Array<Record<string, unknown> | { ar: string; en: string }> = [];
+    const usedIds = new Set<string>();
     for (let i = 0; i < count; i++) {
       const prefix = `rows.${i}`;
-      const id = readStr(fd, `${prefix}.id`, 80) || `${spec.list.idPrefix}-${Date.now()}-${i}`;
-      if (fd.get(`${prefix}.delete`) === "on" || op === `delete:${i}`) continue;
+      const submitted = readStr(fd, `${prefix}.id`, 80);
+      // Row ids come from the form and end up as React keys and as the lookup into the stored rows, so
+      // a repeated id would merge two rows into one. A duplicate gets a fresh id instead.
+      const id = submitted && !usedIds.has(submitted) ? submitted : `${spec.list.idPrefix}-${Date.now()}-${i}`;
+      usedIds.add(id);
+      if (op === `delete:${i}`) continue;
       if (spec.list.primaryKey === "") {
         rows.push(readLText(fd, prefix));
         continue;

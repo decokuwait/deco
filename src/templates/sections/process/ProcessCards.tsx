@@ -20,7 +20,7 @@ export function ProcessCards({ ctx }: SectionProps) {
                       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
                       {ctx.ui("step")} {i + 1}
                     </span>
-                    <span className="font-heading text-2xl font-black tabular-nums text-primary/20 transition-colors duration-300 group-hover:text-accent">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="font-heading text-2xl font-black tabular-nums text-primary-text/20 transition-colors duration-300 group-hover:text-accent">{String(i + 1).padStart(2, "0")}</span>
                   </div>
                   <h3 className="mt-5 font-heading text-lg font-bold sm:text-xl">{ctx.text(s.title)}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-muted sm:text-base">{ctx.text(s.description)}</p>
@@ -29,7 +29,7 @@ export function ProcessCards({ ctx }: SectionProps) {
                   </span>
                 </article>
                 {showArrow && (
-                  <span aria-hidden className="absolute -end-8 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-bg text-primary shadow ring-1 ring-line lg:flex">
+                  <span aria-hidden className="absolute -end-8 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-bg text-primary-text shadow ring-1 ring-line lg:flex">
                     <Arrow dir={ctx.dir} className="h-4 w-4" />
                   </span>
                 )}

@@ -127,16 +127,19 @@ export function QuoteCarousel({
           >
             <Chevron className={dir === "rtl" ? "" : "rotate-180"} />
           </button>
-          <div className="flex items-center gap-2">
+          {/* 28px hit area around an 8px dot: WCAG 2.2 (2.5.8) wants 24x24, the paint stays small. */}
+          <div className="flex items-center">
             {children.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 aria-label={`${i + 1} / ${count}`}
-                aria-current={i === index}
+                aria-current={i === index ? "true" : undefined}
                 onClick={() => go(i)}
-                className={`h-2 rounded-full transition-all ${i === index ? "w-7 bg-accent" : "w-2 bg-line hover:bg-muted"}`}
-              />
+                className="group flex h-7 min-w-7 shrink-0 items-center justify-center px-0.5"
+              >
+                <span aria-hidden className={`h-2 rounded-full transition-all ${i === index ? "w-7 bg-accent" : "w-2 bg-line group-hover:bg-muted"}`} />
+              </button>
             ))}
           </div>
           <button

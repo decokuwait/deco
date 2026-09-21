@@ -25,7 +25,7 @@ export function HeroStacked({ ctx }: SectionProps) {
           <div className="relative z-10 mx-auto -mt-8 grid max-w-4xl grid-cols-2 gap-px overflow-hidden rounded-card bg-line shadow-xl sm:-mt-12 lg:grid-cols-4">
             {stats.map((s) => (
               <div key={s.id} className="bg-surface px-4 py-5 text-center">
-                <div className="font-heading text-3xl font-black text-primary">{s.value}</div>
+                <div className="font-heading text-3xl font-black text-primary-text">{s.value}</div>
                 <div className="mt-1 text-xs font-bold text-muted sm:text-sm">{ctx.text(s.label)}</div>
               </div>
             ))}

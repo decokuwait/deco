@@ -31,12 +31,12 @@ export function ServicesBento({ ctx }: SectionProps) {
               {it.imageUrl ? (
                 <div className="relative aspect-[16/9] overflow-hidden">
                   <Img src={it.imageUrl} alt={ctx.text(it.title)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <span className="absolute bottom-3 start-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg text-primary shadow">
+                  <span className="absolute bottom-3 start-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg text-primary-text shadow">
                     <Icon name={it.icon} className="h-5 w-5" />
                   </span>
                 </div>
               ) : (
-                <span className="mx-5 mt-5 flex h-11 w-11 items-center justify-center rounded-card bg-primary/10 text-primary transition duration-300 group-hover:bg-primary group-hover:text-primary-fg">
+                <span className="mx-5 mt-5 flex h-11 w-11 items-center justify-center rounded-card bg-primary/10 text-primary-text transition duration-300 group-hover:bg-primary group-hover:text-primary-fg">
                   <Icon name={it.icon} className="h-6 w-6" />
                 </span>
               )}

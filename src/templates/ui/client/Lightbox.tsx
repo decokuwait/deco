@@ -1,7 +1,8 @@
 "use client";
 
 import { responsiveSrc } from "../img";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useFocusTrap } from "./focus-trap";
 
 export interface LightboxItem {
   id: string;
@@ -26,6 +27,9 @@ export function Gallery({
 }) {
   const [index, setIndex] = useState<number | null>(null);
   const n = items.length;
+  const dialog = useRef<HTMLDivElement>(null);
+  const dialogId = useId();
+  useFocusTrap(dialog, index !== null);
 
   useEffect(() => {
     if (index === null) return;
@@ -48,7 +52,16 @@ export function Gallery({
     <>
       {children((i) => setIndex(i))}
       {cur && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 p-3 sm:p-8" dir="ltr" onClick={() => setIndex(null)}>
+        <div
+          ref={dialog}
+          id={dialogId}
+          role="dialog"
+          aria-modal="true"
+          aria-label={closeLabel}
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 p-3 sm:p-8"
+          dir="ltr"
+          onClick={() => setIndex(null)}
+        >
           <button type="button" aria-label={closeLabel} onClick={() => setIndex(null)} className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20">
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
@@ -68,7 +81,6 @@ export function Gallery({
             {cur.kind === "video" ? (
               <video src={cur.url} poster={cur.posterUrl || undefined} controls autoPlay playsInline className="max-h-[80vh] w-auto max-w-full rounded-lg" />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={cur.url} {...responsiveSrc(cur.url, "100vw")} alt={cur.caption || ""} decoding="async" className="max-h-[80vh] w-auto max-w-full rounded-lg object-contain" />
             )}
             {cur.caption && <figcaption className="mt-3 text-center text-sm text-white/80">{cur.caption}</figcaption>}

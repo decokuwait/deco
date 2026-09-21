@@ -22,7 +22,7 @@ export function ProgressTimeline({ ctx }: SectionProps) {
                   <div className="mb-8 text-center">
                     <span className="inline-block rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent-text">{ctx.ui("in_progress")}</span>
                     <h3 className="mt-2 font-heading text-2xl font-extrabold">{ctx.text(pr.title)}</h3>
-                    {ctx.text(pr.location) && <p className="mt-1 text-sm font-semibold text-primary">{ctx.text(pr.location)}</p>}
+                    {ctx.text(pr.location) && <p className="mt-1 text-sm font-semibold text-primary-text">{ctx.text(pr.location)}</p>}
                     {ctx.text(pr.description) && <p className="mx-auto mt-2 max-w-2xl text-muted">{ctx.text(pr.description)}</p>}
                   </div>
                   <ol className="relative border-s-2 border-line ps-8 sm:ms-[calc(50%-1px)] sm:ps-0">

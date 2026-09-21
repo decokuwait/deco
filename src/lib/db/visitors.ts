@@ -1,4 +1,4 @@
-import { q, one, iso, isoOrNull, json, parseJson } from "./client";
+import { q, one, iso, isoOrNull, isUuid, json, parseJson } from "./client";
 import type { SourcePlatform, Stage, Visitor } from "@/lib/types";
 import { detectAttribution, fbcFromClickId } from "@/lib/visitor/attribution";
 import { generateVisitorCode } from "@/lib/visitor/code";
@@ -59,6 +59,7 @@ export async function getVisitorByCode(siteId: string, code: string): Promise<Vi
 }
 
 export async function getVisitorById(id: string): Promise<Visitor | null> {
+  if (!isUuid(id)) return null;
   const r = await one<Row>(`select * from visitors where id = $1`, [id]);
   return r ? mapVisitor(r) : null;
 }
@@ -69,6 +70,14 @@ export interface TrackInput {
   code: string | null;
   /** True when the proxy just generated this code: a collision must then allocate a new code instead of merging. */
   fresh?: boolean;
+  /**
+   * Whether this call is a page view of its own (default true).
+   *
+   * A first visit reaches trackVisit twice for one page view: the server render creates the row, then the
+   * browser's /api/track call enriches it with the pixel cookies. Counting both made every visitor's first
+   * visit register as two, and every later page view as one.
+   */
+  countVisit?: boolean;
   landingUrl?: string | null;
   referrer?: string | null;
   userAgent?: string | null;
@@ -89,9 +98,10 @@ export async function trackVisit(input: TrackInput): Promise<{ visitor: Visitor;
   const referrer = (input.referrer || "").slice(0, 1000) || null;
   const ua = (input.userAgent || "").slice(0, 500) || null;
 
+  const countVisit = input.countVisit ?? true;
   if (input.code && !input.fresh) {
     const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, input.code]);
-    if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null), created: false };
+    if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null, countVisit), created: false };
   }
 
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -107,7 +117,7 @@ export async function trackVisit(input: TrackInput): Promise<{ visitor: Visitor;
     if (useOwnCode && !input.fresh) {
       // Lost a race with a parallel request for the same cookie code: treat as the existing visitor.
       const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, code]);
-      if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null), created: false };
+      if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null, countVisit), created: false };
     }
     // A fresh proxy code that collides with another visitor: allocate a new one (never merge strangers).
   }
@@ -122,6 +132,7 @@ async function touch(
   referrer: string | null,
   ua: string | null,
   ip: string | null,
+  countVisit: boolean,
 ): Promise<Visitor> {
   const mergedCookies = { ...parseJson<Record<string, string>>(existing.cookies, {}), ...cookies };
   const knownPlatform = attr.sourcePlatform !== "direct" && attr.sourcePlatform !== "other";
@@ -131,7 +142,7 @@ async function touch(
   const r = await one<Row>(
     `update visitors set
        last_seen_at = now(),
-       visits = visits + 1,
+       visits = visits + case when $12::boolean then 1 else 0 end,
        cookies = $3::jsonb,
        user_agent = coalesce($4, user_agent),
        ip = coalesce($5, ip),
@@ -141,7 +152,7 @@ async function touch(
        landing_url = case when $6::boolean then coalesce($10, landing_url) else landing_url end,
        referrer = case when $6::boolean then coalesce($11, referrer) else referrer end
      where id = $1 and site_id = $2 returning *`,
-    [existing.id, existing.site_id, json(mergedCookies), ua, ip, retouch, attr.sourcePlatform, json(attr.clickIds), json(attr.utm), landing, referrer],
+    [existing.id, existing.site_id, json(mergedCookies), ua, ip, retouch, attr.sourcePlatform, json(attr.clickIds), json(attr.utm), landing, referrer, countVisit],
   );
   return mapVisitor(r!);
 }
@@ -154,9 +165,18 @@ export interface VisitorSearch {
   offset?: number;
 }
 
+/** Clamps a page-size/offset that came from a query string to a safe integer (NaN and 1e20 included). */
+function clampInt(v: number | undefined, fallback: number, min: number, max: number): number {
+  const n = Math.trunc(Number(v));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
 export async function searchVisitors(siteId: string, s: VisitorSearch = {}): Promise<{ items: Visitor[]; total: number }> {
-  const limit = Math.min(Math.max(s.limit ?? 30, 1), 200);
-  const offset = Math.max(s.offset ?? 0, 0);
+  // Bound parameters, not interpolation: `?page=100000000000000000000` produced `offset 3e+21`, which is
+  // not valid SQL, so a crafted query string turned the visitors page into a 500.
+  const limit = clampInt(s.limit, 30, 1, 200);
+  const offset = clampInt(s.offset, 0, 0, 1_000_000);
   const where = [`site_id = $1`];
   const params: unknown[] = [siteId];
   if (s.code) {
@@ -174,20 +194,33 @@ export async function searchVisitors(siteId: string, s: VisitorSearch = {}): Pro
   }
   const w = where.join(" and ");
   const totalRow = await one<{ n: unknown }>(`select count(*) as n from visitors where ${w}`, params);
-  const rows = await q<Row>(`select * from visitors where ${w} order by last_seen_at desc limit ${limit} offset ${offset}`, params);
+  const rows = await q<Row>(`select * from visitors where ${w} order by last_seen_at desc limit $${params.length + 1} offset $${params.length + 2}`, [...params, limit, offset]);
   return { items: rows.map(mapVisitor), total: Number(totalRow?.n ?? 0) };
 }
 
+/**
+ * Updates a visitor. Fields left out of `patch` keep their value; fields set to null are cleared.
+ *
+ * "Keep" is signalled by a separate boolean parameter rather than a magic string in the value itself:
+ * a sentinel like `'__keep__'` is also something an owner can type into the notes field, and then the
+ * note they wrote was silently dropped and the old one kept.
+ */
 export async function updateVisitor(id: string, patch: Partial<{ stage: Stage; notes: string | null; name: string | null; phone: string | null }>): Promise<Visitor | null> {
   const r = await one<Row>(
     `update visitors set
        stage = coalesce($2, stage),
        stage_updated_at = case when $2::text is null then stage_updated_at else now() end,
-       notes = case when $3::text = '__keep__' then notes else $3 end,
-       name = case when $4::text = '__keep__' then name else $4 end,
-       phone = case when $5::text = '__keep__' then phone else $5 end
+       notes = case when $3::boolean then notes else $4 end,
+       name  = case when $5::boolean then name  else $6 end,
+       phone = case when $7::boolean then phone else $8 end
      where id = $1 returning *`,
-    [id, patch.stage ?? null, patch.notes === undefined ? "__keep__" : patch.notes, patch.name === undefined ? "__keep__" : patch.name, patch.phone === undefined ? "__keep__" : patch.phone],
+    [
+      id,
+      patch.stage ?? null,
+      patch.notes === undefined, patch.notes ?? null,
+      patch.name === undefined, patch.name ?? null,
+      patch.phone === undefined, patch.phone ?? null,
+    ],
   );
   return r ? mapVisitor(r) : null;
 }

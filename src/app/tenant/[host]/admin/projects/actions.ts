@@ -7,6 +7,7 @@ import { readBool, readLText, readStr } from "@/components/admin/ui";
 import { patchSiteContent } from "@/lib/db/sites";
 import { createProject, deleteProject, getProject, moveProject, updateProject } from "@/lib/db/projects";
 import { isProjectType, type ProjectType } from "@/lib/types";
+import { safeMediaUrl } from "@/lib/safe-url";
 
 const CONTENT_KEY: Record<ProjectType, "finished" | "beforeAfter" | "progress"> = { finished: "finished", before_after: "beforeAfter", progress: "progress" };
 
@@ -43,7 +44,7 @@ export async function createProjectAction(host: string, fd: FormData) {
       title,
       description: readLText(fd, "description"),
       location: readLText(fd, "location"),
-      coverUrl: readStr(fd, "coverUrl", 2000) || null,
+      coverUrl: safeMediaUrl(readStr(fd, "coverUrl", 2000)) || null,
       published: readBool(fd, "published"),
     });
     id = p.id;

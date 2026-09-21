@@ -1,4 +1,4 @@
-import { q, one, json, parseJson } from "./client";
+import { q, one, isUuid, json, parseJson } from "./client";
 import type { LText, MediaItem, MediaKind, MediaRole, Project, ProjectType } from "@/lib/types";
 
 interface ProjectRow {
@@ -73,6 +73,7 @@ export async function listProjects(siteId: string, opts: { type?: ProjectType; p
 }
 
 export async function getProject(id: string): Promise<(Project & { siteId: string }) | null> {
+  if (!isUuid(id)) return null;
   const r = await one<ProjectRow>(`select * from projects where id = $1`, [id]);
   if (!r) return null;
   const media = await q<MediaRow>(`select * from project_media where project_id = $1 order by sort_order, created_at`, [id]);
@@ -109,6 +110,8 @@ export async function createProject(input: {
   return mapProject(r!, []);
 }
 
+/** Fields left out of `patch` keep their value; fields set to null are cleared. See updateVisitor on why
+ *  "keep" is a separate boolean parameter and not a sentinel value. */
 export async function updateProject(
   id: string,
   patch: Partial<{ title: LText; description: LText; location: LText | null; coverUrl: string | null; published: boolean; type: ProjectType }>,
@@ -117,18 +120,18 @@ export async function updateProject(
     `update projects set
        title = coalesce($2::jsonb, title),
        description = coalesce($3::jsonb, description),
-       location = case when $4::text = '__keep__' then location else $4::jsonb end,
-       cover_url = case when $5::text = '__keep__' then cover_url else $5 end,
-       published = coalesce($6, published),
-       type = coalesce($7, type),
+       location = case when $4::boolean then location else $5::jsonb end,
+       cover_url = case when $6::boolean then cover_url else $7 end,
+       published = coalesce($8, published),
+       type = coalesce($9, type),
        updated_at = now()
      where id = $1`,
     [
       id,
       patch.title ? json(patch.title) : null,
       patch.description ? json(patch.description) : null,
-      patch.location === undefined ? "__keep__" : json(patch.location),
-      patch.coverUrl === undefined ? "__keep__" : patch.coverUrl,
+      patch.location === undefined, patch.location === undefined ? null : json(patch.location),
+      patch.coverUrl === undefined, patch.coverUrl ?? null,
       patch.published ?? null,
       patch.type ?? null,
     ],
@@ -195,6 +198,7 @@ export async function addMedia(input: {
   return mapMedia(r!);
 }
 
+/** Same "keep" convention as updateProject: absent means keep, null means clear. */
 export async function updateMedia(
   id: string,
   patch: Partial<{ role: MediaRole; caption: LText | null; stepLabel: LText | null; stepDate: string | null; posterUrl: string | null; url: string }>,
@@ -202,19 +206,19 @@ export async function updateMedia(
   await q(
     `update project_media set
        role = coalesce($2, role),
-       caption = case when $3::text = '__keep__' then caption else $3::jsonb end,
-       step_label = case when $4::text = '__keep__' then step_label else $4::jsonb end,
-       step_date = case when $5::text = '__keep__' then step_date else nullif($5, '')::date end,
-       poster_url = case when $6::text = '__keep__' then poster_url else $6 end,
-       url = coalesce($7, url)
+       caption = case when $3::boolean then caption else $4::jsonb end,
+       step_label = case when $5::boolean then step_label else $6::jsonb end,
+       step_date = case when $7::boolean then step_date else nullif($8, '')::date end,
+       poster_url = case when $9::boolean then poster_url else $10 end,
+       url = coalesce($11, url)
      where id = $1`,
     [
       id,
       patch.role ?? null,
-      patch.caption === undefined ? "__keep__" : json(patch.caption),
-      patch.stepLabel === undefined ? "__keep__" : json(patch.stepLabel),
-      patch.stepDate === undefined ? "__keep__" : (patch.stepDate ?? ""),
-      patch.posterUrl === undefined ? "__keep__" : patch.posterUrl,
+      patch.caption === undefined, patch.caption === undefined ? null : json(patch.caption),
+      patch.stepLabel === undefined, patch.stepLabel === undefined ? null : json(patch.stepLabel),
+      patch.stepDate === undefined, patch.stepDate ?? "",
+      patch.posterUrl === undefined, patch.posterUrl ?? null,
       patch.url ?? null,
     ],
   );
@@ -225,6 +229,7 @@ export async function deleteMedia(id: string) {
 }
 
 export async function getMedia(id: string): Promise<(MediaItem & { projectId: string }) | null> {
+  if (!isUuid(id)) return null;
   const r = await one<MediaRow>(`select * from project_media where id = $1`, [id]);
   return r ? { ...mapMedia(r), projectId: r.project_id } : null;
 }

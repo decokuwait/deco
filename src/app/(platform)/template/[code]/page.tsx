@@ -9,28 +9,40 @@ import { buildCtx } from "@/templates/ctx";
 import { TemplateRenderer } from "@/templates/render/TemplateRenderer";
 import { previewSiteData } from "@/lib/preview";
 import { CATEGORY_LABELS, type Locale } from "@/lib/types";
-import { getRequestLocale } from "@/lib/site-request";
 import { rootUrl } from "@/lib/config";
 
-export const dynamic = "force-dynamic";
+// The gallery thumbnails are fixed files in public/; checking the directory once per process beats a
+// synchronous existsSync on every request (a crawler walking all 60 previews paid 60 of them).
+const THUMBS = new Set(
+  fs.existsSync(path.join(process.cwd(), "public", "templates"))
+    ? fs.readdirSync(path.join(process.cwd(), "public", "templates")).filter((f) => f.endsWith(".jpg")).map((f) => f.replace(/.jpg$/, ""))
+    : [],
+);
 
 type Params = Promise<{ code: string }>;
 type Search = Promise<{ lang?: string }>;
 
-async function previewLocale(sp: { lang?: string }): Promise<Locale> {
-  if (sp.lang === "en" || sp.lang === "ar") return sp.lang;
-  return getRequestLocale("ar");
+/**
+ * Language of a preview comes from the URL alone.
+ *
+ * It used to fall back to the visitor's `dk_lang` cookie, which made the page vary per visitor for no
+ * benefit: the preview toolbar always links with an explicit `?lang=`, and the canonical URL in the
+ * metadata is the bare one. Depending only on the URL means the same code and language always produce
+ * the same bytes, which is what makes the response cacheable at the edge.
+ */
+function previewLocale(sp: { lang?: string }): Locale {
+  return sp.lang === "en" ? "en" : "ar";
 }
 
 function hasThumb(code: string) {
-  return fs.existsSync(path.join(process.cwd(), "public", "templates", `${code}.jpg`));
+  return THUMBS.has(code);
 }
 
 export async function generateMetadata({ params, searchParams }: { params: Params; searchParams: Search }): Promise<Metadata> {
   const { code } = await params;
   const def = getTemplate(code);
   if (!def) return { title: "Template not found" };
-  const locale = await previewLocale(await searchParams);
+  const locale = previewLocale(await searchParams);
   const title = `${def.code} · ${def.name.ar} · ${def.name.en}`;
   const description = locale === "en" ? def.description.en : def.description.ar;
   const canonical = rootUrl(`/template/${def.code}`);
@@ -49,7 +61,7 @@ export default async function TemplatePreview({ params, searchParams }: { params
   const sp = await searchParams;
   const def = getTemplate(code);
   if (!def) notFound();
-  const locale = await previewLocale(sp);
+  const locale = previewLocale(sp);
   const site = previewSiteData(def);
   const ctx = buildCtx({ site, def, locale, visitorCode: "123456", preview: true });
   const { prev, next } = neighbours(def.code);

@@ -1,4 +1,4 @@
-import { q, one, iso, isoOrNull } from "./client";
+import { q, one, iso, isoOrNull, isUuid } from "./client";
 import { hashPassword, verifyPassword, randomToken, sha256Hex } from "@/lib/auth/password";
 import { SESSION_MAX_AGE } from "@/lib/config";
 
@@ -50,6 +50,7 @@ export async function getUserByEmail(email: string): Promise<(User & { passwordH
 }
 
 export async function getUserById(id: string): Promise<User | null> {
+  if (!isUuid(id)) return null;
   const r = await one<UserRow>(`select * from users where id = $1`, [id]);
   return r ? mapUser(r) : null;
 }
@@ -57,6 +58,11 @@ export async function getUserById(id: string): Promise<User | null> {
 export async function listUsers(): Promise<User[]> {
   const rows = await q<UserRow>(`select * from users order by created_at desc`);
   return rows.map(mapUser);
+}
+
+/** Whether any account exists. Used by the first-login bootstrap, which ran on every super login. */
+export async function hasAnyUser(): Promise<boolean> {
+  return !!(await one(`select 1 as ok from users limit 1`));
 }
 
 export async function createUser(input: { email: string; password: string; name?: string; isSuper?: boolean }): Promise<User> {

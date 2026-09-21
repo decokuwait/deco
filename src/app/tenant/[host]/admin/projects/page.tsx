@@ -22,7 +22,7 @@ export default async function ProjectsPage({ params, searchParams }: { params: P
   return (
     <Panel ctx={ctx} active="projects">
       <PageHeader title={t("projects")} subtitle={t("enabled_hint")} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
       <div className="grid gap-6">
         {PROJECT_TYPES.map((type) => {
           const cfg = pc[KEY[type]];
@@ -78,7 +78,6 @@ export default async function ProjectsPage({ params, searchParams }: { params: P
                     <li key={p.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center">
                       <a href={`/admin/projects/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                         {p.coverUrl || p.media[0] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={p.coverUrl || p.media[0].posterUrl || p.media[0].url} alt="" className="h-16 w-20 shrink-0 rounded-lg object-cover" />
                         ) : (
                           <span className="h-16 w-20 shrink-0 rounded-lg bg-slate-100" />

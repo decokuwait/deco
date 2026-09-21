@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSuperAccess } from "@/lib/auth/session";
 import { getAdminLocale } from "@/components/admin/admin-locale";
-import { ts, type SuperUiKey } from "@/lib/i18n/super";
+import { SUPER_UI, ts, type SuperUiKey } from "@/lib/i18n/super";
 import type { NavItem } from "@/components/admin/Shell";
 import type { Locale } from "@/lib/types";
 import type { User } from "@/lib/db/users";
@@ -34,6 +34,17 @@ export function superNav(active: NavKey, t: T): NavItem[] {
 export type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export function sp1(v: string | string[] | undefined): string {
   return (Array.isArray(v) ? v[0] : v) ?? "";
+}
+
+/**
+ * Turns an `?error=` code into super-panel text, or null when the code is not one of ours.
+ *
+ * Codes arrive in the URL, so anything unknown must not be rendered: the panel would otherwise put an
+ * arbitrary sentence inside its own red error banner, which is a phishing line on a page the operator
+ * trusts. Unknown codes fall back to the generic "something went wrong".
+ */
+export function superError(t: T): (code: string) => string | null {
+  return (code) => ((code as SuperUiKey) in SUPER_UI ? t(code as SuperUiKey) : null);
 }
 export function errMsg(e: unknown): string {
   return (e instanceof Error ? e.message : String(e)).slice(0, 200);

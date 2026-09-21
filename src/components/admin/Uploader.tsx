@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { uploadRequestHeaders } from "./upload-headers";
+import { responsiveSrc } from "@/templates/ui/img";
 
 const MAX_EDGE = 2000;
 const SKIP_BELOW = 1.5 * 1024 * 1024;
@@ -114,10 +115,9 @@ export function Uploader({
       {url ? (
         <div className="flex items-center gap-3">
           {kind === "video" ? (
-            <video src={url} className="h-20 w-28 rounded-lg bg-black object-cover" muted playsInline />
+            <video src={url} className="h-20 w-28 rounded-lg bg-black object-cover" muted playsInline preload="metadata" />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt="" className="h-20 w-28 rounded-lg object-cover" />
+            <img src={url} {...responsiveSrc(url, "112px")} alt="" loading="lazy" decoding="async" className="h-20 w-28 rounded-lg object-cover" />
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs text-slate-500" dir="ltr">

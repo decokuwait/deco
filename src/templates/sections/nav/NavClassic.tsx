@@ -13,7 +13,7 @@ export function NavClassic({ ctx }: SectionProps) {
   return (
     <header id="top" className={cx("sticky z-50 border-b border-line bg-bg/85 backdrop-blur", CHROME_TOP)}>
       <Container className="flex h-16 items-center justify-between gap-4 sm:h-20">
-        <a href="#top" className="flex min-w-0 items-center gap-3">
+        <a href="/#top" className="flex min-w-0 items-center gap-3">
           {c.brand.logoUrl ? (
             <Img src={c.brand.logoUrl} alt={ctx.text(c.brand.name)} className="h-10 w-auto shrink-0 object-contain sm:h-12" eager />
           ) : (
@@ -23,7 +23,7 @@ export function NavClassic({ ctx }: SectionProps) {
         </a>
         <nav className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="rounded-card px-3 py-2 text-sm font-semibold text-muted transition hover:bg-surface-2 hover:text-fg">
+            <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center rounded-card px-3 py-2 text-sm font-semibold text-muted transition hover:bg-surface-2 hover:text-fg">
               {l.label}
             </a>
           ))}

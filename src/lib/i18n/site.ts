@@ -43,6 +43,9 @@ export const SITE_UI = {
   location: { ar: "الموقع", en: "Location" },
   day: { ar: "اليوم", en: "Day" },
   of: { ar: "من", en: "of" },
+  prev_slide: { ar: "السابق", en: "Previous" },
+  next_slide: { ar: "التالي", en: "Next" },
+  go_to_slide: { ar: "اذهب إلى الشريحة", en: "Go to slide" },
   privacy_policy: { ar: "سياسة الخصوصية", en: "Privacy policy" },
 } satisfies Record<string, LText>;
 

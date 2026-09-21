@@ -30,7 +30,7 @@ async function snap(page: Page, name: string) {
 
 async function main() {
   if (!(await portFree(env.port))) throw new Error(`port ${env.port} busy`);
-  const seed = await seedQa({ slug: "demo", name: "Demo Decor", category: "gypsum", templateCode: "101" });
+  await seedQa({ slug: "demo", name: "Demo Decor", category: "gypsum", templateCode: "101" });
   const tenant = `http://demo.${env.root}`;
   const rootUrl = `http://${env.root}`;
   // Node's fetch cannot resolve *.localhost (Chromium can), so server-side checks use the forwarded host header.
@@ -71,6 +71,11 @@ async function main() {
     // ---------- site admin ----------
     const actx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await actx.newPage();
+    // The admin panel previews the same large demo media the site does. The run should test our pages,
+    // not a third-party image host's latency, so the external originals are stubbed out here exactly as
+    // the visitor context already does for the demo videos.
+    await page.route(/images\.unsplash\.com/, (r) => r.abort());
+    await page.route(/\.(mp4|webm|mov)(\?|$)/i, (r) => r.abort());
     const perrors: string[] = [];
     page.on("pageerror", (e) => perrors.push(e.message));
     page.on("dialog", (d) => d.accept()); // confirm() dialogs on delete buttons

@@ -4,6 +4,7 @@ import { trackVisit } from "@/lib/db/visitors";
 import { isValidVisitorCode } from "@/lib/visitor/code";
 import { VISITOR_COOKIE, VISITOR_COOKIE_MAX_AGE, VISITOR_FRESH_COOKIE } from "@/lib/config";
 import { rateLimit } from "@/lib/rate-limit";
+import { isCrossSite } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,10 +15,14 @@ const ALLOWED_COOKIES = new Set(["_fbp", "_fbc", "_ttp", "_scid", "_ga", "_twcli
  * Registers a visit for the tenant site of the current host. Called once per page load by SiteRuntime.
  * Only the visitor's own cookie code is honoured (never a code chosen in the request body), so the
  * endpoint cannot be used to enumerate or hijack other visitors, and it is rate limited per IP.
+ * Cross-site callers are refused: a foreign page could otherwise mint a visitor row per visitor it has.
  */
 export async function POST(req: NextRequest) {
+  if (isCrossSite(req.headers)) return NextResponse.json({ error: "cross_site" }, { status: 403 });
   const site = await getRequestSite();
   if (!site) return NextResponse.json({ error: "no_site" }, { status: 404 });
+  // A site the operator has taken offline shows a "coming soon" page and must not keep collecting visitors.
+  if (site.status !== "active") return NextResponse.json({ error: "site_paused" }, { status: 403 });
   const ip = clientIp(req.headers) || "unknown";
   if (!rateLimit(`track:${ip}`, 60, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
@@ -30,7 +35,8 @@ export async function POST(req: NextRequest) {
   const cookieCode = req.cookies.get(VISITOR_COOKIE)?.value;
   const code = isValidVisitorCode(cookieCode) ? cookieCode : null;
   // First-visit creation (and collision handling) already happened during the page render; this call only
-  // enriches the row, so it never re-allocates a code. The marker cookie is just cleared here.
+  // enriches the row, so it never re-allocates a code. The marker cookie also says that this request is
+  // the second half of one page view — counting it again is what made every first visit register as two.
   const hadFreshCookie = req.cookies.get(VISITOR_FRESH_COOKIE)?.value === "1";
   const cookies: Record<string, string> = {};
   if (body.cookies && typeof body.cookies === "object") {
@@ -41,6 +47,7 @@ export async function POST(req: NextRequest) {
   const { visitor, created } = await trackVisit({
     siteId: site.id,
     code,
+    countVisit: !hadFreshCookie,
     landingUrl: typeof body.url === "string" ? body.url.slice(0, 2000) : null,
     referrer: typeof body.referrer === "string" ? body.referrer.slice(0, 1000) : req.headers.get("referer"),
     userAgent: req.headers.get("user-agent"),

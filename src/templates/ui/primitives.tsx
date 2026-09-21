@@ -62,7 +62,7 @@ export function SectionHeading({
   return (
     <div className={cx("mb-10 sm:mb-14", align === "center" ? "text-center mx-auto max-w-2xl" : "text-start max-w-2xl", className)}>
       {eyebrow && (
-        <span className={cx("mb-3 inline-block text-xs font-bold uppercase tracking-widest", light ? "text-accent-text" : "text-primary")}>{eyebrow}</span>
+        <span className={cx("mb-3 inline-block text-xs font-bold uppercase tracking-widest", light ? "text-accent-text" : "text-primary-text")}>{eyebrow}</span>
       )}
       <h2 className="font-heading text-3xl font-extrabold leading-tight sm:text-4xl">{title}</h2>
       {subtitle && <p className={cx("mt-3 text-base sm:text-lg", light ? "opacity-85" : "text-muted")}>{subtitle}</p>}
@@ -84,9 +84,9 @@ export function buttonClass(style: ButtonStyle, variant: "primary" | "accent" | 
   const palette: Record<string, string> = {
     primary:
       style === "outline"
-        ? "border-2 border-primary text-primary hover:bg-primary hover:text-primary-fg"
+        ? "border-2 border-primary text-primary-text hover:bg-primary hover:text-primary-fg"
         : style === "underline"
-          ? "border-primary text-primary hover:text-accent hover:border-accent"
+          ? "border-primary text-primary-text hover:text-accent hover:border-accent"
           : style === "glow"
             ? "bg-primary text-primary-fg shadow-[0_10px_30px_-10px_var(--t-primary)] hover:shadow-[0_14px_40px_-10px_var(--t-primary)] hover:-translate-y-0.5"
             : "bg-primary text-primary-fg hover:opacity-90 hover:-translate-y-0.5",
@@ -119,13 +119,17 @@ export const CHROME_TOP_FLOAT = "top-[calc(var(--dk-chrome-top,0px)+0.75rem)] sm
  * language switch. They sit on patterned pages, on near-white surfaces and over photographs, where a
  * hairline outline on its own disappears, so they carry the template's alternate surface as a fill plus
  * a hairline border and a soft shadow. Shape follows each nav's own language (card or round).
+ *
+ * The box is always 44px tall. `slim` used to drop it to 40px for tighter nav bars, which put the menu
+ * button and the language switch — the two controls on every page of every template — under the minimum
+ * comfortable tap target on a phone. It now trims the horizontal padding only.
  */
 export function chromeButtonClass({ round = false, icon = false, slim = false }: { round?: boolean; icon?: boolean; slim?: boolean } = {}) {
   return cx(
     "inline-flex shrink-0 items-center justify-center gap-1.5 border border-line bg-surface-2 text-fg shadow-sm transition",
     "hover:border-primary/40 hover:bg-surface hover:shadow active:scale-95",
     round ? "rounded-full" : "rounded-card",
-    icon ? (slim ? "h-10 w-10" : "h-11 w-11") : cx("text-xs font-bold", slim ? "h-10 px-3" : "h-11 px-3.5"),
+    icon ? "h-11 w-11" : cx("h-11 text-xs font-bold", slim ? "px-3" : "px-3.5"),
   );
 }
 
@@ -155,7 +159,6 @@ export function Btn({
 
 export function Img({ src, alt = "", className = "", eager = false, sizes, style }: { src?: string | null; alt?: string; className?: string; eager?: boolean; sizes?: string; style?: CSSProperties }) {
   if (!src) return <div className={cx("bg-surface-2", className)} style={style} aria-hidden />;
-  // eslint-disable-next-line @next/next/no-img-element
   // Eager images are the LCP candidates (hero, first cards): tell the browser to fetch them first.
   return <img src={src} {...responsiveSrc(src, sizes)} alt={alt} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className={className} style={style} />;
 }
@@ -201,7 +204,7 @@ export function Divider({ ctx, from = "bg", flip = false }: { ctx: RenderCtx; fr
 export function Badge({ children, tone = "accent", className = "" }: { children: ReactNode; tone?: "accent" | "primary" | "light"; className?: string }) {
   const tones = {
     accent: "bg-accent/15 text-accent-text border-accent/30",
-    primary: "bg-primary/10 text-primary border-primary/20",
+    primary: "bg-primary/10 text-primary-text border-primary/20",
     light: "bg-white/15 text-white border-white/30 backdrop-blur",
   };
   return <span className={cx("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold sm:text-sm", tones[tone], className)}>{children}</span>;

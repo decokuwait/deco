@@ -60,7 +60,7 @@ export function ContactSplit({ ctx }: SectionProps) {
                 <div className="text-xs font-bold uppercase tracking-wider text-muted">{ctx.ui("follow_us")}</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {socials.map((s) => (
-                    <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm font-semibold hover:border-primary hover:text-primary">
+                    <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm font-semibold hover:border-primary hover:text-primary-text">
                       <SocialIcon name={s.key} className="h-4 w-4" />
                       {s.label}
                     </a>
@@ -74,7 +74,7 @@ export function ContactSplit({ ctx }: SectionProps) {
               <iframe src={safeMapEmbed(c.mapEmbedUrl)} className="h-full min-h-[320px] w-full" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer-when-downgrade" title={ctx.ui("our_location")} />
             ) : (
               <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 p-8 text-center text-muted">
-                <svg viewBox="0 0 24 24" className="h-12 w-12 text-primary" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <svg viewBox="0 0 24 24" className="h-12 w-12 text-primary-text" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M12 22s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z" />
                   <circle cx="12" cy="10" r="2.5" />
                 </svg>

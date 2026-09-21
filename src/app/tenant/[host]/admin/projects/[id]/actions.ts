@@ -6,7 +6,8 @@ import { requireSiteAdmin, errMsg, withQuery } from "../../_lib/guard";
 import { readBool, readLText, readStr } from "@/components/admin/ui";
 import { addMedia, deleteMedia, deleteProject, getMedia, getProject, moveMedia, updateMedia, updateProject } from "@/lib/db/projects";
 import type { MediaRole } from "@/lib/types";
-import { deleteObject, keyFromUrl } from "@/lib/storage";
+import { deleteObject, siteKeyFromUrl } from "@/lib/storage";
+import { safeMediaUrl } from "@/lib/safe-url";
 
 const ROLES: MediaRole[] = ["gallery", "before", "after", "step"];
 function isRole(v: string): v is MediaRole {
@@ -30,7 +31,7 @@ export async function saveProject(host: string, id: string, fd: FormData) {
       title,
       description: readLText(fd, "description"),
       location: readLText(fd, "location"),
-      coverUrl: readStr(fd, "coverUrl", 2000) || null,
+      coverUrl: safeMediaUrl(readStr(fd, "coverUrl", 2000)) || null,
       published: readBool(fd, "published"),
     });
   } catch (e) {
@@ -53,9 +54,11 @@ export async function addMediaAction(host: string, id: string, fd: FormData) {
   const { site } = await requireSiteAdmin(host);
   const project = await owned(site.id, id);
   const back = `/admin/projects/${id}`;
-  const imageUrl = readStr(fd, "imageUrl", 2000);
-  const videoUrl = readStr(fd, "videoUrl", 2000);
-  const posterUrl = readStr(fd, "posterUrl", 2000);
+  // Media URLs are sanitised on the way in, exactly like the content editor's upload fields, so a
+  // `javascript:`/`data:` value can never be stored and every render path sees a plain http(s) URL.
+  const imageUrl = safeMediaUrl(readStr(fd, "imageUrl", 2000));
+  const videoUrl = safeMediaUrl(readStr(fd, "videoUrl", 2000));
+  const posterUrl = safeMediaUrl(readStr(fd, "posterUrl", 2000));
   if (!imageUrl && !videoUrl) redirect(withQuery(back, { error: "media_required" }));
   const roleRaw = readStr(fd, "role", 20);
   const role: MediaRole = isRole(roleRaw) ? roleRaw : project.type === "progress" ? "step" : project.type === "before_after" ? "before" : "gallery";
@@ -87,9 +90,11 @@ export async function saveMediaAction(host: string, id: string, mediaId: string,
   try {
     if (op === "delete") {
       await deleteMedia(mediaId);
-      // Best-effort cleanup of the stored file (R2 or local disk) when it is ours.
+      // Best-effort cleanup of the stored file, but only for keys under this site's own prefix: the URL
+      // on a media row is whatever the admin typed, and every tenant's uploads are readable in the HTML
+      // of its public site, so an unscoped delete would reach another tenant's files.
       for (const u of [m.url, m.posterUrl]) {
-        const key = keyFromUrl(u);
+        const key = siteKeyFromUrl(site.id, u);
         if (key) await deleteObject(key).catch(() => undefined);
       }
     } else if (op === "up" || op === "down") {
@@ -100,7 +105,7 @@ export async function saveMediaAction(host: string, id: string, mediaId: string,
         caption: readLText(fd, "caption"),
         stepLabel: readLText(fd, "stepLabel"),
         stepDate: readStr(fd, "stepDate", 10) || null,
-        posterUrl: m.kind === "video" ? readStr(fd, "posterUrl", 2000) || null : undefined,
+        posterUrl: m.kind === "video" ? safeMediaUrl(readStr(fd, "posterUrl", 2000)) || null : undefined,
       });
       await moveMedia(mediaId, op);
     } else {
@@ -110,7 +115,7 @@ export async function saveMediaAction(host: string, id: string, mediaId: string,
         caption: readLText(fd, "caption"),
         stepLabel: readLText(fd, "stepLabel"),
         stepDate: readStr(fd, "stepDate", 10) || null,
-        posterUrl: m.kind === "video" ? readStr(fd, "posterUrl", 2000) || null : undefined,
+        posterUrl: m.kind === "video" ? safeMediaUrl(readStr(fd, "posterUrl", 2000)) || null : undefined,
       });
     }
   } catch (e) {

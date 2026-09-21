@@ -32,7 +32,7 @@ export function ContactInline({ ctx }: SectionProps) {
             )}
             {c.phone && (
               <li>
-                <WhatsAppLink href={ctx.telHref} kind="call_click" className="flex items-center gap-2 transition hover:text-accent">
+                <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex min-h-6 items-center gap-2 transition hover:text-accent">
                   <PhoneIcon className="h-4 w-4 shrink-0 opacity-80" />
                   <span dir="ltr">{formatPhone(c.phone)}</span>
                 </WhatsAppLink>
@@ -54,7 +54,7 @@ export function ContactInline({ ctx }: SectionProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={s.label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-fg/10 transition hover:bg-primary-fg hover:text-primary"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-fg/10 transition hover:bg-primary-fg hover:text-primary-text"
                 >
                   <SocialIcon name={s.key} className="h-4 w-4" />
                 </a>

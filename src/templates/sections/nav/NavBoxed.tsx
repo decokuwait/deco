@@ -18,7 +18,7 @@ export function NavBoxed({ ctx }: SectionProps) {
           <Brand ctx={ctx} />
           <nav className="hidden h-full items-stretch lg:flex">
             {links.map((l) => (
-              <a key={l.href} href={l.href} className="flex items-center border-b-4 border-transparent px-4 text-sm font-bold text-muted transition hover:border-primary hover:text-fg">
+              <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center border-b-4 border-transparent px-4 text-sm font-bold text-muted transition hover:border-primary hover:text-fg">
                 {l.label}
               </a>
             ))}

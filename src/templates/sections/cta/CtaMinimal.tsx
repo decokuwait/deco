@@ -23,7 +23,7 @@ export function CtaMinimal({ ctx }: SectionProps) {
             {ctx.text(c.buttonText) || ctx.ui("whatsapp")}
           </WhatsAppLink>
           {phone && (
-            <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex items-center gap-2 text-sm font-bold text-muted transition hover:text-primary">
+            <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex min-h-6 items-center gap-2 text-sm font-bold text-muted transition hover:text-primary-text">
               <PhoneIcon className="h-4 w-4" />
               <span dir="ltr">{formatPhone(phone)}</span>
             </WhatsAppLink>

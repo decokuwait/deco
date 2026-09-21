@@ -13,7 +13,7 @@ export function AboutCards({ ctx }: SectionProps) {
     <Section id="about" tone="surface" pattern>
       <Container>
         <div className="mx-auto max-w-3xl text-center">
-          {ctx.text(brand.name) && <span className="mb-3 inline-block text-xs font-bold uppercase tracking-widest text-primary">{ctx.text(brand.name)}</span>}
+          {ctx.text(brand.name) && <span className="mb-3 inline-block text-xs font-bold uppercase tracking-widest text-primary-text">{ctx.text(brand.name)}</span>}
           <h2 className="font-heading text-3xl font-extrabold leading-tight sm:text-4xl">{ctx.text(a.title)}</h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">{ctx.text(a.body)}</p>
         </div>

@@ -74,6 +74,17 @@ export default function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // robots.txt and sitemap.xml are route handlers that read the forwarded host themselves (and use the canonical host).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|txt|xml|woff2?)$).*)"],
+  /**
+   * Everything except Next's own build output and the handful of real files in `public/`.
+   *
+   * This used to exclude *any* path ending in an asset extension. Two things came out of that: a broken
+   * `<img>`/`<script>` path on a tenant site answered with the platform's own 404 page instead of the
+   * site's, and — because the proxy is what strips inbound `x-dk-*` headers — those paths were the one
+   * place a client could still present its own `x-dk-host`. Listing the real assets instead keeps the
+   * proxy in front of every route that resolves a tenant.
+   *
+   * robots.txt and sitemap.xml stay out: they are route handlers that read the forwarded host themselves
+   * and answer for the canonical host.
+   */
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|icon\\.svg|robots\\.txt|sitemap\\.xml|templates/[^/]+\\.(?:jpg|jpeg|png|webp)$).*)"],
 };

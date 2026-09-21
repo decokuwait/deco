@@ -14,7 +14,7 @@ export function FooterCentered({ ctx }: SectionProps) {
       <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-60" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent to-transparent" />
       <Container className="relative flex flex-col items-center py-14 text-center">
-        <a href="#top" className="flex flex-col items-center gap-3">
+        <a href="/#top" className="flex flex-col items-center gap-3">
           {c.brand.logoUrl ? (
             <Img src={c.brand.logoUrl} alt="" className="h-14 w-auto object-contain" />
           ) : (
@@ -30,7 +30,7 @@ export function FooterCentered({ ctx }: SectionProps) {
           <ul className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-semibold">
             {navLinks(ctx).map((l) => (
               <li key={l.href}>
-                <a href={l.href} className="transition hover:text-primary">
+                <a href={l.href} className="inline-flex min-h-6 items-center transition hover:text-primary-text">
                   {l.label}
                 </a>
               </li>
@@ -46,7 +46,7 @@ export function FooterCentered({ ctx }: SectionProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={s.label}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-bg text-fg ring-1 ring-line transition hover:bg-primary hover:text-primary-fg hover:ring-primary"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-bg text-fg ring-1 ring-line transition hover:bg-primary hover:text-primary-fg hover:ring-primary"
               >
                 <SocialIcon name={s.key} />
               </a>
@@ -57,7 +57,7 @@ export function FooterCentered({ ctx }: SectionProps) {
           <span>
             © {year} {name} — {ctx.ui("rights")}
             {legalLinks(ctx).map((l) => (
-              <a key={l.href} href={l.href} className="ms-3 underline underline-offset-2 hover:text-primary">
+              <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center ms-3 underline underline-offset-2 hover:text-primary-text">
                 {l.label}
               </a>
             ))}

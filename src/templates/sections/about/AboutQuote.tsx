@@ -25,7 +25,7 @@ export function AboutQuote({ ctx }: SectionProps) {
       <Container>
         <div className="mx-auto max-w-4xl text-center">
           {title && (
-            <span className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-primary">
+            <span className="inline-flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-primary-text">
               <span aria-hidden className="h-px w-6 bg-accent" />
               {title}
               <span aria-hidden className="h-px w-6 bg-accent" />
@@ -36,7 +36,7 @@ export function AboutQuote({ ctx }: SectionProps) {
             <blockquote className={cx("relative text-2xl font-extrabold leading-[1.55] sm:text-3xl lg:text-4xl", longTextFont(ctx))}>{ctx.text(a.body)}</blockquote>
             <figcaption className="mt-8 flex flex-col items-center gap-2">
               <span aria-hidden className="h-10 w-px bg-accent" />
-              <span className="font-heading text-xl font-black text-primary sm:text-2xl">{ctx.text(brand.name)}</span>
+              <span className="font-heading text-xl font-black text-primary-text sm:text-2xl">{ctx.text(brand.name)}</span>
               {ctx.text(brand.tagline) && <span className="text-sm text-muted">{ctx.text(brand.tagline)}</span>}
             </figcaption>
           </figure>

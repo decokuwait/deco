@@ -16,7 +16,7 @@ export function AboutEditorial({ ctx }: SectionProps) {
     .filter(Boolean);
   const lead =
     ctx.locale === "en"
-      ? "first-letter:float-start first-letter:me-3 first-letter:mt-1 first-letter:font-heading first-letter:text-6xl first-letter:font-black first-letter:leading-[0.8] first-letter:text-primary"
+      ? "first-letter:float-start first-letter:me-3 first-letter:mt-1 first-letter:font-heading first-letter:text-6xl first-letter:font-black first-letter:leading-[0.8] first-letter:text-primary-text"
       : "border-s-4 border-accent ps-4";
   return (
     <Section id="about" tone="bg">

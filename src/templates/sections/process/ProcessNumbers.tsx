@@ -14,7 +14,7 @@ export function ProcessNumbers({ ctx }: SectionProps) {
             <li key={s.id} className="group relative pt-10 sm:pt-12">
               <span
                 aria-hidden
-                className="pointer-events-none absolute -top-2 start-0 select-none font-heading text-[6rem] font-black leading-none tabular-nums text-primary/10 transition-colors duration-300 group-hover:text-accent/25 sm:text-[8rem]"
+                className="pointer-events-none absolute -top-2 start-0 select-none font-heading text-[6rem] font-black leading-none tabular-nums text-primary-text/10 transition-colors duration-300 group-hover:text-accent/25 sm:text-[8rem]"
               >
                 {String(i + 1).padStart(2, "0")}
               </span>

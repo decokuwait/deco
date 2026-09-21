@@ -1,4 +1,4 @@
-import { q, one, iso, json, parseJson } from "./client";
+import { q, one, iso, isUuid, json, parseJson } from "./client";
 import type { Category, SiteContent, SiteData, SiteRecord } from "@/lib/types";
 import { deepMerge, normalizeContent } from "@/lib/content/defaults";
 import { listProjects } from "./projects";
@@ -30,6 +30,9 @@ export function mapSite(r: SiteRow): SiteRecord {
 }
 
 export async function getSiteById(id: string): Promise<SiteRecord | null> {
+  // A path param that is not a uuid is a 404, not a database error: `select ... where id = 'abc'` raises
+  // SQLSTATE 22P02 and surfaced as a 500 on /super/sites/<anything>.
+  if (!isUuid(id)) return null;
   const r = await one<SiteRow>(`select * from sites where id = $1`, [id]);
   return r ? mapSite(r) : null;
 }
@@ -59,13 +62,20 @@ export interface SiteListItem extends SiteRecord {
 }
 
 export async function listSites(): Promise<SiteListItem[]> {
+  // One grouped pass over visitors instead of two correlated counts per site: the super admin's site
+  // list used to run 2N subqueries, each a full count over that site's visitors.
   const rows = await q<SiteRow & { visitor_count: unknown; lead_count: unknown; domains: unknown }>(
-    `select s.*,
-       (select count(*) from visitors v where v.site_id = s.id) as visitor_count,
-       (select count(*) from visitors v where v.site_id = s.id and v.stage <> 'new') as lead_count,
+    `with counts as (
+       select site_id, count(*) as visitors, count(*) filter (where stage <> 'new') as leads
+       from visitors group by site_id
+     )
+     select s.*,
+       coalesce(c.visitors, 0) as visitor_count,
+       coalesce(c.leads, 0) as lead_count,
        coalesce((select json_agg(json_build_object('hostname', d.hostname, 'kind', d.kind, 'verified', d.verified) order by d.kind, d.hostname)
                  from site_domains d where d.site_id = s.id), '[]'::json) as domains
-     from sites s order by s.created_at desc`,
+     from sites s left join counts c on c.site_id = s.id
+     order by s.created_at desc`,
   );
   return rows.map((r) => ({
     ...mapSite(r),

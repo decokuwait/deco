@@ -12,7 +12,7 @@ export function ServicesCarousel({ ctx }: SectionProps) {
       <Container>
         <SectionHeading title={ctx.text(s.title)} subtitle={ctx.text(s.subtitle)} />
       </Container>
-      <Carousel dir={ctx.dir} autoplay={4500} itemClassName="w-[82%] sm:w-[52%] lg:w-[32%]">
+      <Carousel prevLabel={ctx.ui("prev_slide")} nextLabel={ctx.ui("next_slide")} dotLabelTemplate={`${ctx.ui("go_to_slide")} {n} ${ctx.ui("of")} {total}`} dir={ctx.dir} autoplay={4500} itemClassName="w-[82%] sm:w-[52%] lg:w-[32%]">
         {s.items.map((it, i) => (
           <article key={it.id} className="group relative aspect-[4/5] overflow-hidden rounded-card bg-secondary text-secondary-fg shadow-lg">
             {it.imageUrl ? (

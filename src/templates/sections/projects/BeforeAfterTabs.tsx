@@ -21,7 +21,7 @@ export function BeforeAfterTabs({ ctx }: SectionProps) {
             ];
             return (
               <article key={pr.id} className="rounded-card border border-line bg-bg p-4 sm:p-5">
-                <Tabs tabs={tabs} listClassName="justify-center" activeClassName="bg-primary text-primary-fg" inactiveClassName="bg-surface-2 text-muted hover:text-fg" />
+                <Tabs dir={ctx.dir} label={ctx.ui("before_after")} tabs={tabs} listClassName="justify-center" activeClassName="bg-primary text-primary-fg" inactiveClassName="bg-surface-2 text-muted hover:text-fg" />
                 <ProjectMeta ctx={ctx} project={pr} className="pt-4" />
               </article>
             );

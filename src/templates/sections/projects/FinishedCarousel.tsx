@@ -14,7 +14,7 @@ export function FinishedCarousel({ ctx }: SectionProps) {
       <Container>
         <SectionHeading light eyebrow={ctx.text(p.title)} title={ctx.text(p.finished.title) || ctx.ui("finished_projects")} subtitle={ctx.text(p.finished.subtitle)} />
       </Container>
-      <Carousel dir={ctx.dir} autoplay={5000} itemClassName="w-[85%] sm:w-[60%] lg:w-[46%]">
+      <Carousel prevLabel={ctx.ui("prev_slide")} nextLabel={ctx.ui("next_slide")} dotLabelTemplate={`${ctx.ui("go_to_slide")} {n} ${ctx.ui("of")} {total}`} dir={ctx.dir} autoplay={5000} itemClassName="w-[85%] sm:w-[60%] lg:w-[46%]">
         {projects.map((pr) => {
           const items = lightboxItems(ctx, pr);
           const hasVideo = items.some((x) => x.kind === "video");

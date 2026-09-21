@@ -1,5 +1,5 @@
 import type { LText } from "@/lib/types";
-import { BilingualInput, Field, Input, Select, Textarea } from "@/components/admin/ui";
+import { BilingualInput, Field, Input, Select } from "@/components/admin/ui";
 import { Uploader } from "@/components/admin/Uploader";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import type { FieldSpec, SectionSpec } from "../content/_lib/spec";

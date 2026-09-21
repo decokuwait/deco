@@ -109,7 +109,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       onClick={onClick}
       aria-pressed={active}
       className={cx(
-        "min-h-8 rounded-full px-3.5 text-xs font-black uppercase tracking-wider transition",
+        "min-h-11 rounded-full px-4 text-xs font-black uppercase tracking-wider transition",
         active ? "bg-white text-black shadow" : "text-white/85 hover:text-white",
       )}
     >

@@ -31,7 +31,7 @@ export function CtaSplit({ ctx }: SectionProps) {
             {ctx.text(c.buttonText) || ctx.ui("whatsapp")}
           </WhatsAppLink>
           {phone && (
-            <WhatsAppLink href={ctx.telHref} kind="call_click" className="group inline-flex items-center gap-3 font-heading text-2xl font-black tracking-wide sm:text-3xl">
+            <WhatsAppLink href={ctx.telHref} kind="call_click" className="group inline-flex min-h-6 items-center gap-3 font-heading text-2xl font-black tracking-wide sm:text-3xl">
               <PhoneIcon className="h-6 w-6 opacity-70 transition group-hover:opacity-100" />
               <span dir="ltr">{formatPhone(phone)}</span>
             </WhatsAppLink>

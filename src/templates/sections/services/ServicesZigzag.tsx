@@ -21,12 +21,12 @@ export function ServicesZigzag({ ctx }: SectionProps) {
                   <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-surface-2">
                     <Img src={it.imageUrl} alt={ctx.text(it.title)} className="h-full w-full object-cover" />
                     {!it.imageUrl && (
-                      <span className="absolute inset-0 flex items-center justify-center text-primary/30">
+                      <span className="absolute inset-0 flex items-center justify-center text-primary-text/30">
                         <div aria-hidden className="pattern-bg absolute inset-0 opacity-60" />
                         <Icon name={it.icon} className="relative h-20 w-20" />
                       </span>
                     )}
-                    <span className="absolute start-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-bg/90 text-primary shadow backdrop-blur">
+                    <span className="absolute start-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-bg/90 text-primary-text shadow backdrop-blur">
                       <Icon name={it.icon} className="h-5 w-5" />
                     </span>
                   </div>
@@ -38,7 +38,7 @@ export function ServicesZigzag({ ctx }: SectionProps) {
                   </div>
                   <h3 className="mt-3 font-heading text-2xl font-extrabold leading-tight sm:text-3xl">{ctx.text(it.title)}</h3>
                   <p className="mt-4 text-lg leading-relaxed text-muted">{ctx.text(it.description)}</p>
-                  <WhatsAppLink href={ctx.whatsappHref} className="mt-6 inline-flex items-center gap-2 font-bold text-primary transition-all hover:gap-3 hover:text-accent">
+                  <WhatsAppLink href={ctx.whatsappHref} className="mt-6 inline-flex min-h-11 items-center gap-2 font-bold text-primary-text transition-all hover:gap-3 hover:text-accent">
                     {ctx.ui("get_quote")}
                     <Arrow dir={ctx.dir} className="h-4 w-4" />
                   </WhatsAppLink>

@@ -20,6 +20,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Lint
+        run: npm run lint
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests (routing, proxy, attribution, marketing payloads, database on PGlite, registry, rendering of all 60 templates)
@@ -32,12 +34,16 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser end-to-end flows (visitor, admin, super admin)
         run: npm run e2e
-      - name: Visual sweep of one template per category (browser errors + horizontal overflow fail the job)
+      - name: Visual sweep (browser errors, horizontal overflow, controls outside the viewport)
+        # A fixed four-code sample left 56 templates unchecked. Pull requests keep the quick sample;
+        # pushes to main sweep every template, which is where regressions were slipping through.
         run: npm run shots
         env:
           SHOTS_STRICT: "1"
           SHOTS_SKIP_ADMIN: "1"
-          SHOTS_ONLY: 101,207,313,409
+          SHOTS_ONLY: ${{ github.event_name == 'pull_request' && '101,207,313,409' || '' }}
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

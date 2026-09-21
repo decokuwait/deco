@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { classifyDbError, getDb, pendingMigrations } from "@/lib/db/client";
 import { clientIp } from "@/lib/site-request";
+import { getCurrentUser } from "@/lib/auth/session";
 import { storageStatus, uploadProbe } from "@/lib/storage";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -21,6 +23,31 @@ function requestOrigin(req: NextRequest): string | null {
   return `${proto}://${host}`;
 }
 
+function sameToken(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+/**
+ * Whether this caller may see the deployment detail (and trigger the write probe).
+ *
+ * The bare `{ ok, database }` answer is public so an uptime monitor can use it. Everything else —
+ * which migrations are pending, the commit, the region, the storage verdict — describes the deployment,
+ * and `?probe=upload` makes the server write and delete a real object in the bucket, so both are for
+ * whoever operates the platform: a signed-in super admin, or a `HEALTH_TOKEN` in the URL for monitors.
+ */
+async function isOperator(req: NextRequest): Promise<boolean> {
+  const token = process.env.HEALTH_TOKEN?.trim();
+  const given = req.nextUrl.searchParams.get("token");
+  if (token && given && sameToken(token, given)) return true;
+  try {
+    return (await getCurrentUser())?.isSuper === true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Deployment check for the operator: is the database reachable, is its schema current, and can a site
  * admin actually upload media from this host? Only failure categories are reported (never the connection
@@ -31,12 +58,13 @@ function requestOrigin(req: NextRequest): string | null {
 export async function GET(req: NextRequest) {
   if (!rateLimit(`health:${clientIp(req.headers) || "unknown"}`, 30, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   const headers = { "cache-control": "no-store" };
-  const region = process.env.VERCEL_REGION || null;
-  const commit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null;
-  // The upload probe writes a real object, so it is opt-in: /api/health?probe=upload. It answers the one
-  // question a preflight cannot — whether the bucket accepts what our own code signs.
+  const operator = await isOperator(req);
+  const region = operator ? process.env.VERCEL_REGION || null : null;
+  const commit = operator ? process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null : null;
+  // The upload probe writes a real object, so it is opt-in and operator-only: /api/health?probe=upload.
+  // It answers the one question a preflight cannot — whether the bucket accepts what our own code signs.
   const storage = { ...(await storageStatus(requestOrigin(req))), upload: null as Awaited<ReturnType<typeof uploadProbe>> | null };
-  if (storage.backend === "r2" && req.nextUrl.searchParams.get("probe") === "upload") storage.upload = await uploadProbe(requestOrigin(req));
+  if (operator && storage.backend === "r2" && req.nextUrl.searchParams.get("probe") === "upload") storage.upload = await uploadProbe(requestOrigin(req));
   const storageOk = storage.ok && (storage.upload?.ok ?? true);
   try {
     const db = await getDb();
@@ -46,10 +74,13 @@ export async function GET(req: NextRequest) {
     const dbLatencyMs = Math.round(performance.now() - t0);
     const database = pending.length ? "schema" : "ok";
     const ok = database === "ok" && storageOk;
-    return NextResponse.json({ ok, database, backend: db.backend, pendingMigrations: pending, storage, commit, region, databaseRegion: databaseRegion(), dbLatencyMs }, { status: ok ? 200 : 503, headers });
+    const detail = operator
+      ? { backend: db.backend, pendingMigrations: pending, storage, commit, region, databaseRegion: databaseRegion(), dbLatencyMs }
+      : { storage: { ok: storage.ok } };
+    return NextResponse.json({ ok, database, ...detail }, { status: ok ? 200 : 503, headers });
   } catch (e) {
     const failure = classifyDbError(e) ?? "error";
     console.error(`[health] database ${failure}:`, e);
-    return NextResponse.json({ ok: false, database: failure, storage, commit, region }, { status: 503, headers });
+    return NextResponse.json({ ok: false, database: failure, ...(operator ? { storage, commit, region } : {}) }, { status: 503, headers });
   }
 }

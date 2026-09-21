@@ -1,4 +1,4 @@
-import { requireSuper, sp1, type SearchParams } from "./_lib/guard";
+import { requireSuper, sp1, superError, type SearchParams } from "./_lib/guard";
 import { SuperPanel } from "./_components/Panel";
 import { PageHeader, Flash, LinkButton, Badge, EmptyState } from "@/components/admin/ui";
 import { listSites } from "@/lib/db/sites";
@@ -15,7 +15,7 @@ export default async function SitesPage({ searchParams }: { searchParams: Search
   return (
     <SuperPanel ctx={ctx} active="sites">
       <PageHeader title={t("sites")} subtitle={`${sites.length}`} actions={<LinkButton href="/super/sites/new" variant="primary">+ {t("new_site")}</LinkButton>} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} translate={superError(t)} />
       {sites.length === 0 ? (
         <EmptyState title={t("no_sites")} action={<LinkButton href="/super/sites/new" variant="primary">{t("new_site")}</LinkButton>} />
       ) : (

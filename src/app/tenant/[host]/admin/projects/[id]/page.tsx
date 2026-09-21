@@ -12,7 +12,6 @@ import { addMediaAction, deleteProjectAction, saveMediaAction, saveProject } fro
 
 const LABEL: Record<ProjectType, "finished" | "before_after" | "progress"> = { finished: "finished", before_after: "before_after", progress: "progress" };
 const HINT: Record<ProjectType, "finished_hint" | "before_after_hint" | "progress_hint"> = { finished: "finished_hint", before_after: "before_after_hint", progress: "progress_hint" };
-const ROLES: MediaRole[] = ["gallery", "before", "after", "step"];
 
 export default async function EditProjectPage({ params, searchParams }: { params: Promise<{ host: string; id: string }>; searchParams: SearchParams }) {
   const { host, id } = await params;
@@ -33,7 +32,6 @@ export default async function EditProjectPage({ params, searchParams }: { params
   const hasAfter = project.media.some((m) => m.role === "after");
   const warning = project.type === "before_after" && !(hasBefore && hasAfter) ? t("incomplete_before_after") : project.type === "progress" && !project.media.some((m) => m.role === "step") ? t("no_steps") : "";
   const error = sp1(sp.error);
-  const errorText = error === "title_required" ? t("required") : error === "media_required" ? t("media_required") : error;
 
   return (
     <Panel ctx={ctx} active="projects">
@@ -56,7 +54,7 @@ export default async function EditProjectPage({ params, searchParams }: { params
           </form>
         }
       />
-      <Flash saved={sp1(sp.saved)} error={errorText} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={error} savedText={t("saved")} errorText={t("error")} locale={locale} />
 
       <form action={save}>
         <Card title={t("title")}>
@@ -93,7 +91,6 @@ export default async function EditProjectPage({ params, searchParams }: { params
                         {m.kind === "video" ? (
                           <video src={m.url} poster={m.posterUrl || undefined} className="h-24 w-28 rounded-lg bg-black object-cover" muted playsInline preload="metadata" />
                         ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={m.url} alt="" className="h-24 w-28 rounded-lg object-cover" />
                         )}
                         <div className="mt-2 flex flex-wrap gap-1">

@@ -4,6 +4,7 @@ import type { LightboxItem } from "../../ui/client/Lightbox";
 import type { ProgressSlide } from "../../ui/client/ProgressSlideshow";
 import { effectiveTokens } from "../../ctx";
 import { isDisplayFont } from "../../fonts";
+import { internationalDigits } from "@/lib/content/defaults";
 
 /**
  * Font class for long text that a section wants in the heading face (a story quote, a testimonial): the
@@ -114,8 +115,9 @@ export function progressSlides(ctx: RenderCtx, project: Project): ProgressSlide[
     }));
 }
 
+/** Display form of a phone number. Shares one normaliser with `telLink`, so both agree on `00…` input. */
 export function formatPhone(p: string | undefined | null): string {
-  const d = (p || "").replace(/[^\d]/g, "");
+  const d = internationalDigits(p);
   if (!d) return "";
   if (d.startsWith("965") && d.length === 11) return `+965 ${d.slice(3, 7)} ${d.slice(7)}`;
   return `+${d}`;

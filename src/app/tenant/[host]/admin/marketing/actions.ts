@@ -78,6 +78,10 @@ export async function sendTestEvent(host: string, platform: string) {
     sourceUrl: url,
   });
   const d = result.deliveries[0];
-  const msg = d ? (d.skipped ? d.skipped : d.error ? d.error : `${d.status ?? ""} ${JSON.stringify(d.response ?? "").slice(0, 300)}`) : "no_delivery";
-  redirect(withQuery("/admin/marketing", { tested: platform, ok: d?.ok ? "1" : "0", msg }) + `#${platform}`);
+  // Only a code travels in the URL. The provider's own words go to the function log: they are attacker-
+  // influenceable text that would otherwise be rendered inside the panel, and for Snapchat/GA4 the failing
+  // request can quote a URL that carries the token.
+  const code = !d ? "no_delivery" : d.skipped ? d.skipped : d.ok ? "ok" : d.error ? "network" : `status_${d.status ?? 0}`;
+  if (d && !d.ok) console.error(`[test-event] ${platform} failed:`, { status: d.status, error: d.error, response: d.response });
+  redirect(withQuery("/admin/marketing", { tested: platform, ok: d?.ok ? "1" : "0", msg: code }) + `#${platform}`);
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSuperAccess } from "@/lib/auth/session";
 import { getAdminLocale } from "@/components/admin/admin-locale";
@@ -31,9 +32,9 @@ export default async function SuperLoginPage({ searchParams }: { searchParams: S
   return (
     <div className="admin flex min-h-dvh flex-col" dir={locale === "ar" ? "rtl" : "ltr"} lang={locale}>
       <div className="flex items-center justify-between px-4 py-3">
-        <a href="/" className="text-sm font-black text-slate-700">
+        <Link href="/" className="inline-flex min-h-11 items-center text-sm font-black text-slate-700">
           {APP_NAME}
-        </a>
+        </Link>
         <AdminLangToggle locale={locale} />
       </div>
       <main className="flex flex-1 items-center justify-center px-4 pb-16">

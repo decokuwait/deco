@@ -34,7 +34,7 @@ export function BeforeAfterSliderSection({ ctx }: SectionProps) {
                 )}
                 <div className="p-5">
                   <h3 className="font-heading text-lg font-bold">{ctx.text(pr.title)}</h3>
-                  {ctx.text(pr.location) && <p className="mt-1 text-xs font-semibold text-primary">{ctx.text(pr.location)}</p>}
+                  {ctx.text(pr.location) && <p className="mt-1 text-xs font-semibold text-primary-text">{ctx.text(pr.location)}</p>}
                   {ctx.text(pr.description) && <p className="mt-2 text-sm text-muted">{ctx.text(pr.description)}</p>}
                 </div>
               </article>

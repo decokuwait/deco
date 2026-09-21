@@ -20,7 +20,7 @@ export function FooterColumns({ ctx }: SectionProps) {
           {socials.length > 0 && (
             <div className="mt-5 flex gap-2">
               {socials.map((s) => (
-                <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition hover:bg-accent hover:text-accent-fg">
+                <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 transition hover:bg-accent hover:text-accent-fg">
                   <SocialIcon name={s.key} />
                 </a>
               ))}
@@ -28,11 +28,11 @@ export function FooterColumns({ ctx }: SectionProps) {
           )}
         </div>
         <div>
-          <h4 className="font-heading text-base font-bold">{ctx.ui("quick_links")}</h4>
+          <h3 className="font-heading text-base font-bold">{ctx.ui("quick_links")}</h3>
           <ul className="mt-4 space-y-2 text-sm opacity-85">
             {navLinks(ctx).map((l) => (
               <li key={l.href}>
-                <a href={l.href} className="hover:text-accent">
+                <a href={l.href} className="inline-flex min-h-6 items-center hover:text-accent">
                   {l.label}
                 </a>
               </li>
@@ -40,11 +40,11 @@ export function FooterColumns({ ctx }: SectionProps) {
           </ul>
         </div>
         <div>
-          <h4 className="font-heading text-base font-bold">{ctx.ui("nav_services")}</h4>
+          <h3 className="font-heading text-base font-bold">{ctx.ui("nav_services")}</h3>
           <ul className="mt-4 space-y-2 text-sm opacity-85">
             {c.services.items.slice(0, 6).map((s) => (
               <li key={s.id}>
-                <a href="#services" className="hover:text-accent">
+                <a href="/#services" className="inline-flex min-h-6 items-center hover:text-accent">
                   {ctx.text(s.title)}
                 </a>
               </li>
@@ -52,19 +52,19 @@ export function FooterColumns({ ctx }: SectionProps) {
           </ul>
         </div>
         <div>
-          <h4 className="font-heading text-base font-bold">{ctx.ui("nav_contact")}</h4>
+          <h3 className="font-heading text-base font-bold">{ctx.ui("nav_contact")}</h3>
           <ul className="mt-4 space-y-2 text-sm opacity-85">
             {ctx.text(c.contact.address) && <li>{ctx.text(c.contact.address)}</li>}
             {c.contact.phone && (
               <li>
-                <a href={ctx.telHref} dir="ltr" className="inline-block hover:text-accent">
+                <a href={ctx.telHref} dir="ltr" className="inline-flex min-h-11 items-center -my-2 hover:text-accent">
                   {formatPhone(c.contact.phone)}
                 </a>
               </li>
             )}
             {c.contact.email && (
               <li>
-                <a href={`mailto:${c.contact.email}`} className="hover:text-accent">
+                <a href={`mailto:${c.contact.email}`} className="inline-flex min-h-6 items-center hover:text-accent">
                   {c.contact.email}
                 </a>
               </li>
@@ -80,7 +80,7 @@ export function FooterColumns({ ctx }: SectionProps) {
               © {year} {ctx.text(c.brand.name)} — {ctx.ui("rights")}
             </span>
             {legalLinks(ctx).map((l) => (
-              <a key={l.href} href={l.href} className="underline underline-offset-2 hover:text-accent">
+              <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center underline underline-offset-2 hover:text-accent">
                 {l.label}
               </a>
             ))}

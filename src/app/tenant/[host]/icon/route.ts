@@ -23,5 +23,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ host: s
   const name = (lt(site.content.settings.defaultLocale, site.content.brand.name) || site.name).trim();
   const letter = Array.from(name)[0] ?? "•";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><rect width="64" height="64" rx="14" fill="${tokens.primary}"/><text x="32" y="44" text-anchor="middle" font-family="'Segoe UI', Tahoma, 'Noto Sans Arabic', system-ui, sans-serif" font-size="34" font-weight="700" fill="${tokens.primaryFg}">${escapeXml(letter)}</text></svg>`;
-  return new Response(svg, { headers: { "Content-Type": "image/svg+xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+  return new Response(svg, { headers: { "Content-Type": "image/svg+xml; charset=utf-8", "Cache-Control": "public, max-age=3600", Vary: "X-Forwarded-Host, Host" } });
 }

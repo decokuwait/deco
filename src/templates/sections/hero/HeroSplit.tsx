@@ -51,7 +51,7 @@ export function HeroSplit({ ctx }: SectionProps) {
           <div aria-hidden className="absolute -bottom-6 -start-6 -z-10 h-56 w-56 rounded-card bg-primary/15" />
           {stat && (
             <div className="absolute bottom-5 start-5 flex items-center gap-3 rounded-card bg-surface/95 px-4 py-3 shadow-xl backdrop-blur animate-float">
-              <span className="font-heading text-3xl font-black text-primary">{stat.value}</span>
+              <span className="font-heading text-3xl font-black text-primary-text">{stat.value}</span>
               <span className="text-sm font-semibold text-muted">{ctx.text(stat.label)}</span>
             </div>
           )}

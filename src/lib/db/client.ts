@@ -197,6 +197,12 @@ export async function one<T = Record<string, unknown>>(text: string, params: unk
   return rows[0] ?? null;
 }
 
+/** Every id in this schema is a uuid; anything else in a URL is a 404, never a row. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(v: unknown): v is string {
+  return typeof v === "string" && UUID.test(v);
+}
+
 /**
  * Timestamp as an ISO string for output (API responses, rendering). Lossy, and in two ways: the drivers hand
  * timestamps over as JS Date objects, which hold milliseconds where Postgres stores microseconds, and

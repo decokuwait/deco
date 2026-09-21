@@ -17,7 +17,7 @@ export function ProgressStepperSection({ ctx }: SectionProps) {
               <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h3 className="font-heading text-2xl font-extrabold">{ctx.text(pr.title)}</h3>
-                  {ctx.text(pr.location) && <p className="mt-1 text-sm font-semibold text-primary">{ctx.text(pr.location)}</p>}
+                  {ctx.text(pr.location) && <p className="mt-1 text-sm font-semibold text-primary-text">{ctx.text(pr.location)}</p>}
                 </div>
                 {ctx.text(pr.description) && <p className="max-w-md text-sm text-muted">{ctx.text(pr.description)}</p>}
               </div>

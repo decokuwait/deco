@@ -1,4 +1,4 @@
-import { q, one, iso, json, parseJson } from "./client";
+import { q, one, iso, isUuid, json, parseJson } from "./client";
 import type { Delivery, EventKey, Platform, Stage, VisitorEvent } from "@/lib/types";
 
 interface Row {
@@ -44,10 +44,17 @@ export async function createEvent(input: {
   targets?: Platform[];
   deliveries?: Delivery[];
   createdBy?: string | null;
-}): Promise<VisitorEvent> {
+  /**
+   * Server-derived uniqueness key. When given, the insert is skipped (null is returned) if an event with
+   * the same key already exists, so two parallel requests cannot both fire the same conversion.
+   */
+  dedupeKey?: string | null;
+}): Promise<VisitorEvent | null> {
   const r = await one<Row>(
-    `insert into visitor_events (visitor_id, site_id, event_type, stage, value, currency, event_id, targets, deliveries, created_by)
-     values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10) returning *`,
+    `insert into visitor_events (visitor_id, site_id, event_type, stage, value, currency, event_id, targets, deliveries, created_by, dedupe_key)
+     values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11)
+     on conflict (dedupe_key) where dedupe_key is not null do nothing
+     returning *`,
     [
       input.visitorId,
       input.siteId,
@@ -59,9 +66,15 @@ export async function createEvent(input: {
       json(input.targets ?? []),
       json(input.deliveries ?? []),
       input.createdBy ?? null,
+      input.dedupeKey ?? null,
     ],
   );
-  return map(r!);
+  return r ? map(r) : null;
+}
+
+/** Bucketed dedupe key for a click event: the same visitor clicking again inside the window collides. */
+export function clickDedupeKey(visitorId: string, eventType: EventKey, minutes: number, now = Date.now()): string {
+  return `${visitorId}:${eventType}:${Math.floor(now / (minutes * 60_000))}`;
 }
 
 export async function setEventDeliveries(id: string, targets: Platform[], deliveries: Delivery[]) {
@@ -92,6 +105,7 @@ export async function hasRecentEvent(visitorId: string, eventType: EventKey, min
 }
 
 export async function getEvent(id: string): Promise<VisitorEvent | null> {
+  if (!isUuid(id)) return null;
   const r = await one<Row>(`select * from visitor_events where id = $1`, [id]);
   return r ? map(r) : null;
 }

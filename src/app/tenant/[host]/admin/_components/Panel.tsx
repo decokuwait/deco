@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminShell } from "@/components/admin/Shell";
 import { adminNav, type AdminCtx, type NavKey } from "../_lib/guard";
@@ -14,7 +15,7 @@ export function Panel({ ctx, active, children }: { ctx: AdminCtx; active: NavKey
       logoutAction={logoutAction}
       logoutLabel={ctx.t("logout")}
       topRight={
-        <a
+        <Link
           href="/admin/settings"
           aria-label={ctx.t("settings")}
           className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold md:hidden ${active === "settings" ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 text-slate-700 hover:bg-slate-50"}`}
@@ -23,7 +24,7 @@ export function Panel({ ctx, active, children }: { ctx: AdminCtx; active: NavKey
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
           </svg>
-        </a>
+        </Link>
       }
     >
       {children}
@@ -43,7 +44,7 @@ export function SaveBar({ children }: { children: ReactNode }) {
 /** Small back link used at the top of sub pages. */
 export function BackLink({ href, label }: { href: string; label: string }) {
   return (
-    <a href={href} className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-slate-600 hover:text-slate-900">
+    <Link href={href} className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-slate-600 hover:text-slate-900">
       <span aria-hidden className="rtl:hidden">
         ←
       </span>
@@ -51,6 +52,6 @@ export function BackLink({ href, label }: { href: string; label: string }) {
         →
       </span>
       {label}
-    </a>
+    </Link>
   );
 }

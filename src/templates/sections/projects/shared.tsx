@@ -9,7 +9,7 @@ export function ProjectMeta({ ctx, project, className = "", light = false, compa
   return (
     <div className={className}>
       <h3 className={cx("font-heading font-bold", compact ? "text-base" : "text-lg")}>{ctx.text(project.title)}</h3>
-      {loc && <p className={cx("mt-1 text-xs font-semibold", light ? "text-accent-text" : "text-primary")}>{loc}</p>}
+      {loc && <p className={cx("mt-1 text-xs font-semibold", light ? "text-accent-text" : "text-primary-text")}>{loc}</p>}
       {desc && !compact && <p className={cx("mt-2 text-sm", light ? "opacity-80" : "text-muted", "line-clamp-2")}>{desc}</p>}
     </div>
   );

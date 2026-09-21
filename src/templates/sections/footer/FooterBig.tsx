@@ -37,7 +37,7 @@ export function FooterBig({ ctx }: SectionProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={s.label}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-secondary-fg/20 transition hover:border-accent hover:bg-accent hover:text-accent-fg"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-secondary-fg/20 transition hover:border-accent hover:bg-accent hover:text-accent-fg"
                 >
                   <SocialIcon name={s.key} />
                 </a>
@@ -46,11 +46,11 @@ export function FooterBig({ ctx }: SectionProps) {
           )}
         </div>
         <div>
-          <h4 className={heading}>{ctx.ui("quick_links")}</h4>
+          <h3 className={heading}>{ctx.ui("quick_links")}</h3>
           <ul className="mt-4 space-y-2.5 text-sm">
             {navLinks(ctx).map((l) => (
               <li key={l.href}>
-                <a href={l.href} className="transition hover:text-accent">
+                <a href={l.href} className="inline-flex min-h-6 items-center transition hover:text-accent">
                   {l.label}
                 </a>
               </li>
@@ -59,11 +59,11 @@ export function FooterBig({ ctx }: SectionProps) {
         </div>
         {services.length > 0 && (
           <div>
-            <h4 className={heading}>{ctx.ui("nav_services")}</h4>
+            <h3 className={heading}>{ctx.ui("nav_services")}</h3>
             <ul className="mt-4 space-y-2.5 text-sm">
               {services.map((s) => (
                 <li key={s.id}>
-                  <a href="#services" className="transition hover:text-accent">
+                  <a href="/#services" className="inline-flex min-h-6 items-center transition hover:text-accent">
                     {ctx.text(s.title)}
                   </a>
                 </li>
@@ -72,7 +72,7 @@ export function FooterBig({ ctx }: SectionProps) {
           </div>
         )}
         <div className="rounded-card border border-secondary-fg/10 bg-secondary-fg/5 p-5">
-          <h4 className={heading}>{ctx.ui("nav_contact")}</h4>
+          <h3 className={heading}>{ctx.ui("nav_contact")}</h3>
           <ul className="mt-4 space-y-3 text-sm">
             {address && (
               <li className="flex items-start gap-3">
@@ -89,7 +89,7 @@ export function FooterBig({ ctx }: SectionProps) {
             {c.contact.phone && (
               <li className="flex items-start gap-3">
                 <PhoneIcon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <WhatsAppLink href={ctx.telHref} kind="call_click" className="transition hover:text-accent">
+                <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex min-h-11 items-center -my-2 transition hover:text-accent">
                   <span dir="ltr" className="inline-block">
                     {formatPhone(c.contact.phone)}
                   </span>
@@ -99,7 +99,7 @@ export function FooterBig({ ctx }: SectionProps) {
             {c.contact.email && (
               <li className="flex items-start gap-3">
                 <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <a href={`mailto:${c.contact.email}`} dir="ltr" className="inline-block transition hover:text-accent">
+                <a href={`mailto:${c.contact.email}`} dir="ltr" className="inline-flex min-h-6 items-center transition hover:text-accent">
                   {c.contact.email}
                 </a>
               </li>
@@ -116,7 +116,7 @@ export function FooterBig({ ctx }: SectionProps) {
           <span>
             © {year} {name} — {ctx.ui("rights")}
             {legalLinks(ctx).map((l) => (
-              <a key={l.href} href={l.href} className="ms-3 underline underline-offset-2 hover:text-accent">
+              <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center ms-3 underline underline-offset-2 hover:text-accent">
                 {l.label}
               </a>
             ))}

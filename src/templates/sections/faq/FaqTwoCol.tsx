@@ -1,11 +1,13 @@
 import type { SectionProps } from "../../types";
 import { Container, Section, SectionHeading } from "../../ui/primitives";
+import { FaqSchema } from "./schema";
 
 /** Two-column grid of always-open Q/A blocks with numbered accent markers. No accordion. */
 export function FaqTwoCol({ ctx }: SectionProps) {
   const f = ctx.site.content.faq;
   return (
     <Section id="faq" tone="surface">
+      <FaqSchema ctx={ctx} />
       <Container>
         <SectionHeading title={ctx.text(f.title)} subtitle={ctx.text(f.subtitle)} align="start" />
         <div className="grid gap-x-12 gap-y-10 md:grid-cols-2">

@@ -10,6 +10,7 @@
   --color-accent: var(--t-accent);
   --color-accent-fg: var(--t-accent-fg);
   --color-accent-text: var(--t-accent-text);
+  --color-primary-text: var(--t-primary-text);
   --color-bg: var(--t-bg);
   --color-surface: var(--t-surface);
   --color-surface-2: var(--t-surface-2);
@@ -29,6 +30,7 @@
   --t-accent: #d4a017;
   --t-accent-fg: #111111;
   --t-accent-text: #8a6a0c;
+  --t-primary-text: #0f766e;
   --t-accent-on-dark: #e6b422;
   --t-accent-on-primary: #f5d76e;
   --t-bg: #ffffff;

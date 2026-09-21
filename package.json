@@ -16,7 +16,8 @@
     "e2e": "tsx scripts/e2e.ts",
     "shots": "tsx scripts/shots.ts",
     "thumbs": "tsx scripts/thumbs.ts",
-    "qa": "npm run typecheck && npm test && npm run build && npm run smoke && npm run e2e"
+    "qa": "npm run lint && npm run typecheck && npm test && npm run build && npm run smoke && npm run e2e",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1128.0",
@@ -35,6 +36,8 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "dotenv": "17.4.2",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.5",
     "playwright": "^1.63.0",
     "postcss": "8.5.28",
     "tailwindcss": "4.3.3",

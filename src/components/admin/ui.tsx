@@ -170,8 +170,18 @@ export function BilingualInput({
 }
 
 /** Reads `${name}.ar` / `${name}.en` from a FormData into an LText. */
-export function readLText(fd: FormData, name: string): LText {
-  return { ar: String(fd.get(`${name}.ar`) ?? "").trim(), en: String(fd.get(`${name}.en`) ?? "").trim() };
+/**
+ * Longest a single bilingual field may be. Every other admin input is capped by `readStr`; this one was
+ * not, so one field could push megabytes into the site's `content` jsonb — a row every tenant page load
+ * then reads in full. Generous enough for the longest thing anyone edits here (the privacy policy).
+ */
+export const MAX_LTEXT = 20000;
+
+export function readLText(fd: FormData, name: string, max = MAX_LTEXT): LText {
+  return {
+    ar: String(fd.get(`${name}.ar`) ?? "").trim().slice(0, max),
+    en: String(fd.get(`${name}.en`) ?? "").trim().slice(0, max),
+  };
 }
 
 export function readStr(fd: FormData, name: string, max = 2000): string {
@@ -192,26 +202,52 @@ export function readNum(fd: FormData, name: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Translates internal error codes (from actions, uploads, delivery skips) into the admin language. */
-export function translateCode(locale: Locale, code: string): string {
+/**
+ * Translates internal error codes (from actions, uploads, delivery skips) into the admin language.
+ *
+ * Anything that is not a known code is not shown. Codes travel in the URL (`?error=...`), so rendering an
+ * unknown value verbatim let anyone put their own sentence inside the owner's own red "error" banner —
+ * a ready-made phishing line on a page the owner trusts. Unknown codes fall back to the generic message,
+ * and the raw value goes to the server log where an operator can still read it.
+ */
+export function translateCode(locale: Locale, code: string): string | null {
   const key = `err_${code}` as AdminUiKey;
   if (key in ADMIN_UI) return ta(locale, key);
-  return code;
+  if (code in ADMIN_UI) return ta(locale, code as AdminUiKey);
+  return null;
 }
 
-export function Flash({ saved, error, savedText, errorText, locale = "ar" }: { saved?: string; error?: string; savedText: string; errorText: string; locale?: Locale }) {
+export function Flash({
+  saved,
+  error,
+  savedText,
+  errorText,
+  locale = "ar",
+  translate,
+}: {
+  saved?: string;
+  /** The raw error *code* from `?error=`, never a message: Flash is what turns a code into text. */
+  error?: string;
+  savedText: string;
+  errorText: string;
+  locale?: Locale;
+  /** Code -> message for dictionaries other than the admin one (the super panel has its own). */
+  translate?: (code: string) => string | null;
+}) {
   if (saved)
     return (
       <div role="status" aria-live="polite" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
         {savedText}
       </div>
     );
-  if (error)
+  if (error) {
+    const detail = translate ? translate(error) : translateCode(locale, error);
     return (
       <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">
-        {errorText}: {translateCode(locale, error)}
+        {detail ? `${errorText}: ${detail}` : errorText}
       </div>
     );
+  }
   return null;
 }
 

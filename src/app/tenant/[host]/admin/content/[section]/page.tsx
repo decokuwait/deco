@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSiteAdmin, sp1, type SearchParams } from "../../_lib/guard";
 import { Panel, SaveBar, BackLink } from "../../_components/Panel";
@@ -7,6 +8,7 @@ import { FlatFields, ListEditor } from "../../_components/editors";
 import { isContentSection, SPECS } from "../_lib/spec";
 import { moveSection, resetOrder, resetTheme, saveSection } from "./actions";
 import { ColorPick } from "./ColorPick";
+import { ContrastCheck } from "./ContrastCheck";
 import { getTemplate } from "@/templates/registry";
 import { FONTS, FONT_KEYS } from "@/templates/fonts";
 import { PATTERN_KEYS } from "@/templates/decor/patterns";
@@ -35,13 +37,12 @@ export default async function ContentSectionPage({ params, searchParams }: { par
   const sp = await searchParams;
   if (!isContentSection(section)) notFound();
   const ctx = await requireSiteAdmin(host);
-  const { t, site } = ctx;
+  const { t, site, locale } = ctx;
   const spec = SPECS[section];
   const action = saveSection.bind(null, host, section);
   const c = site.content;
   const template = getTemplate(site.templateCode);
   const error = sp1(sp.error);
-  const errorText = error === "invalid_whatsapp" ? t("invalid_whatsapp") : error;
   const currentOrder: SectionKey[] = (() => {
     const custom = (c.sections.order || []).filter((k): k is SectionKey => (DEFAULT_ORDER as string[]).includes(k));
     if (custom.length === DEFAULT_ORDER.length && new Set(custom).size === DEFAULT_ORDER.length) return custom;
@@ -52,7 +53,7 @@ export default async function ContentSectionPage({ params, searchParams }: { par
     <Panel ctx={ctx} active="content">
       <BackLink href="/admin/content" label={t("content")} />
       <PageHeader title={t(spec.title)} subtitle={t(spec.hint)} />
-      <Flash saved={sp1(sp.saved)} error={errorText} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={error} savedText={t("saved")} errorText={t("error")} locale={locale} />
       {section === "sections" && (
         <Card title={t("section_order")} className="mb-5">
           <p className="mb-3 text-sm text-slate-600">{t("section_order_hint")}</p>
@@ -94,10 +95,26 @@ export default async function ContentSectionPage({ params, searchParams }: { par
             <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
               <span className="font-bold">{t("template")}:</span> {template ? `${template.code} — ${template.name[ctx.locale]}` : site.templateCode}
               <span className="block text-xs text-slate-500">{t("template_switch_hint")}</span>
-              <a href="/admin/settings" className="mt-1 inline-block text-xs font-bold text-emerald-700 underline">
+              <Link href="/admin/settings" className="mt-1 inline-block text-xs font-bold text-emerald-700 underline">
                 {t("choose_template")}
-              </a>
+              </Link>
             </div>
+            <ContrastCheck
+              labels={{
+                title: t("contrast_title"),
+                ok: t("contrast_ok"),
+                warning: t("contrast_warn"),
+                pairText: t("contrast_pair_text"),
+                pairPrimary: t("contrast_pair_primary"),
+                pairAccent: t("contrast_pair_accent"),
+              }}
+              fallback={{
+                primary: template?.tokens.primary ?? "#0f766e",
+                accent: template?.tokens.accent ?? "#d4a017",
+                bg: template?.tokens.bg ?? "#ffffff",
+                text: template?.tokens.text ?? "#0f172a",
+              }}
+            />
             <div className="grid gap-4 sm:grid-cols-3">
               {(["primary", "secondary", "accent", "bg", "surface", "text"] as const).map((k) => {
                 const labelKey: AdminUiKey = k === "primary" ? "primary_color" : k === "secondary" ? "secondary_color" : k === "accent" ? "accent_color" : k === "bg" ? "background_color" : k === "surface" ? "surface_color" : "text_color";
@@ -171,7 +188,7 @@ export default async function ContentSectionPage({ params, searchParams }: { par
             </div>
             <input type="hidden" name="order" value={(c.sections.order || []).join(",")} />
             <p className="mt-4 text-xs text-slate-500">
-              {t("projects")}: <a href="/admin/projects" className="font-bold text-emerald-700 underline">{t("edit")}</a>
+              {t("projects")}: <Link href="/admin/projects" className="font-bold text-emerald-700 underline">{t("edit")}</Link>
             </p>
           </Card>
         ) : (

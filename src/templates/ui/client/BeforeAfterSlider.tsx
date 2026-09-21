@@ -1,7 +1,7 @@
 "use client";
 
 import { responsiveSrc } from "../img";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Draggable before/after comparison. Works with mouse, touch and keyboard. */
 export function BeforeAfterSlider({
@@ -24,6 +24,27 @@ export function BeforeAfterSlider({
   const [pos, setPos] = useState(50);
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+  /**
+   * Width of the frame, in state rather than read from the ref during render.
+   *
+   * The "before" image is inside a container clipped to `pos%`, so it needs the *full* frame width to
+   * line up with the "after" image behind it. Reading `ref.current?.clientWidth` while rendering returned
+   * null on the first pass, the image fell back to `width: 100%` of the clip — half the frame — and every
+   * comparison shipped horizontally squashed until the visitor happened to drag it. A ResizeObserver also
+   * keeps it correct through rotation and window resizing, which the old code never handled at all.
+   */
+  const [frameWidth, setFrameWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setFrameWidth(el.clientWidth);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const update = useCallback((clientX: number) => {
     const el = ref.current;
@@ -33,12 +54,14 @@ export function BeforeAfterSlider({
     setPos((x / r.width) * 100);
   }, []);
 
+  // touchAction "pan-y", not "none": "none" swallowed every touch, so a visitor who began a scroll on the
+  // image could not scroll the page at all. Vertical scrolling stays with the page, horizontal drags come here.
   return (
     <div
       ref={ref}
       dir="ltr"
       className={`relative select-none overflow-hidden rounded-card bg-surface-2 ${className}`}
-      style={{ aspectRatio: aspect, touchAction: "none" }}
+      style={{ aspectRatio: aspect, touchAction: "pan-y" }}
       onPointerDown={(e) => {
         dragging.current = true;
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -48,11 +71,9 @@ export function BeforeAfterSlider({
       onPointerUp={() => (dragging.current = false)}
       onPointerCancel={() => (dragging.current = false)}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={after} {...responsiveSrc(after)} alt={afterLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
       <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={before} {...responsiveSrc(before)} alt={beforeLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full max-w-none object-cover" style={{ width: ref.current?.clientWidth || "100%" }} draggable={false} />
+        <img src={before} {...responsiveSrc(before)} alt={beforeLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full max-w-none object-cover" style={{ width: frameWidth ?? "100%" }} draggable={false} />
       </div>
       <div className="pointer-events-none absolute inset-y-0" style={{ left: `calc(${pos}% - 1px)` }}>
         <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,.2)]" />

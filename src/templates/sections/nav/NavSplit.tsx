@@ -17,7 +17,7 @@ export function NavSplit({ ctx }: SectionProps) {
         <Container className="flex h-9 items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-4">
             {c.contact.phone && (
-              <WhatsAppLink href={ctx.telHref} kind="call_click" className="flex items-center gap-1.5 font-bold hover:text-accent">
+              <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex min-h-6 items-center gap-1.5 font-bold hover:text-accent">
                 <PhoneIcon className="h-3.5 w-3.5" />
                 <span dir="ltr">{formatPhone(c.contact.phone)}</span>
               </WhatsAppLink>
@@ -26,7 +26,7 @@ export function NavSplit({ ctx }: SectionProps) {
           </div>
           <div className="flex items-center gap-3">
             <VisitorChip ctx={ctx} className="border-white/20 bg-white/10 text-white [&_span]:text-white" />
-            {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="font-bold hover:text-accent" />}
+            {c.settings.showLangToggle && <LangToggle locale={ctx.locale} label={ctx.ui("lang_switch")} className="inline-flex min-h-6 items-center font-bold hover:text-accent" />}
           </div>
         </Container>
       </div>
@@ -34,7 +34,7 @@ export function NavSplit({ ctx }: SectionProps) {
         <Brand ctx={ctx} />
         <nav className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="border-b-2 border-transparent px-3 py-2 text-sm font-bold text-muted transition hover:border-accent hover:text-fg">
+            <a key={l.href} href={l.href} className="inline-flex min-h-6 items-center border-b-2 border-transparent px-3 py-2 text-sm font-bold text-muted transition hover:border-accent hover:text-fg">
               {l.label}
             </a>
           ))}

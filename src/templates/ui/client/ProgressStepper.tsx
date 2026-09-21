@@ -24,17 +24,19 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
                   type="button"
                   onClick={() => setI(k)}
                   aria-current={active ? "step" : undefined}
+                  aria-label={`${stepWord} ${k + 1}: ${s.label}`}
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 font-heading text-sm font-black transition ${
-                    active ? "border-primary bg-primary text-primary-fg shadow-lg" : done ? "border-primary bg-primary/15 text-primary" : "border-line bg-surface text-muted"
+                    active ? "border-primary bg-primary text-primary-fg shadow-lg" : done ? "border-primary bg-primary/15 text-primary-text" : "border-line bg-surface text-muted"
                   }`}
                 >
                   {k + 1}
                 </button>
                 <span className={`h-0.5 flex-1 ${k === n - 1 ? "bg-transparent" : done ? "bg-primary" : "bg-line"}`} />
               </div>
-              <button type="button" onClick={() => setI(k)} className={`mt-2 line-clamp-2 text-[11px] font-bold ${active ? "text-fg" : "text-muted"}`}>
-                {s.label}
-              </button>
+              {/* The caption is not a second control: it duplicated the numbered button above it, giving
+                  every step two tab stops and two announcements, and it was only 17px tall. The label is
+                  now part of that button's accessible name. */}
+              <span aria-hidden className={`mt-2 line-clamp-2 text-[11px] font-bold ${active ? "text-fg" : "text-muted"}`}>{s.label}</span>
             </li>
           );
         })}
@@ -43,7 +45,6 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
         {cur.kind === "video" ? (
           <video key={cur.id} src={cur.url} poster={cur.posterUrl || undefined} controls playsInline preload="metadata" className="h-full w-full object-contain" />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
           <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url)} alt={cur.label} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
         )}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4 text-white">
@@ -56,7 +57,6 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
       <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto" dir={dir}>
         {slides.map((s, k) => (
           <button key={s.id} type="button" onClick={() => setI(k)} aria-label={s.label} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-card ring-2 transition ${k === i ? "ring-primary" : "ring-transparent opacity-70 hover:opacity-100"}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={s.kind === "video" ? s.posterUrl || s.url : s.url} {...responsiveSrc(s.kind === "video" ? s.posterUrl || s.url : s.url, "96px")} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             {s.kind === "video" && <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow">▶</span>}
           </button>

@@ -17,10 +17,10 @@ export function ProgressSlideshowSection({ ctx }: SectionProps) {
               <div className="lg:sticky lg:top-24">
                 <span className="mb-3 inline-block rounded-full bg-accent/15 px-3 py-1 text-xs font-bold text-accent-text">{ctx.ui("in_progress")}</span>
                 <h3 className="font-heading text-2xl font-extrabold">{ctx.text(pr.title)}</h3>
-                {ctx.text(pr.location) && <p className="mt-1 text-sm font-semibold text-primary">{ctx.text(pr.location)}</p>}
+                {ctx.text(pr.location) && <p className="mt-1 text-sm font-semibold text-primary-text">{ctx.text(pr.location)}</p>}
                 {ctx.text(pr.description) && <p className="mt-3 leading-relaxed text-muted">{ctx.text(pr.description)}</p>}
               </div>
-              <ProgressSlideshow slides={progressSlides(ctx, pr)} stepWord={ctx.ui("step")} ofWord={ctx.ui("of")} dir={ctx.dir} />
+              <ProgressSlideshow prevLabel={ctx.ui("prev_slide")} nextLabel={ctx.ui("next_slide")} slides={progressSlides(ctx, pr)} stepWord={ctx.ui("step")} ofWord={ctx.ui("of")} dir={ctx.dir} />
             </article>
           ))}
         </div>

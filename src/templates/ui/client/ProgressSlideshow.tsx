@@ -24,6 +24,8 @@ export function ProgressSlideshow({
   className = "",
   autoplay = 4000,
   dir = "rtl",
+  prevLabel = "Previous",
+  nextLabel = "Next",
 }: {
   slides: ProgressSlide[];
   stepWord: string;
@@ -31,6 +33,8 @@ export function ProgressSlideshow({
   className?: string;
   autoplay?: number;
   dir?: "rtl" | "ltr";
+  prevLabel?: string;
+  nextLabel?: string;
 }) {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -54,7 +58,6 @@ export function ProgressSlideshow({
         {cur.kind === "video" ? (
           <video key={cur.id} src={cur.url} poster={cur.posterUrl || undefined} controls playsInline className="h-full w-full object-contain" preload="metadata" />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
           <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url)} alt={cur.label} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 pt-12 text-white">
@@ -64,12 +67,12 @@ export function ProgressSlideshow({
           </div>
           <div className="font-heading text-lg font-bold sm:text-xl">{cur.label}</div>
         </div>
-        <button type="button" onClick={() => go(-1)} aria-label="previous" className="absolute start-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow">
+        <button type="button" onClick={() => go(-1)} aria-label={prevLabel} className="absolute start-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow">
           <svg viewBox="0 0 24 24" className={`h-5 w-5 ${dir === "rtl" ? "" : "rotate-180"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M9 6l6 6-6 6" />
           </svg>
         </button>
-        <button type="button" onClick={() => go(1)} aria-label="next" className="absolute end-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow">
+        <button type="button" onClick={() => go(1)} aria-label={nextLabel} className="absolute end-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow">
           <svg viewBox="0 0 24 24" className={`h-5 w-5 ${dir === "rtl" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d="M9 6l6 6-6 6" />
           </svg>

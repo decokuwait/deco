@@ -14,14 +14,13 @@ export default async function SettingsPage({ params, searchParams }: { params: P
   const s = site.content.settings;
   const template = getTemplate(site.templateCode);
   const error = sp1(sp.error);
-  const errorText = error === "password_short" ? t("password_short") : error === "password_mismatch" ? t("password_mismatch") : error === "invalid_login" ? t("invalid_login") : error;
   const save = saveSettings.bind(null, host);
   const pw = changePassword.bind(null, host);
 
   return (
     <Panel ctx={ctx} active="settings">
       <PageHeader title={t("settings")} subtitle={`${t("signed_in_as")} ${user.email}`} />
-      <Flash saved={sp1(sp.saved)} error={errorText} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={error} savedText={t("saved")} errorText={t("error")} locale={locale} />
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title={t("site_settings")}>
           <form action={save} className="grid gap-3">

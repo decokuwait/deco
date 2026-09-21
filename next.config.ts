@@ -24,6 +24,13 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      // Template previews are the same bytes for everyone: 60 pages of fixed demo content whose only
+      // input is the code and `?lang`. They were re-rendering on every request (and on every crawl of
+      // the gallery), so let the CDN answer instead and refresh in the background.
+      {
+        source: "/template/:code",
+        headers: [{ key: "Cache-Control", value: "public, s-maxage=3600, stale-while-revalidate=86400" }],
+      },
       // Admin panels must never be framed (clickjacking); public sites stay embeddable.
       { source: "/admin/:path*", headers: NO_FRAME },
       { source: "/admin", headers: NO_FRAME },

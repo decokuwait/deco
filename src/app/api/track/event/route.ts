@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { getRequestSite, clientIp } from "@/lib/site-request";
 import { getVisitorByCode, incrementWhatsappClicks } from "@/lib/db/visitors";
-import { createEvent, hasRecentEvent, setEventDeliveries } from "@/lib/db/events";
+import { clickDedupeKey, createEvent, hasRecentEvent, setEventDeliveries } from "@/lib/db/events";
 import { getActivePixels } from "@/lib/db/pixels";
 import { dispatchEvent } from "@/lib/marketing/dispatch";
 import { isValidVisitorCode } from "@/lib/visitor/code";
 import { VISITOR_COOKIE } from "@/lib/config";
 import { rateLimit } from "@/lib/rate-limit";
+import { isCrossSite } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
 // Server-side deliveries to up to five ad platforms run in after(); give the function room beyond the 10 s default.
@@ -23,8 +24,10 @@ const DEDUPE_MINUTES = 10;
  * delayed. Google is excluded here because the browser gtag already reported the click (avoids double counting).
  */
 export async function POST(req: NextRequest) {
+  if (isCrossSite(req.headers)) return NextResponse.json({ error: "cross_site" }, { status: 403 });
   const site = await getRequestSite();
   if (!site) return NextResponse.json({ error: "no_site" }, { status: 404 });
+  if (site.status !== "active") return NextResponse.json({ error: "site_paused" }, { status: 403 });
   const ip = clientIp(req.headers) || "unknown";
   if (!rateLimit(`event:${ip}`, 30, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
@@ -41,11 +44,21 @@ export async function POST(req: NextRequest) {
   const visitor = await getVisitorByCode(site.id, cookieCode);
   if (!visitor) return NextResponse.json({ error: "unknown_visitor" }, { status: 404 });
 
+  // Sliding-window check first (it is the behaviour the admin panel documents), then let the insert
+  // itself be the arbiter: a bucketed dedupe key means two parallel beacons from one double tap cannot
+  // both win the race and send the same conversion twice under two different event ids.
   if (await hasRecentEvent(visitor.id, eventKey, DEDUPE_MINUTES)) return NextResponse.json({ ok: true, deduped: true });
-  if (eventKey === "whatsapp_click") await incrementWhatsappClicks(visitor.id);
 
   const eventId = typeof body.eventId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(body.eventId) ? body.eventId : crypto.randomUUID();
-  const ev = await createEvent({ visitorId: visitor.id, siteId: site.id, eventType: eventKey, eventId });
+  const ev = await createEvent({
+    visitorId: visitor.id,
+    siteId: site.id,
+    eventType: eventKey,
+    eventId,
+    dedupeKey: clickDedupeKey(visitor.id, eventKey, DEDUPE_MINUTES),
+  });
+  if (!ev) return NextResponse.json({ ok: true, deduped: true });
+  if (eventKey === "whatsapp_click") await incrementWhatsappClicks(visitor.id);
   const sourceUrl = typeof body.url === "string" ? body.url.slice(0, 2000) : visitor.landingUrl;
   const ua = req.headers.get("user-agent") || visitor.userAgent;
   const reqIp = clientIp(req.headers) || visitor.ip;

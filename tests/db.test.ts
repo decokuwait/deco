@@ -255,7 +255,7 @@ describe("visitors & events", () => {
   it("marks stages, records events with deliveries and searches", async () => {
     const v = (await getVisitorByCode(siteId, code))!;
     await incrementWhatsappClicks(v.id);
-    const ev = await createEvent({ visitorId: v.id, siteId, eventType: "whatsapp_click", eventId: "e1" });
+    const ev = (await createEvent({ visitorId: v.id, siteId, eventType: "whatsapp_click", eventId: "e1" }))!;
     await setEventDeliveries(ev.id, ["meta"], [{ platform: "meta", ok: true, status: 200, eventName: "Contact" }]);
     const updated = await updateVisitor(v.id, { stage: "first_payment", name: "أبو محمد", phone: "50000000" });
     expect(updated?.stage).toBe("first_payment");
@@ -288,7 +288,7 @@ describe("click dedupe, site cleanup lookups", () => {
     const site = await createSite({ slug: "dedupe", name: "Dedupe", category: "gypsum", templateCode: "101" });
     const { visitor } = await trackVisit({ siteId: site.id, code: "424242", fresh: true });
     expect(await hasRecentEvent(visitor.id, "whatsapp_click", 10)).toBe(false);
-    const ev = await createEvent({ visitorId: visitor.id, siteId: site.id, eventType: "whatsapp_click", eventId: "d1" });
+    const ev = (await createEvent({ visitorId: visitor.id, siteId: site.id, eventType: "whatsapp_click", eventId: "d1" }))!;
     expect(await hasRecentEvent(visitor.id, "whatsapp_click", 10)).toBe(true);
     expect(await hasRecentEvent(visitor.id, "call_click", 10)).toBe(false);
     await q(`update visitor_events set created_at = now() - interval '11 minutes' where id = $1`, [ev.id]);

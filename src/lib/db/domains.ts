@@ -1,4 +1,4 @@
-import { q, one, iso, json, parseJson } from "./client";
+import { q, one, iso, isUuid, json, parseJson } from "./client";
 
 export interface SiteDomain {
   id: string;
@@ -46,6 +46,7 @@ export async function findDomain(hostname: string): Promise<SiteDomain | null> {
 }
 
 export async function getDomain(id: string): Promise<SiteDomain | null> {
+  if (!isUuid(id)) return null;
   const r = await one<Row>(`select * from site_domains where id = $1`, [id]);
   return r ? map(r) : null;
 }

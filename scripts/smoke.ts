@@ -156,9 +156,15 @@ async function main() {
     const superRedirect = await fetch(`http://${ROOT}/super`, { redirect: "manual" });
     check([302, 303, 307, 308].includes(superRedirect.status) && (superRedirect.headers.get("location") || "").includes("/super/login"), "/super redirects to login when signed out");
     check((await fetch(`http://${ROOT}/super/login`)).status === 200, "/super/login renders");
-    const health = await fetch(`http://${ROOT}/api/health`);
+    // The public answer is deliberately thin (uptime monitors only need ok/database); the deployment
+    // detail and the write probe are operator-only, so the super admin session is what unlocks them.
+    const healthPublic = await fetch(`http://${ROOT}/api/health`);
+    const publicBody = (await healthPublic.json()) as { ok?: boolean; database?: string; pendingMigrations?: string[]; commit?: string | null; region?: string | null };
+    check(healthPublic.status === 200 && publicBody.ok === true && publicBody.database === "ok", "/api/health reports the database ready");
+    check(!("pendingMigrations" in publicBody) && !("commit" in publicBody) && !("region" in publicBody), "/api/health hides deployment detail from anonymous callers");
+    const health = await fetch(`http://${ROOT}/api/health`, { headers: { cookie: `dk_session=${superToken}` } });
     const healthBody = (await health.json()) as { ok?: boolean; database?: string; pendingMigrations?: string[] };
-    check(health.status === 200 && healthBody.ok === true && healthBody.database === "ok" && healthBody.pendingMigrations?.length === 0, "/api/health reports the database ready with no pending migrations");
+    check(health.status === 200 && healthBody.ok === true && healthBody.database === "ok" && healthBody.pendingMigrations?.length === 0, "/api/health shows the super admin no pending migrations");
 
     // 3d. authenticated admin + super admin pages render (session cookies created during seeding)
     const adminPages = [

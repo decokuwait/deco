@@ -8,7 +8,7 @@ export function TestimonialsQuoteWall({ ctx }: SectionProps) {
   const t = ctx.site.content.testimonials;
   return (
     <Section tone="surface" className="overflow-hidden">
-      <QuoteGlyph className="pointer-events-none absolute -start-8 -top-10 h-56 w-56 text-primary/10 sm:h-80 sm:w-80 lg:h-96 lg:w-96" />
+      <QuoteGlyph className="pointer-events-none absolute -start-8 -top-10 h-56 w-56 text-primary-text/10 sm:h-80 sm:w-80 lg:h-96 lg:w-96" />
       <Container>
         <SectionHeading title={ctx.text(t.title)} subtitle={ctx.text(t.subtitle)} align="start" />
         <div className="columns-1 gap-5 sm:columns-2 lg:columns-3">
@@ -33,7 +33,7 @@ export function TestimonialsQuoteWall({ ctx }: SectionProps) {
                   <span
                     className={cx(
                       "flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-heading font-bold",
-                      feature ? "bg-primary-fg/15 text-primary-fg" : deep ? "bg-accent text-accent-fg" : "bg-primary/10 text-primary",
+                      feature ? "bg-primary-fg/15 text-primary-fg" : deep ? "bg-accent text-accent-fg" : "bg-primary/10 text-primary-text",
                     )}
                   >
                     {initialOf(name)}

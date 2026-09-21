@@ -65,23 +65,49 @@ export function deepMerge<T>(base: T, patch: unknown): T {
   return out as T;
 }
 
+/**
+ * Site content with every field present.
+ *
+ * `raw` is whatever is in the `content` jsonb column, and that column is not always written by this
+ * code — the schema can be applied by hand and rows can be imported. A scalar or an array there used to
+ * come straight back out of `deepMerge` (a non-object patch replaces the base), and every template then
+ * crashed on `content.settings.defaultLocale`, taking the whole tenant site to a 500. Anything that is
+ * not a plain object is treated as no content at all.
+ */
 export function normalizeContent(raw: unknown): SiteContent {
-  return deepMerge(emptyContent(), raw ?? {});
+  return deepMerge(emptyContent(), isPlainObject(raw) ? raw : {});
 }
 
 export function whatsappDigits(number: string | null | undefined): string {
   return (number || "").replace(/[^\d]/g, "");
 }
 
+/**
+ * Digits of a phone number in international form, without the `+`.
+ *
+ * Kuwaiti numbers are written three ways: `50000000`, `96550000000` and `0096550000000`. The `00` is the
+ * international access prefix, so it has to become `+` rather than stay in front of the country code —
+ * `tel:+0096550000000` is not a number any phone can dial.
+ */
+export function internationalDigits(number: string | null | undefined): string {
+  let d = whatsappDigits(number);
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.length === 8) d = `965${d}`;
+  return d;
+}
+
+/** WhatsApp's own cap on a prefilled message, so a long template cannot produce a link wa.me rejects. */
+export const MAX_WHATSAPP_MESSAGE = 900;
+
 /** Replace the visitor id placeholder in a WhatsApp message and build the wa.me link. Without a number the link points to the contact section. */
 export function whatsappLink(number: string, message: string, visitorCode: string | null | undefined): string {
-  const digits = whatsappDigits(number);
+  const digits = internationalDigits(number);
   if (!digits) return "#contact";
-  const text = (message || "").replace(/\{id\}/g, visitorCode || "------");
+  const text = (message || "").replace(/\{id\}/g, visitorCode || "------").slice(0, MAX_WHATSAPP_MESSAGE);
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
 export function telLink(phone: string | undefined | null): string {
-  const p = (phone || "").replace(/[^\d+]/g, "");
-  return p ? `tel:${p.startsWith("+") ? p : "+" + p}` : "#contact";
+  const digits = internationalDigits(phone);
+  return digits ? `tel:+${digits}` : "#contact";
 }

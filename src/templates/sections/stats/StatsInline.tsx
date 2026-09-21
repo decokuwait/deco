@@ -20,7 +20,7 @@ export function StatsInline({ ctx }: SectionProps) {
                   !last && i % 2 === 0 && "border-e",
                 )}
               >
-                <span className="font-heading text-2xl font-black tabular-nums text-primary sm:text-3xl">{s.value}</span>
+                <span className="font-heading text-2xl font-black tabular-nums text-primary-text sm:text-3xl">{s.value}</span>
                 <span className="max-w-[8rem] text-xs font-semibold leading-tight text-muted sm:text-sm">{ctx.text(s.label)}</span>
               </div>
             );

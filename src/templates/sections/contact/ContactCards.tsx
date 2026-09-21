@@ -51,7 +51,7 @@ export function ContactCards({ ctx }: SectionProps) {
                   </span>
                 </span>
               </span>
-              <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-primary transition-all group-hover:gap-2">
+              <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-primary-text transition-all group-hover:gap-2">
                 {ctx.ui("call_now")}
                 <Arrow dir={ctx.dir} className="h-4 w-4" />
               </span>
@@ -59,7 +59,7 @@ export function ContactCards({ ctx }: SectionProps) {
           )}
           {address && (
             <div className={card + " border border-line bg-surface"}>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary-text">
                 <PinIcon className="h-6 w-6" />
               </span>
               <span>
@@ -70,7 +70,7 @@ export function ContactCards({ ctx }: SectionProps) {
           )}
           {hours && (
             <div className={card + " border border-line bg-surface"}>
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary-text">
                 <ClockIcon className="h-6 w-6" />
               </span>
               <span>
@@ -83,7 +83,7 @@ export function ContactCards({ ctx }: SectionProps) {
         {(socials.length > 0 || c.email) && (
           <div className="mt-10 flex flex-col items-center justify-center gap-5 sm:flex-row sm:gap-10">
             {c.email && (
-              <a href={`mailto:${c.email}`} className="inline-flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-primary">
+              <a href={`mailto:${c.email}`} className="inline-flex min-h-6 items-center gap-2 text-sm font-semibold text-muted transition hover:text-primary-text">
                 <MailIcon className="h-4 w-4" />
                 <span dir="ltr">{c.email}</span>
               </a>
@@ -98,7 +98,7 @@ export function ContactCards({ ctx }: SectionProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={s.label}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface text-fg transition hover:border-primary hover:bg-primary hover:text-primary-fg"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface text-fg transition hover:border-primary hover:bg-primary hover:text-primary-fg"
                   >
                     <SocialIcon name={s.key} />
                   </a>

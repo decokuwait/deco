@@ -13,7 +13,7 @@ export function NavCentered({ ctx }: SectionProps) {
   const half = Math.ceil(links.length / 2);
   const first = links.slice(0, half);
   const second = links.slice(half);
-  const linkCls = "px-3 py-1.5 text-sm font-semibold text-muted transition hover:text-primary";
+  const linkCls = "inline-flex min-h-6 items-center px-3 text-sm font-semibold text-muted transition hover:text-primary-text";
   return (
     <header id="top" className={cx("sticky z-50 border-b border-line bg-bg/90 backdrop-blur", CHROME_TOP)}>
       <Container className="flex items-center justify-between py-3 lg:hidden">

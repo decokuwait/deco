@@ -15,6 +15,9 @@ export function Carousel({
   showDots = true,
   showArrows = true,
   dir = "rtl",
+  dotLabelTemplate,
+  prevLabel = "previous",
+  nextLabel = "next",
 }: {
   children: ReactNode[];
   className?: string;
@@ -23,6 +26,14 @@ export function Carousel({
   showDots?: boolean;
   showArrows?: boolean;
   dir?: "rtl" | "ltr";
+  /**
+   * Localised label for a dot, with `{n}` and `{total}` placeholders (e.g. "Go to slide {n} of {total}").
+   * A string, not a formatter function: this is a client component, and a server component cannot hand a
+   * function across the boundary.
+   */
+  dotLabelTemplate?: string;
+  prevLabel?: string;
+  nextLabel?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
@@ -81,12 +92,12 @@ export function Carousel({
       </div>
       {showArrows && count > 1 && (
         <>
-          <button type="button" onClick={prev} aria-label="previous" className="absolute start-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex">
+          <button type="button" onClick={prev} aria-label={prevLabel} className="absolute start-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex">
             <svg viewBox="0 0 24 24" className={`h-5 w-5 ${dir === "rtl" ? "" : "rotate-180"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M9 6l6 6-6 6" />
             </svg>
           </button>
-          <button type="button" onClick={next} aria-label="next" className="absolute end-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex">
+          <button type="button" onClick={next} aria-label={nextLabel} className="absolute end-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex">
             <svg viewBox="0 0 24 24" className={`h-5 w-5 ${dir === "rtl" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M9 6l6 6-6 6" />
             </svg>
@@ -94,15 +105,21 @@ export function Carousel({
         </>
       )}
       {showDots && count > 1 && (
-        <div className="mt-5 flex justify-center gap-2">
+        // The dot is 8px of paint, but the control has to be big enough to hit: WCAG 2.2 (2.5.8) asks for
+        // 24x24 CSS px, and 8x8 dots spaced 8px apart failed both that and its spacing exception. The
+        // button is padded out to 28x28 and the visible dot stays the same size inside it.
+        <div className="mt-3 flex justify-center">
           {children.map((_, i) => (
             <button
               key={i}
               type="button"
-              aria-label={`slide ${i + 1}`}
+              aria-label={dotLabelTemplate ? dotLabelTemplate.replace("{n}", String(i + 1)).replace("{total}", String(count)) : `${i + 1} / ${count}`}
+              aria-current={i === index ? "true" : undefined}
               onClick={() => scrollTo(i)}
-              className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-primary" : "w-2 bg-line"}`}
-            />
+              className="flex h-7 w-7 shrink-0 items-center justify-center"
+            >
+              <span aria-hidden className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-primary" : "w-2 bg-line"}`} />
+            </button>
           ))}
         </div>
       )}

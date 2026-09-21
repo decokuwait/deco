@@ -39,10 +39,14 @@ export function buildSnapchat(ctx: SendContext) {
   const body = { data: [event] };
   // The validate endpoint only checks the payload; real traffic must always hit /events.
   const validate = !!ctx.test;
-  const endpoint = `https://tr.snapchat.com/v3/${encodeURIComponent(pixel.pixelId)}/events${validate ? "/validate" : ""}?access_token=${encodeURIComponent(
-    pixel.accessToken || "",
-  )}`;
-  const init: RequestInit = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const endpoint = `https://tr.snapchat.com/v3/${encodeURIComponent(pixel.pixelId)}/events${validate ? "/validate" : ""}`;
+  // The token goes in a header, not the query string: a URL that carries it ends up in Snapchat's access
+  // logs, and any fetch error that quotes the URL would be stored in visitor_events and shown to the admin.
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${pixel.accessToken || ""}` },
+    body: JSON.stringify(body),
+  };
   return { url: endpoint, init, redacted: body };
 }
 

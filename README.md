@@ -70,13 +70,14 @@ Local mode uses an embedded PGlite Postgres in `./.data/pglite` and stores uploa
 ## Tests
 
 ```bash
+npm run lint        # eslint (next/core-web-vitals + typescript-eslint)
 npm run typecheck   # tsc
 npm test            # vitest: routing, attribution, marketing payloads, database (PGlite), registry, rendering of all 60 templates
 npm run build && npm run smoke   # boots the production build and exercises pages, tenant routing, tracking APIs, robots/sitemap, auth guards, admin pages
 npm run e2e         # Playwright: real browser flows (visitor id + WhatsApp click, admin login, stage marking with signal delivery, content/list editors, project + media upload, pixels, settings, super admin site creation, template switch, domains, users)
-npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; SHOTS_STRICT=1 fails on browser errors / horizontal overflow / controls pushed outside the viewport, SHOTS_ONLY=101,207 samples; `tsx scripts/contact-sheet.ts` builds per-category contact sheets
+npm run shots       # Playwright: screenshots of all 60 templates (mobile/desktop/en) and admin pages into .qa/shots for visual review; SHOTS_STRICT=1 fails on browser errors / horizontal overflow / controls pushed outside the viewport, SHOTS_ONLY=101,207 samples (CI sweeps all 60 on pushes to main and samples four on pull requests); `tsx scripts/contact-sheet.ts` builds per-category contact sheets
 npm run thumbs      # gallery thumbnails (public/templates) from the screenshots
-npm run qa          # typecheck + unit + build + smoke + e2e (same gate as .github/workflows/ci.yml, which also runs a strict screenshot sample and the database suites against a real Postgres)
+npm run qa          # lint + typecheck + unit + build + smoke + e2e (same gate as .github/workflows/ci.yml, which also runs the strict screenshot sweep, `npm audit` and the database suites against a real Postgres)
 ```
 
 The QA scripts always run against an isolated PGlite database and local uploads; production variables
@@ -136,7 +137,7 @@ and security suites against a real Postgres (the CI `postgres` job does this and
    admin accounts that had no other site.
 
 ### Environment variables
-See `.env.example`. Authentication is self-contained: passwords are scrypt-hashed and sessions are
+See `.env.example`. `HEALTH_TOKEN` is optional and only unlocks the deployment detail of `/api/health`. Authentication is self-contained: passwords are scrypt-hashed and sessions are
 revocable tokens stored in the database, so no external auth provider is required.
 
 ### Security notes
@@ -147,7 +148,19 @@ revocable tokens stored in the database, so no external auth provider is require
 * Tracking endpoints only honour the visitor's own cookie (a code supplied in the request body is
   ignored), are rate limited per IP, and deduplicate repeated clicks.
 * Uploads are restricted to images/videos (SVG refused), size-capped, and keys are validated; the local
-  disk fallback is disabled on Vercel.
+  disk fallback is disabled on Vercel. Locally served files are returned with the content type that was
+  validated at upload time (never one guessed from the file extension) plus `nosniff` and a sandbox CSP.
+* Media deletion only ever touches keys under the site's own `sites/<id>/` prefix, so one tenant cannot
+  delete another tenant's files by pasting their public URL into its own project.
+* Row level security is enabled on every table and the `anon`/`authenticated` roles are revoked
+  (`0004_rls_and_indexes.sql`): the platform connects as the database owner, and nothing should be
+  reachable through Supabase's auto-generated API.
+* `/api/track` and `/api/track/event` refuse cross-site callers and paused sites, so another site cannot
+  make its visitors create visitor rows or fire conversions on yours.
+* `/api/health` answers `{ok, database}` to anyone; the deployment detail and the `?probe=upload` write
+  test need a super admin session or `HEALTH_TOKEN`.
+* Error codes in `?error=` are rendered only when they are known codes, so nobody can put their own
+  sentence inside the panel's error banner.
 * Admin and super admin pages send `X-Frame-Options: DENY` / `frame-ancestors 'none'` (clickjacking); public sites stay embeddable for the platform preview.
 * Template fonts are self-hosted through `next/font` (built into the deployment at build time): a visitor makes no request to Google Fonts and the page never waits on a third-party stylesheet.
 

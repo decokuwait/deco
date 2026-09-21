@@ -90,6 +90,13 @@ export function SiteRuntime({ visitorCode, externalIdHash, pixels, preview }: { 
         /* ignore */
       }
     };
+    // Clicks that happened between first paint and hydration were queued by WhatsAppLink; replay them
+    // now so an early tap still produces its pixel event and its server-side conversion.
+    const queued = window.__dkPending;
+    if (queued?.length) {
+      window.__dkPending = [];
+      for (const key of queued) window.__dkTrack?.(key);
+    }
     return () => {
       delete window.__dkTrack;
     };

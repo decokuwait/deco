@@ -17,7 +17,6 @@ export function TemplateThumb({ def, className = "", mobile = false, children }:
   if (HAS.has(def.code)) {
     return (
       <div className={`relative overflow-hidden ${className}`} style={{ aspectRatio: mobile ? "1/2" : "683/430", background: def.tokens.bg }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={`/templates/${def.code}${mobile ? "-mobile" : ""}.jpg`} alt={`${def.code} ${def.name.en}`} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover object-top" />
         {children}
       </div>

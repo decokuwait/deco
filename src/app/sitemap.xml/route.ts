@@ -61,5 +61,5 @@ export async function GET() {
       ...TEMPLATES.map((t) => ({ loc: rootUrl(`/template/${t.code}`), priority: "0.6" })),
     ];
   }
-  return new Response(xml(urls), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+  return new Response(xml(urls), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600", Vary: "X-Forwarded-Host, Host" } });
 }

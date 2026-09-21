@@ -23,5 +23,5 @@ export async function GET() {
   } else {
     lines = ["User-agent: *", "Allow: /", "Disallow: /super", "Disallow: /api", `Sitemap: ${rootUrl("/sitemap.xml")}`];
   }
-  return new Response(lines.join("\n") + "\n", { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } });
+  return new Response(lines.join("\n") + "\n", { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600", Vary: "X-Forwarded-Host, Host" } });
 }

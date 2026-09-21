@@ -133,13 +133,16 @@ describe("provider payloads", () => {
   });
   it("Snapchat CAPI v3 payload uses validate endpoint in test mode", () => {
     const { url, init } = buildSnapchat(ctx(pixel("snapchat"), { test: true }));
-    expect(url).toContain("https://tr.snapchat.com/v3/snapchat-pixel/events/validate?access_token=token");
+    expect(url).toBe("https://tr.snapchat.com/v3/snapchat-pixel/events/validate");
+    // The token travels in a header, never in the URL (query strings reach provider logs and error strings).
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer token");
     const body = JSON.parse(String(init.body));
     expect(body.data[0].user_data.sc_click_id).toBe("SC1");
     expect(body.data[0].user_data.sc_cookie1).toBe("scid1");
     expect(body.data[0].action_source).toBe("WEB");
     const prod = buildSnapchat(ctx(pixel("snapchat")));
-    expect(prod.url).toContain("/events?access_token=");
+    expect(prod.url).toBe("https://tr.snapchat.com/v3/snapchat-pixel/events");
+    expect(prod.url).not.toContain("access_token");
   });
   it("GA4 Measurement Protocol payload", () => {
     const { url, init } = buildGoogle(ctx(pixel("google")));

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireSiteAdmin, sp1, type SearchParams } from "../_lib/guard";
 import { Panel } from "../_components/Panel";
 import { PageHeader, Flash } from "@/components/admin/ui";
@@ -24,11 +25,11 @@ export default async function ContentIndex({ params, searchParams }: { params: P
   const { host } = await params;
   const sp = await searchParams;
   const ctx = await requireSiteAdmin(host);
-  const { t } = ctx;
+  const { t, locale } = ctx;
   return (
     <Panel ctx={ctx} active="content">
       <PageHeader title={t("content")} subtitle={t("content_hint")} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} />
+      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CONTENT_SECTIONS.map((key) => {
           const s = SPECS[key];
@@ -46,7 +47,7 @@ export default async function ContentIndex({ params, searchParams }: { params: P
             </a>
           );
         })}
-        <a href="/admin/projects" className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-400 hover:shadow">
+        <Link href="/admin/projects" className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-400 hover:shadow">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">
             <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M3 7h18v13H3zM8 7V4h8v3" />
@@ -56,7 +57,7 @@ export default async function ContentIndex({ params, searchParams }: { params: P
             <span className="block font-black text-slate-900">{t("projects")}</span>
             <span className="mt-0.5 block text-xs text-slate-500">{t("finished")} · {t("before_after")} · {t("progress")}</span>
           </span>
-        </a>
+        </Link>
       </div>
     </Panel>
   );

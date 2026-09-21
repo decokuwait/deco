@@ -23,7 +23,7 @@ export function ContactMap({ ctx }: SectionProps) {
           <div className="relative h-full w-full">
             <div aria-hidden className="pattern-bg absolute inset-0 opacity-70" />
             <div aria-hidden className="absolute inset-0 flex items-center justify-center">
-              <PinIcon className="h-40 w-40 text-primary/10 sm:h-64 sm:w-64" />
+              <PinIcon className="h-40 w-40 text-primary-text/10 sm:h-64 sm:w-64" />
             </div>
           </div>
         )}
@@ -47,7 +47,7 @@ export function ContactMap({ ctx }: SectionProps) {
           <ul className="mt-6 space-y-3 text-sm">
             {address && (
               <li className="flex items-start gap-3">
-                <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <PinIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" />
                 <span>
                   <span className="block text-xs font-bold text-muted">{ctx.ui("our_location")}</span>
                   <span className="font-semibold">{address}</span>
@@ -56,7 +56,7 @@ export function ContactMap({ ctx }: SectionProps) {
             )}
             {hours && (
               <li className="flex items-start gap-3">
-                <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" />
                 <span>
                   <span className="block text-xs font-bold text-muted">{ctx.ui("working_hours")}</span>
                   <span className="font-semibold">{hours}</span>
@@ -65,7 +65,7 @@ export function ContactMap({ ctx }: SectionProps) {
             )}
             {c.phone && (
               <li className="flex items-start gap-3">
-                <PhoneIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <PhoneIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" />
                 <span>
                   <span className="block text-xs font-bold text-muted">{ctx.ui("phone")}</span>
                   <span dir="ltr" className="inline-block font-semibold">
@@ -76,10 +76,10 @@ export function ContactMap({ ctx }: SectionProps) {
             )}
             {c.email && (
               <li className="flex items-start gap-3">
-                <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" />
                 <span>
                   <span className="block text-xs font-bold text-muted">{ctx.ui("email")}</span>
-                  <a href={`mailto:${c.email}`} dir="ltr" className="inline-block font-semibold transition hover:text-primary">
+                  <a href={`mailto:${c.email}`} dir="ltr" className="inline-flex min-h-6 items-center font-semibold transition hover:text-primary-text">
                     {c.email}
                   </a>
                 </span>
@@ -95,7 +95,7 @@ export function ContactMap({ ctx }: SectionProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={s.label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-fg transition hover:bg-primary hover:text-primary-fg"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-2 text-fg transition hover:bg-primary hover:text-primary-fg"
                 >
                   <SocialIcon name={s.key} className="h-4 w-4" />
                 </a>
