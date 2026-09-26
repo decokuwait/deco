@@ -69,9 +69,35 @@ function isPanelPath(pathname: string): boolean {
  * `img-src` allows any https origin because uploaded media is served from the R2 public bucket, which is
  * a different origin in every deployment. `unsafe-eval` in development only: React uses eval there to
  * rebuild server stacks in the browser.
+ *
+ * `connect-src` has to name the bucket too, and for a reason that is easy to miss: the panel does not
+ * upload *through* this origin. `/api/upload` only hands back a presigned URL, and the browser then PUTs
+ * the file straight to R2 — a cross-origin request that a bare `connect-src 'self'` refuses before it
+ * leaves the page. The XHR reports that refusal as a plain network error, so the owner was told
+ * "connection lost" while the network was fine. Local development stores uploads on disk through a
+ * same-origin route, which is why every test passed: the bug only exists once R2 is configured.
  */
+function r2Origins(): string[] {
+  const out: string[] = [];
+  const account = process.env.R2_ACCOUNT_ID?.trim();
+  // Where the presigned PUT actually goes (the S3 API endpoint, not the public bucket URL).
+  if (account) out.push(`https://${account}.r2.cloudflarestorage.com`);
+  // The public bucket — a custom domain or r2.dev — for anything that reads a stored object back.
+  const pub = process.env.R2_PUBLIC_URL?.trim();
+  if (pub) {
+    try {
+      out.push(new URL(pub).origin);
+    } catch {
+      // A malformed R2_PUBLIC_URL is a deployment problem /api/health already reports; do not let it
+      // throw here, or every panel request 500s on a bad environment variable.
+    }
+  }
+  return [...new Set(out)];
+}
+
 function panelCsp(nonce: string): string {
   const dev = process.env.NODE_ENV === "development";
+  const connect = ["'self'", ...r2Origins()].join(" ");
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'${dev ? " 'unsafe-eval'" : ""}`,
@@ -79,7 +105,7 @@ function panelCsp(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    `connect-src ${connect}`,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'self'",

@@ -116,6 +116,45 @@ describe("proxy (host routing, visitor cookie, header hygiene)", () => {
     expect(forwarded(spoofed, "content-security-policy")).toBeNull();
   });
 
+  /**
+   * The panel does not upload through its own origin: `/api/upload` returns a presigned URL and the
+   * browser PUTs the file straight to R2. A bare `connect-src 'self'` refuses that before it leaves the
+   * page, and XHR reports the refusal as a plain network error — the owner saw "connection lost" while
+   * the network was fine. Nothing caught it because local development stores uploads on disk through a
+   * same-origin route, so the whole suite ran on the one configuration where the bug cannot happen.
+   */
+  it("lets the panel reach the storage bucket it has to upload to", async () => {
+    const env = { ...process.env };
+    process.env.R2_ACCOUNT_ID = "acct123";
+    process.env.R2_PUBLIC_URL = "https://media.example.com/";
+    try {
+      // The module reads the environment when it builds the header, not at import time.
+      const fresh = (await import("@/proxy")).default as Proxy;
+      const csp = fresh(req("https://elite.decokuwait.com/admin/content/hero")).headers.get("content-security-policy") || "";
+      const connect = csp.match(/connect-src ([^;]*)/)?.[1] ?? "";
+      // The presigned PUT goes to the S3 API endpoint, which is a different host from the public bucket.
+      expect(connect).toContain("https://acct123.r2.cloudflarestorage.com");
+      expect(connect).toContain("https://media.example.com");
+      // Still an allowlist, not a blanket `https:`.
+      expect(connect).not.toContain("https:;");
+      expect(connect.trim().endsWith("https:")).toBe(false);
+    } finally {
+      process.env = env;
+    }
+  });
+
+  it("keeps connect-src closed when there is no bucket to reach", () => {
+    const env = { ...process.env };
+    delete process.env.R2_ACCOUNT_ID;
+    delete process.env.R2_PUBLIC_URL;
+    try {
+      const csp = proxy(req("https://elite.decokuwait.com/admin")).headers.get("content-security-policy") || "";
+      expect(csp).toContain("connect-src 'self'");
+    } finally {
+      process.env = env;
+    }
+  });
+
   it("strips spoofed internal headers from the client request", () => {
     const res = proxy(
       req("https://elite.decokuwait.com/", {
