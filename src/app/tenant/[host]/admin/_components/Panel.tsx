@@ -38,13 +38,45 @@ export function Panel({ ctx, active, children }: { ctx: AdminCtx; active: NavKey
  *
  * Pass `t` and the bar also carries the unsaved-change guard for the form it sits in, which is how every
  * editor gets it without each page remembering to.
+ *
+ * Pass `back` and it also carries the way out. These forms run to several screens, and the only route
+ * back was a small link at the very top: once an owner had scrolled down to the fields they came to edit,
+ * leaving meant scrolling all the way back up to find it. The save bar is the one part of the page that
+ * is always on screen, so the way out belongs in it, beside the way forward. It leaves through the
+ * unsaved-change guard like any other navigation, so it cannot quietly discard an edit in progress.
  */
-export function SaveBar({ t, children }: { t?: T; children: ReactNode }) {
+export function SaveBar({ t, back, children }: { t?: T; back?: { href: string; label: string }; children: ReactNode }) {
   return (
     <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 -mx-4 mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
+      {/* Before the guard's badge, so `me-auto` puts it at the start of the bar and pushes everything
+          else — badge and save button alike — to the end. Leaving and saving should never end up side by
+          side under the same thumb. */}
+      {back && (
+        <Link
+          href={back.href}
+          className="me-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+        >
+          <BackArrow />
+          {back.label}
+        </Link>
+      )}
       {t && <DirtyGuard labels={dirtyLabels(t)} />}
       {children}
     </div>
+  );
+}
+
+/** The "back" chevron, pointing the way the page reads. */
+function BackArrow() {
+  return (
+    <>
+      <span aria-hidden className="rtl:hidden">
+        ←
+      </span>
+      <span aria-hidden className="hidden rtl:inline">
+        →
+      </span>
+    </>
   );
 }
 
@@ -63,12 +95,7 @@ export function dirtyLabels(t: T) {
 export function BackLink({ href, label }: { href: string; label: string }) {
   return (
     <Link href={href} className="mb-3 inline-flex items-center gap-1 text-sm font-bold text-slate-600 hover:text-slate-900">
-      <span aria-hidden className="rtl:hidden">
-        ←
-      </span>
-      <span aria-hidden className="hidden rtl:inline">
-        →
-      </span>
+      <BackArrow />
       {label}
     </Link>
   );

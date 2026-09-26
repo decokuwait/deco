@@ -44,7 +44,7 @@ export default async function NewProjectPage({ params, searchParams }: { params:
             <Toggle name="published" defaultChecked label={t("published")} hint={t("published_hint")} />
           </div>
         </Card>
-        <SaveBar t={t}>
+        <SaveBar t={t} back={{ href: "/admin/projects", label: t("projects") }}>
           <SubmitButton pendingText={t("saving")} className="w-full sm:w-auto sm:min-w-[160px]">
             {t("create")}
           </SubmitButton>

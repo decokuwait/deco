@@ -102,7 +102,14 @@ export async function saveSection(host: string, section: string, fd: FormData) {
     redirect(withQuery(back, { error: "save_failed" }));
   }
   revalidatePath("/", "layout");
-  redirect(withQuery(back, { saved: "1" }));
+  // Back to the list of sections, not back onto the form that was just saved. An owner setting a site up
+  // works through the sections in turn, and landing on the saved form again meant scrolling to the bottom
+  // of a long page and hunting for the way out before the next one could be opened. The section key rides
+  // along so the list can say which card was saved.
+  //
+  // Only the success path leaves: every `redirect` above stays on the form, because an error is something
+  // to fix in the fields that are still filled in, not something to carry to another page.
+  redirect(withQuery("/admin/content", { saved: section }));
 }
 
 /** Clears every theme override so the site returns to the template's own design. */

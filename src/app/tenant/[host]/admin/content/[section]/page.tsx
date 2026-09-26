@@ -252,7 +252,7 @@ export default async function ContentSectionPage({ params, searchParams }: { par
             )}
           </div>
         )}
-        <SaveBar t={t}>
+        <SaveBar t={t} back={{ href: "/admin/content", label: t("content") }}>
           <SubmitButton pendingText={t("saving")} className="w-full sm:w-auto sm:min-w-[160px]">
             {t("save")}
           </SubmitButton>

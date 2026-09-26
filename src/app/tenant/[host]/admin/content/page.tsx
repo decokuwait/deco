@@ -26,15 +26,23 @@ export default async function ContentIndex({ params, searchParams }: { params: P
   const sp = await searchParams;
   const ctx = await requireSiteAdmin(host);
   const { t, locale } = ctx;
+  // A save now returns here rather than staying on the form, so `?saved=` names the section it came from:
+  // the owner lands on a page of twelve identical cards and should not have to work out where they were.
+  const justSaved = sp1(sp.saved);
   return (
     <Panel ctx={ctx} active="content">
       <PageHeader title={t("content")} subtitle={t("content_hint")} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
+      <Flash saved={justSaved} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CONTENT_SECTIONS.map((key) => {
           const s = SPECS[key];
+          const saved = justSaved === key;
           return (
-            <a key={key} href={`/admin/content/${key}`} className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-400 hover:shadow">
+            <a
+              key={key}
+              href={`/admin/content/${key}`}
+              className={`flex items-start gap-4 rounded-2xl border bg-white p-4 shadow-sm transition hover:border-emerald-400 hover:shadow ${saved ? "border-emerald-400 ring-2 ring-emerald-200" : "border-slate-200"}`}
+            >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
                 <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d={ICONS[key]} />

@@ -143,8 +143,22 @@ async function main() {
     await page.fill('input[name="hero.title.ar"]', "عنوان تجريبي جديد");
     await page.fill('input[name="hero.title.en"]', "Brand new e2e title");
     await page.locator('button[type="submit"]').last().click();
-    await page.waitForURL(/saved=1/);
+    // A saved section hands the owner back to the list rather than leaving them on the form they just
+    // finished. Setting a site up means working through twelve sections in turn, and staying put meant
+    // scrolling to the foot of a long page to find the one small link out of it, every single time.
+    await page.waitForURL(/\/admin\/content\?saved=hero/);
+    check(page.url().includes("/admin/content?saved=hero"), "saving a section returns to the list of sections");
+    check((await page.locator('[role="status"]').count()) > 0, "the list says the save went through");
+    check((await page.locator('a[href="/admin/content/hero"].ring-2').count()) === 1, "the list marks which section was just saved");
+    await page.goto(`${tenant}/admin/content/hero`);
     check((await page.locator('input[name="hero.title.en"]').inputValue()) === "Brand new e2e title", "edited hero title is stored and comes back in the editor");
+    // Leaving a section without saving is reachable from the bar that is always on screen, rather than
+    // only from the top of a page the owner has already scrolled past.
+    const backOut = page.locator('a[href="/admin/content"]').last();
+    check(await backOut.isVisible(), "a way out of a section is on screen without scrolling back up");
+    await backOut.click();
+    await page.waitForURL(/\/admin\/content$/);
+    check(page.url().endsWith("/admin/content"), "that way out lands on the list");
     const siteHtml = await (await hfetch("demo", "/?lang=en")).text();
     check(siteHtml.includes("Brand new e2e title"), "edited hero title appears on the public site");
 
@@ -154,7 +168,8 @@ async function main() {
     await page.fill('input[name="rows.new.title.ar"]', "خدمة جديدة");
     await page.fill('input[name="rows.new.title.en"]', "Brand new service");
     await page.locator('button[type="submit"]').last().click();
-    await page.waitForURL(/saved=1/);
+    await page.waitForURL(/\/admin\/content\?saved=services/);
+    await page.goto(`${tenant}/admin/content/services`);
     const after = await page.locator('input[name^="rows."][name$=".id"]').count();
     check(after === before + 1, `service added through the list editor (${before} -> ${after})`);
     // Reordering and removing are now done on the device and travel with the one save at the bottom of
@@ -169,7 +184,9 @@ async function main() {
     check((await page.locator('input[name="rows.removed"]').inputValue()) === "", "removing a service can be undone before saving");
     await page.locator('[data-dk="rows-remove"]').last().click();
     await saveAndSettle(page.locator('form button[type="submit"]').last());
-    check(page.url().includes("saved=1") && (await page.locator('input[name^="rows."][name$=".id"]').count()) === after - 1, "the staged removal and reorder are applied by the one save");
+    const savedOut = page.url().includes("/admin/content?saved=services");
+    await page.goto(`${tenant}/admin/content/services`);
+    check(savedOut && (await page.locator('input[name^="rows."][name$=".id"]').count()) === after - 1, "the staged removal and reorder are applied by the one save");
     const nowFirst = await page.locator('input[name="rows.0.title.en"]').inputValue();
     check(nowFirst === secondService, `the reordered service is now first (${secondService} -> ${nowFirst})`);
 
@@ -189,7 +206,7 @@ async function main() {
     await page.fill('input[name="primary"]', "#123456");
     await page.locator('input[name="primary_custom"]').check({ force: true });
     await page.locator('button[type="submit"]').last().click();
-    await page.waitForURL(/saved=1/);
+    await page.waitForURL(/\/admin\/content\?saved=theme/);
     check((await (await hfetch("demo")).text()).includes("--t-primary:#123456"), "theme colour override applied to the site");
 
     // projects: create + upload media + publish state
