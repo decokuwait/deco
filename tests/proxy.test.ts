@@ -123,24 +123,71 @@ describe("proxy (host routing, visitor cookie, header hygiene)", () => {
    * the network was fine. Nothing caught it because local development stores uploads on disk through a
    * same-origin route, so the whole suite ran on the one configuration where the bug cannot happen.
    */
+  /**
+   * Decides a `connect-src` list the way a browser does, rather than by substring.
+   *
+   * This exists because the substring version of this test passed while every upload was blocked. The
+   * header really did contain `https://<account>.r2.cloudflarestorage.com`, which looks like the bucket
+   * and reads like a fix — but the SDK addresses R2 virtual-hosted style, so the browser was connecting
+   * to `<bucket>.<account>.r2.cloudflarestorage.com`, and a host-source matches a deeper host only
+   * through a `*.` wildcard. "The header mentions the bucket" was never the question; "would a browser
+   * allow this exact URL" is.
+   */
+  function cspAllows(connectSrc: string, url: string): boolean {
+    const target = new URL(url);
+    return connectSrc.split(/\s+/).filter(Boolean).some((source) => {
+      if (source === "'self'" || source === "'none'") return false;
+      if (source === "https:") return target.protocol === "https:";
+      let host = source.replace(/^https:\/\//, "");
+      if (!source.startsWith("https://")) return false;
+      host = host.replace(/\/.*$/, "");
+      if (host.startsWith("*.")) return target.host.toLowerCase().endsWith(host.slice(1).toLowerCase());
+      return target.host.toLowerCase() === host.toLowerCase();
+    });
+  }
+
   it("lets the panel reach the storage bucket it has to upload to", async () => {
     const env = { ...process.env };
-    process.env.R2_ACCOUNT_ID = "acct123";
-    process.env.R2_PUBLIC_URL = "https://media.example.com/";
+    Object.assign(process.env, {
+      R2_ACCOUNT_ID: "7b83a1f73988cd62a10026891b41c1aa",
+      R2_BUCKET: "deco-media",
+      R2_ACCESS_KEY_ID: "AKIAFAKEFAKEFAKEFAKE",
+      R2_SECRET_ACCESS_KEY: "fakefakefakefakefakefakefakefakefakefake",
+      R2_PUBLIC_URL: "https://media.example.com/",
+    });
     try {
+      // Asked of the code that actually signs the upload, never spelled out here: the whole failure was
+      // a guess about this host that nothing checked against the real thing.
+      const { createUploadTarget } = await import("@/lib/storage");
+      const target = await createUploadTarget({ siteId: "11111111-2222-3333-4444-555555555555", filename: "a.png", contentType: "image/png", size: 10 });
+      expect(target.mode, "the bucket must be in play, or this proves nothing").toBe("put");
+
       // The module reads the environment when it builds the header, not at import time.
       const fresh = (await import("@/proxy")).default as Proxy;
       const csp = fresh(req("https://elite.decokuwait.com/admin/content/hero")).headers.get("content-security-policy") || "";
       const connect = csp.match(/connect-src ([^;]*)/)?.[1] ?? "";
-      // The presigned PUT goes to the S3 API endpoint, which is a different host from the public bucket.
-      expect(connect).toContain("https://acct123.r2.cloudflarestorage.com");
-      expect(connect).toContain("https://media.example.com");
-      // Still an allowlist, not a blanket `https:`.
+
+      expect(cspAllows(connect, target.uploadUrl), `connect-src "${connect}" would block the upload to ${new URL(target.uploadUrl).host}`).toBe(true);
+      expect(cspAllows(connect, "https://media.example.com/sites/a/x.png")).toBe(true);
+      // Still an allowlist, not a blanket `https:`: a bucket belonging to somebody else stays out.
+      expect(cspAllows(connect, "https://evil.example.org/x")).toBe(false);
       expect(connect).not.toContain("https:;");
       expect(connect.trim().endsWith("https:")).toBe(false);
     } finally {
       process.env = env;
     }
+  });
+
+  // The matcher is the thing being trusted here, so it is held to the case that fooled the last one.
+  it("judges host sources the way a browser does", () => {
+    const deep = "https://deco-media.acct.r2.cloudflarestorage.com/key.png";
+    expect(cspAllows("'self' https://acct.r2.cloudflarestorage.com", deep), "an account host must not cover a bucket beneath it").toBe(false);
+    expect(cspAllows("'self' https://*.r2.cloudflarestorage.com", deep)).toBe(true);
+    expect(cspAllows("'self' https://*.acct.r2.cloudflarestorage.com", deep)).toBe(true);
+    expect(cspAllows("'self' https://deco-media.acct.r2.cloudflarestorage.com", deep)).toBe(true);
+    expect(cspAllows("'self'", deep)).toBe(false);
+    // A wildcard must not be satisfied by a lookalike registered by somebody else.
+    expect(cspAllows("'self' https://*.r2.cloudflarestorage.com", "https://evil-r2.cloudflarestorage.com.attacker.test/x")).toBe(false);
   });
 
   it("keeps connect-src closed when there is no bucket to reach", () => {

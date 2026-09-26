@@ -80,14 +80,22 @@ function isPanelPath(pathname: string): boolean {
 function r2Origins(): string[] {
   // Where the presigned PUT actually goes: the S3 API endpoint, not the public bucket URL.
   //
-  // The wildcard is deliberate. The exact host is `<account>.r2.cloudflarestorage.com`, but if
-  // `R2_ACCOUNT_ID` is not readable here — a variable added after the last deploy, a runtime that does
-  // not carry it — the account-specific entry silently disappears and every upload breaks again with the
-  // same opaque error. One vendor domain is a far smaller allowance than the `https:` this would
-  // otherwise need, and `script-src` is what actually guards this page.
+  // The bucket is a SUBDOMAIN of the account, not a path on it. The SDK addresses R2 virtual-hosted
+  // style, so the browser connects to `<bucket>.<account>.r2.cloudflarestorage.com` — and a policy
+  // naming `<account>.r2.cloudflarestorage.com` does not cover that host. Getting this wrong once
+  // already cost a round of "still broken": the entry looked present and correct in the live header
+  // while the browser went on refusing every upload, with nothing but "connection lost" to show for it.
+  //
+  // The vendor wildcard stays in front of the precise entry on purpose. `*.r2.cloudflarestorage.com`
+  // matches at any depth, so it holds when `R2_BUCKET` or `R2_ACCOUNT_ID` is not readable in this
+  // runtime — a variable added after the last deploy, an edge runtime that does not carry it — where the
+  // precise entry silently disappears and uploads break again in exactly the same invisible way. One
+  // vendor domain is a far smaller allowance than the `https:` this would otherwise need, and nothing is
+  // writable there without a presigned URL this deployment minted.
   const out: string[] = ["https://*.r2.cloudflarestorage.com"];
   const account = process.env.R2_ACCOUNT_ID?.trim();
-  if (account) out.push(`https://${account}.r2.cloudflarestorage.com`);
+  const bucket = process.env.R2_BUCKET?.trim();
+  if (account) out.push(`https://${bucket ? `${bucket}.` : "*."}${account}.r2.cloudflarestorage.com`);
   // The public bucket — a custom domain or r2.dev — for anything that reads a stored object back.
   const pub = process.env.R2_PUBLIC_URL?.trim();
   if (pub) {
