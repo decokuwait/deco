@@ -3,9 +3,22 @@ import { postJson } from "../types";
 import { gaClientIdFromCookie } from "../hash";
 
 /**
- * Google Analytics 4 Measurement Protocol. Events sent here can be marked as conversions in GA4
- * and imported into Google Ads. Requires the GA4 measurement id (G-XXXX) as pixel id and an
- * API secret (GA4 -> Admin -> Data streams -> Measurement Protocol API secrets).
+ * Google Analytics 4 Measurement Protocol.
+ *
+ * Read this before believing a green badge here. What is sent is an ANALYTICS hit, not an ad
+ * conversion:
+ *  - the `client_id` is synthesised from the visitor code when no `_ga` cookie was captured, so the
+ *    hit joins no browser session;
+ *  - there is no `session_id`/`gclid`, so GA4 attributes it to "Unassigned" and Google Ads gets
+ *    nothing it can optimise on for the deeper stages (ordered / first_payment / order_complete);
+ *  - `gclid`/`gbraid`/`wbraid` ARE captured in src/lib/visitor/attribution.ts and no provider reads them.
+ *
+ * The real fix is the Google Ads API offline conversion import
+ * (`customers/{id}:uploadClickConversions` with a `ClickConversion` carrying the stored click id).
+ * It needs a developer token, a manager-account customer id, per-tenant OAuth2 refresh tokens with
+ * token refresh and revocation handling, and a conversion-action resource name per stage — roughly the
+ * size of this whole module and a new admin flow, so it is out of scope for this pass. Until it lands,
+ * every delivery from here is flagged `analyticsOnly` and the admin says so instead of "sent".
  */
 export function buildGoogle(ctx: SendContext) {
   const { pixel, visitor } = ctx;
@@ -51,6 +64,7 @@ export const googleProvider: Provider = {
     }
     const { url, init } = buildGoogle(ctx);
     const d = await postJson(ctx, url, init, ctx.eventName);
+    d.analyticsOnly = true;
     // The debug endpoint returns validationMessages; treat any message as failure.
     const msgs = (d.response as { validationMessages?: unknown[] } | null)?.validationMessages;
     if (ctx.test && Array.isArray(msgs) && msgs.length) d.ok = false;

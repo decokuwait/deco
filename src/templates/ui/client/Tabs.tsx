@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { FOCUS_RING } from "../primitives";
 
 /**
  * Tab list following the WAI-ARIA tabs pattern.
@@ -83,14 +84,16 @@ export function Tabs({
               tabIndex={selected ? 0 : -1}
               onKeyDown={(e) => onKeyDown(e, i)}
               onClick={() => setActive(t.id)}
-              className={`min-h-11 shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${tabClassName} ${selected ? activeClassName : inactiveClassName}`}
+              className={`min-h-11 shrink-0 rounded-full px-4 py-2 text-sm font-bold transition ${FOCUS_RING} ${tabClassName} ${selected ? activeClassName : inactiveClassName}`}
             >
               {t.label}
             </button>
           );
         })}
       </div>
-      <div role="tabpanel" id={panelId(cur.id)} aria-labelledby={tabId(cur.id)} tabIndex={0} className="animate-fade-up outline-none" key={cur.id}>
+      {/* The panel is focusable so a keyboard visitor can reach its content after the tab strip. It used
+          to carry `outline-none`, which left that focus stop with no indicator at all (WCAG 2.4.7). */}
+      <div role="tabpanel" id={panelId(cur.id)} aria-labelledby={tabId(cur.id)} tabIndex={0} className={`animate-fade-up ${FOCUS_RING}`} key={cur.id}>
         {cur.content}
       </div>
     </div>

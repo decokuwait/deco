@@ -3,7 +3,8 @@ import { Container, Img, Section, SectionHeading } from "../../ui/primitives";
 import { Carousel } from "../../ui/client/Carousel";
 import { GalleryFrame, GalleryOpen } from "../../ui/client/GalleryFrame";
 import { PlayBadge } from "../../ui/client/Lightbox";
-import { coverOf, lightboxItems, projectsOf } from "../shared/helpers";
+import { SIZES } from "../../ui/img";
+import { coverOf, lightboxItems, projectAlt, projectsOf } from "../shared/helpers";
 
 /** Large swipeable cards with caption overlays; tapping a card opens its lightbox. */
 export function FinishedCarousel({ ctx }: SectionProps) {
@@ -21,7 +22,7 @@ export function FinishedCarousel({ ctx }: SectionProps) {
           return (
             <GalleryFrame key={pr.id} items={items} closeLabel={ctx.ui("close")}>
               <GalleryOpen index={0} disabled={!items.length} label={ctx.text(pr.title)} className="group relative block aspect-[4/3] w-full overflow-hidden rounded-card text-start shadow-2xl">
-                <Img src={coverOf(pr)} alt={ctx.text(pr.title)} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                <Img src={coverOf(pr)} alt={projectAlt(ctx, pr)} sizes={SIZES.half} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                 {hasVideo && <PlayBadge />}
                 <div className="tone-dark absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-white">

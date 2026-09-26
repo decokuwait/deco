@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Arrow, Container, Img, Section, SectionHeading, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
 import { Icon } from "../../ui/icons";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 
@@ -19,7 +20,7 @@ export function ServicesZigzag({ ctx }: SectionProps) {
                   <div aria-hidden className={cx("absolute -top-3 h-full w-full rounded-card border-2 border-accent", flip ? "-end-3" : "-start-3")} />
                   <div aria-hidden className={cx("absolute -bottom-8 h-36 w-36 rounded-full bg-primary/15 blur-2xl", flip ? "-start-8" : "-end-8")} />
                   <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-surface-2">
-                    <Img src={it.imageUrl} alt={ctx.text(it.title)} className="h-full w-full object-cover" />
+                    <Img src={it.imageUrl} alt={ctx.text(it.title)} sizes={SIZES.half} className="h-full w-full object-cover" />
                     {!it.imageUrl && (
                       <span className="absolute inset-0 flex items-center justify-center text-primary-text/30">
                         <div aria-hidden className="pattern-bg absolute inset-0 opacity-60" />

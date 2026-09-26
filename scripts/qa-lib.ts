@@ -106,7 +106,9 @@ export async function seedQa(opts: { slug: string; name: string; category: "gyps
   await getDb();
   const owner = await upsertSuperAdmin("owner@example.com", "Owner123!");
   const admin = await createUser({ email: "admin@example.com", password: "Admin123!", isSuper: false, name: "Site Admin" });
-  const { site } = await provisionSite({ slug: opts.slug, name: opts.name, category: opts.category, templateCode: opts.templateCode, whatsapp: "96550000000", provisionVercel: false });
+  // The QA site is a showcase on purpose: the suite drives the demo projects and media. Both flags are
+  // explicit because provisioning now defaults to "no invented content" and "paused until published".
+  const { site } = await provisionSite({ slug: opts.slug, name: opts.name, category: opts.category, templateCode: opts.templateCode, whatsapp: "96550000000", demo: true, status: "active", provisionVercel: false });
   await addMember(site.id, admin.id);
   if (opts.pixel) await upsertPixel(site.id, opts.pixel.platform, { pixelId: opts.pixel.pixelId, accessToken: opts.pixel.accessToken, active: true });
   const { token: adminToken } = await createSession(admin.id);

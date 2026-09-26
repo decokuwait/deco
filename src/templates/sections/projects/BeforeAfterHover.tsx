@@ -1,7 +1,7 @@
 import type { SectionProps } from "../../types";
 import { Container, Section, SectionHeading } from "../../ui/primitives";
 import { HoverReveal } from "../../ui/client/HoverReveal";
-import { beforeAfterOf, projectsOf } from "../shared/helpers";
+import { beforeAfterOf, projectAlt, projectsOf } from "../shared/helpers";
 import { ProjectMeta } from "./shared";
 
 /** Hover (or tap) to reveal the "after" state; chips toggle explicitly on touch. */
@@ -22,7 +22,7 @@ export function BeforeAfterHover({ ctx }: SectionProps) {
                   after={after ? { kind: after.kind, url: after.url, posterUrl: after.posterUrl } : null}
                   beforeLabel={ctx.ui("before")}
                   afterLabel={ctx.ui("after")}
-                  alt={ctx.text(pr.title)}
+                  alt={projectAlt(ctx, pr)}
                   className="shadow-lg ring-1 ring-line"
                 />
                 <ProjectMeta ctx={ctx} project={pr} className="px-1 pt-4" />

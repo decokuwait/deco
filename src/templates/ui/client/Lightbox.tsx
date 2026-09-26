@@ -1,6 +1,6 @@
 "use client";
 
-import { responsiveSrc } from "../img";
+import { SIZES, responsiveSrc } from "../img";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFocusTrap } from "./focus-trap";
 
@@ -10,6 +10,8 @@ export interface LightboxItem {
   url: string;
   posterUrl?: string | null;
   caption?: string;
+  /** Required, and never "": the viewer exists to show the picture, so the picture is the content. */
+  alt: string;
 }
 
 /**
@@ -81,7 +83,7 @@ export function Gallery({
             {cur.kind === "video" ? (
               <video src={cur.url} poster={cur.posterUrl || undefined} controls autoPlay playsInline className="max-h-[80vh] w-auto max-w-full rounded-lg" />
             ) : (
-              <img src={cur.url} {...responsiveSrc(cur.url, "100vw")} alt={cur.caption || ""} decoding="async" className="max-h-[80vh] w-auto max-w-full rounded-lg object-contain" />
+              <img src={cur.url} {...responsiveSrc(cur.url, SIZES.full)} alt={cur.alt} decoding="async" className="max-h-[80vh] w-auto max-w-full rounded-lg object-contain" />
             )}
             {cur.caption && <figcaption className="mt-3 text-center text-sm text-white/80">{cur.caption}</figcaption>}
             <div className="mt-2 text-center text-xs text-white/60">

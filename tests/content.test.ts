@@ -14,7 +14,7 @@ describe("content defaults", () => {
     expect(c.brand.name.ar).toBe("x");
     expect(c.contact.whatsappMessage.ar).toContain("{id}");
     expect(c.sections.services).toBe(true);
-    expect(c.settings.signalMode).toBe("smart");
+    expect(c.settings.signalMode).toBe("source");
     expect(c.projects.finished.enabled).toBe(true);
   });
   it("emptyContent is a fresh object each time", () => {
@@ -58,7 +58,11 @@ describe("demo content", () => {
     for (const pr of p.filter((x) => x.type === "progress")) {
       expect(pr.media.every((m) => m.role === "step" && m.stepLabel)).toBe(true);
     }
-    expect(p.some((x) => x.media.some((m) => m.kind === "video"))).toBe(true);
+    // Was: "some demo project has a video". That video was a Big Buck Bunny hotlink to a third-party
+    // test-asset host, sitting inside a customer's portfolio with nothing to fall back on. The demo is
+    // all stills now, and nothing in it may point outside the image host. (Video rendering keeps its
+    // own coverage in render-video.test.tsx.)
+    for (const m of p.flatMap((x) => x.media)) expect(m.url).toMatch(/^https:\/\/images\.unsplash\.com\//);
     const ids = p.flatMap((x) => x.media.map((m) => m.id));
     expect(new Set(ids).size).toBe(ids.length);
   });

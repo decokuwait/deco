@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, PhoneIcon, SocialIcon, VisitorChip, WhatsAppIcon, buttonClass, cx, socialLinks } from "../../ui/primitives";
+import { AR_LEADING } from "../../leading";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 import { formatPhone, legalLinks, navLinks } from "../shared/helpers";
 import { ClockIcon, MailIcon, PinIcon } from "../contact/icons";
@@ -25,8 +26,8 @@ export function FooterBig({ ctx }: SectionProps) {
       </div>
       <Container wide className={cx("relative grid gap-10 py-14 sm:grid-cols-2 lg:gap-8 lg:py-20", services.length ? "lg:grid-cols-[1.4fr_1fr_1fr_1.3fr]" : "lg:grid-cols-[1.4fr_1fr_1.3fr]")}>
         <div className="sm:col-span-2 lg:col-span-1">
-          {c.brand.logoUrl ? <Img src={c.brand.logoUrl} alt="" className="mb-4 h-12 w-auto object-contain" /> : null}
-          <div className="font-heading text-3xl font-black leading-tight sm:text-4xl">{name}</div>
+          {c.brand.logoUrl ? <Img src={c.brand.logoUrl} alt={name} ratio={null} className="mb-4 h-12 w-auto object-contain" /> : null}
+          <div className={cx("font-heading text-3xl font-black leading-tight sm:text-4xl", AR_LEADING)}>{name}</div>
           {tagline && <p className="mt-3 max-w-sm text-sm leading-relaxed opacity-80">{tagline}</p>}
           {socials.length > 0 && (
             <div className="mt-6 flex flex-wrap gap-2">

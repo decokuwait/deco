@@ -1,22 +1,26 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, VisitorChip } from "../../ui/primitives";
+import { Container, Img, VisitorChip, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
+import { headingLeading, heroAlt, heroTitle, sectionEnabled } from "../shared/helpers";
 import { HeroBadge, HeroCtas, mainImage } from "./shared";
 
 /** Full-viewport photo with slow Ken Burns zoom, dark gradient and centered white typography. */
 export function HeroFullscreen({ ctx }: SectionProps) {
   const h = ctx.site.content.hero;
-  const stats = ctx.site.content.stats.slice(0, 3);
+  // The band below is the same three figures, in the same shape, as the stats section — two identical
+  // bands a screen apart when both are on. The section wins; the hero shows them only when it is off.
+  const stats = sectionEnabled(ctx, "stats") ? [] : ctx.site.content.stats.slice(0, 3);
   return (
     <section className="tone-dark relative flex min-h-[88svh] items-end overflow-hidden bg-secondary text-white sm:items-center">
       <div className="absolute inset-0 overflow-hidden">
-        <Img src={mainImage(ctx)} alt="" className="h-full w-full object-cover animate-ken-burns" eager />
+        <Img src={mainImage(ctx)} alt={heroAlt(ctx)} sizes={SIZES.full} ratio="16/9" className="h-full w-full object-cover animate-ken-burns" eager />
       </div>
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/60 to-secondary/20" />
       <div aria-hidden className="pattern-bg absolute inset-0 opacity-20" />
       <Container className="relative py-20 text-center sm:py-28">
         <div className="mx-auto max-w-3xl animate-fade-up">
           <HeroBadge ctx={ctx} light />
-          <h1 className="mt-5 font-heading text-4xl font-black leading-[1.12] drop-shadow-lg sm:text-6xl lg:text-7xl">{ctx.text(h.title)}</h1>
+          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.12] drop-shadow-lg sm:text-6xl lg:text-7xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/85 sm:text-xl">{ctx.text(h.subtitle)}</p>
           <HeroCtas ctx={ctx} light className="mt-9 justify-center" />
         </div>

@@ -1,5 +1,7 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
+import { AR_LEADING } from "../../leading";
 import { longTextFont } from "../shared/helpers";
 import { Icon } from "../../ui/icons";
 
@@ -14,12 +16,12 @@ export function AboutCards({ ctx }: SectionProps) {
       <Container>
         <div className="mx-auto max-w-3xl text-center">
           {ctx.text(brand.name) && <span className="mb-3 inline-block text-xs font-bold uppercase tracking-widest text-primary-text">{ctx.text(brand.name)}</span>}
-          <h2 className="font-heading text-3xl font-extrabold leading-tight sm:text-4xl">{ctx.text(a.title)}</h2>
+          <h2 className={cx("font-heading text-3xl font-extrabold leading-tight sm:text-4xl", AR_LEADING)}>{ctx.text(a.title)}</h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">{ctx.text(a.body)}</p>
         </div>
         {a.imageUrl && (
           <div className="relative mt-10 aspect-[16/9] overflow-hidden rounded-card sm:aspect-[21/9]">
-            <Img src={a.imageUrl} alt={ctx.text(a.title)} className="h-full w-full object-cover" />
+            <Img src={a.imageUrl} alt={ctx.text(a.title)} sizes={SIZES.half} className="h-full w-full object-cover" />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-secondary/50 to-transparent" />
           </div>
         )}
@@ -34,7 +36,7 @@ export function AboutCards({ ctx }: SectionProps) {
                   </span>
                   <div>
                     <span className="text-xs font-black tracking-widest text-accent-text tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                    <p className={cx("mt-1 text-lg font-bold leading-snug", longTextFont(ctx))}>{ctx.text(p)}</p>
+                    <p className={cx("mt-1 text-lg font-bold leading-snug", AR_LEADING, longTextFont(ctx))}>{ctx.text(p)}</p>
                   </div>
                 </div>
               </li>

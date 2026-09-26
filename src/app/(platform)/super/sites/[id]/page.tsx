@@ -1,16 +1,30 @@
 import { notFound } from "next/navigation";
 import { requireSuper, sp1, superError, type SearchParams } from "../../_lib/guard";
 import { SuperPanel, TemplatePicker } from "../../_components/Panel";
-import { Card, PageHeader, Flash, Field, Input, Select, Badge, LinkButton, EmptyState } from "@/components/admin/ui";
+import { Card, PageHeader, Flash, Field, Input, Select, Toggle, Badge, LinkButton, EmptyState } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { TypedConfirm } from "../../_components/TypedConfirm";
+import { BillingBadge } from "../../_components/Billing";
 import { getSiteById } from "@/lib/db/sites";
 import { listDomains } from "@/lib/db/domains";
 import { listMembers } from "@/lib/db/members";
-import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
+import { CATEGORIES, CATEGORY_LABELS, PLANS } from "@/lib/types";
+import { cycleLabel, filsToKwd, formatFils, isPaymentUrl, nextPaidUntil, paymentMode, planLabel, planPriceFils, setupFeeFils, todayIso } from "@/lib/billing";
 import { recommendedRecords, vercelConfigured } from "@/lib/vercel";
 import { ROOT_DOMAIN, rootPort, siteUrl } from "@/lib/config";
-import { addCustomDomainAction, addMemberAction, checkDomainAction, deleteSiteAction, removeDomainAction, removeMemberAction, updateSiteAction } from "./actions";
+import {
+  addCustomDomainAction,
+  addMemberAction,
+  checkDomainAction,
+  deleteSiteAction,
+  generatePaymentLinkAction,
+  recordPaymentAction,
+  removeDomainAction,
+  removeMemberAction,
+  updateBillingAction,
+  updateSiteAction,
+} from "./actions";
 
 export default async function EditSitePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;
@@ -22,7 +36,23 @@ export default async function EditSitePage({ params, searchParams }: { params: P
   const [domains, members] = await Promise.all([listDomains(id), listMembers(id)]);
   const error = sp1(sp.error);
   const saved = sp1(sp.saved);
-  const savedText = saved === "attached" ? t("saved_attached") : saved === "created" ? t("saved_created") : t("saved");
+  const savedText =
+    saved === "attached"
+      ? t("saved_attached")
+      : saved === "created"
+        ? t("saved_created")
+        : saved === "reference_minted"
+          ? t("reference_minted")
+          : saved === "restored"
+            ? t("restored")
+            : t("saved");
+  const today = todayIso();
+  const mode = paymentMode();
+  // The generated link arrives in the query string, so it is checked against the payment provider's own
+  // domain before it is rendered. Anything else is dropped: an arbitrary URL rendered as "your payment
+  // link" inside the owner's trusted panel is a phishing vector, exactly like an untranslated error code.
+  const rawPay = sp1(sp.pay);
+  const payUrl = rawPay && isPaymentUrl(rawPay) ? rawPay : "";
   const port = rootPort();
   const primary = domains.find((d) => d.kind === "subdomain") ?? domains[0];
   const host = primary ? `${primary.hostname}${port}` : null;
@@ -182,12 +212,96 @@ export default async function EditSitePage({ params, searchParams }: { params: P
         </Card>
       </div>
 
-      <Card title={t("danger")} className="mt-5 border-red-200">
-        <p className="mb-3 text-sm text-slate-600">{t("delete_site_hint")}</p>
-        <form action={deleteSiteAction.bind(null, id)}>
-          <ConfirmButton message={t("confirm_delete")}>{t("delete")}</ConfirmButton>
-        </form>
-      </Card>
+      <div id="billing" className="mt-5 scroll-mt-20">
+        <Card
+          title={t("billing")}
+          actions={
+            <span className="flex flex-wrap items-center gap-1.5">
+              <BillingBadge paidUntil={site.paidUntil} t={t} today={today} />
+              <Badge tone={site.status === "active" ? "green" : "amber"}>{site.status === "active" ? t("active") : t("paused")}</Badge>
+            </span>
+          }
+        >
+          <form action={updateBillingAction.bind(null, id)} className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={t("plan")}>
+                <Select name="plan" defaultValue={site.plan}>
+                  {PLANS.map((p) => (
+                    <option key={p} value={p}>
+                      {planLabel(p, locale)} — {formatFils(planPriceFils(p, site.billingCycle), locale)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t("billing_cycle")}>
+                <Select name="billingCycle" defaultValue={site.billingCycle}>
+                  <option value="yearly">{t("yearly")}</option>
+                  <option value="monthly">{t("monthly")}</option>
+                </Select>
+              </Field>
+              <Field label={t("price")} hint={t("price_hint")}>
+                <Input name="price" defaultValue={filsToKwd(site.priceFils)} inputMode="decimal" dir="ltr" />
+              </Field>
+              <Field label={t("paid_until")} hint={t("paid_until_hint")}>
+                <Input name="paidUntil" type="date" defaultValue={site.paidUntil ?? ""} dir="ltr" />
+              </Field>
+              <Field label={t("last_invoice_ref")} className="sm:col-span-2">
+                <Input name="lastInvoiceRef" defaultValue={site.lastInvoiceRef ?? ""} dir="ltr" placeholder="MF-123456 / CASH-260922-4F2A" />
+              </Field>
+            </div>
+            <Toggle name="useCatalogPrice" label={t("use_plan_price")} hint={`${formatFils(planPriceFils(site.plan, site.billingCycle), locale)} — ${cycleLabel(site.billingCycle, locale)}`} />
+            <div className="flex justify-end">
+              <SubmitButton pendingText={t("saving")}>{t("save")}</SubmitButton>
+            </div>
+          </form>
+
+          <div className="mt-6 grid gap-4 border-t border-slate-100 pt-5 lg:grid-cols-2">
+            <form action={recordPaymentAction.bind(null, id)} className="grid gap-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+              <h3 className="text-sm font-black text-slate-900">{t("record_payment")}</h3>
+              <p className="text-xs leading-relaxed text-slate-600">{t("record_payment_hint")}</p>
+              <p className="text-xs font-bold text-emerald-800" dir="ltr">
+                {site.paidUntil ?? "—"} → {nextPaidUntil(site.paidUntil, site.billingCycle, today)}
+              </p>
+              <Field label={t("last_invoice_ref")}>
+                <Input name="reference" dir="ltr" defaultValue="" placeholder={t("optional")} />
+              </Field>
+              <SubmitButton pendingText={t("saving")}>{t("record_payment")}</SubmitButton>
+            </form>
+
+            <form action={generatePaymentLinkAction.bind(null, id)} className="grid gap-3 rounded-xl border border-slate-200 p-4">
+              <h3 className="text-sm font-black text-slate-900">{t("payment_link")}</h3>
+              <p className="text-xs leading-relaxed text-slate-600">{mode === "manual" ? t("payment_link_manual") : t("payment_link_live")}</p>
+              <Toggle name="includeSetupFee" label={t("include_setup_fee")} hint={formatFils(setupFeeFils(), locale)} />
+              <p className="text-xs text-slate-600">
+                {t("total")}: <b dir="ltr">{formatFils(site.priceFils, locale)}</b> (+ {t("setup_fee")} {formatFils(setupFeeFils(), locale)})
+              </p>
+              <SubmitButton pendingText={t("saving")} variant="secondary">
+                {t("payment_link")}
+              </SubmitButton>
+              {payUrl && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-xs font-bold text-emerald-800">{t("payment_link_ready")}</p>
+                  <a href={payUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all font-mono text-xs text-emerald-900 underline" dir="ltr">
+                    {payUrl}
+                  </a>
+                </div>
+              )}
+            </form>
+          </div>
+        </Card>
+      </div>
+
+      <div id="danger" className="mt-5 scroll-mt-20">
+        <Card title={t("danger")} className="border-red-200">
+          <p className="mb-2 text-sm text-slate-600">{t("delete_site_warning")}</p>
+          <p className="mb-4 text-sm text-slate-600">{t("deleted_sites_hint")}</p>
+          <form action={deleteSiteAction.bind(null, id)}>
+            <TypedConfirm expected={site.slug} hint={t("type_to_confirm_hint")} placeholderLabel={t("type_to_confirm")} pendingText={t("saving")}>
+              {t("delete")}
+            </TypedConfirm>
+          </form>
+        </Card>
+      </div>
     </SuperPanel>
   );
 }

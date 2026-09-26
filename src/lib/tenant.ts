@@ -31,6 +31,41 @@ export function parseHost(rawHost: string | null | undefined, rootDomain: string
   return { kind: "site", host: hostNoPort, candidates: [...candidates], subdomain };
 }
 
+/**
+ * Does this host, classified as `root`, serve the *real* platform — or an accidental copy of it?
+ *
+ * `parseHost` deliberately answers `root` for `*.vercel.app`, bare IPs and loopback so the proxy keeps
+ * serving the platform there (that is what a preview deployment is for). The side effect was that
+ * `decokuwait-git-main-xyz.vercel.app` was a fully indexable clone of the money domain: it rendered every
+ * platform page and its robots.txt answered `Allow: /`. Anything that is not the root domain (or its
+ * `www.`) is therefore closed to crawlers and gets `X-Robots-Tag: noindex` from the proxy — a block alone
+ * would still let the URL be indexed from a link, with no snippet and no way to remove it.
+ */
+export function isIndexableRootHost(host: string | null | undefined, rootDomain: string): boolean {
+  const h = stripPort((host || "").trim().toLowerCase());
+  const root = stripPort(rootDomain.trim().toLowerCase());
+  if (!h || !root) return false;
+  return h === root || h === `www.${root}`;
+}
+
+/**
+ * The host a *platform* request must be 308'd to, or null.
+ *
+ * `www.decokuwait.com` and `www.<slug>.decokuwait.com` both served their content with no redirect at all
+ * (the proxy only de-`www`'d custom tenant domains), so the platform home page existed on two hosts and
+ * had no canonical tag to break the tie. The platform half of this has to run in the proxy: a page cannot
+ * set an HTTP status, and reading the host in the platform layout would make the statically rendered
+ * gallery pages dynamic.
+ */
+export function platformRedirectTarget(host: string | null | undefined, rootDomain: string): string | null {
+  const h = stripPort((host || "").trim().toLowerCase());
+  const root = stripPort(rootDomain.trim().toLowerCase());
+  if (!h || !root) return null;
+  if (!h.startsWith("www.")) return null;
+  const bare = h.slice(4);
+  return bare === root || bare.endsWith(`.${root}`) ? bare : null;
+}
+
 /** The one host a tenant site is served on: `www.` is never canonical (the proxy redirects it). */
 export function canonicalHost(host: string): string {
   const h = stripPort(host.trim().toLowerCase());

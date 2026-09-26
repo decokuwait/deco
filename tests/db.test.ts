@@ -74,7 +74,9 @@ describe("sites, domains, members", () => {
     siteId = site.id;
     expect(site.slug).toBe("elite");
     expect(site.content.brand.name.ar).not.toBe("");
-    expect(site.content.settings.signalMode).toBe("smart");
+    // 0005's contract: the default is "source". The old union was "smart" | "all", and this line asserted
+    // the old default; `normalizeContent` still maps a stored "smart" forward.
+    expect(site.content.settings.signalMode).toBe("source");
     const bySub = await getSiteByHost(["elite.decokuwait.com"], "elite");
     expect(bySub?.id).toBe(site.id);
     expect(await getSiteByHost(["nope.com"], null)).toBeNull();

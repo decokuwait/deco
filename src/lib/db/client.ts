@@ -7,11 +7,21 @@ import path from "node:path";
  *  - Embedded PGlite (local development / tests) when DATABASE_URL is empty
  * All queries use $1..$n placeholders so the same SQL runs on both.
  */
+/** One connection inside an open transaction. Reads and writes both work, so a locked section can decide what to do. */
+export interface DbTransaction {
+  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
+  exec(text: string): Promise<void>;
+}
+
 export interface DbClient {
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
   exec(text: string): Promise<void>;
-  /** Runs every statement in one transaction on one connection (the migration advisory lock needs both). */
-  execTransaction(statements: string[]): Promise<void>;
+  /**
+   * Runs `fn` on ONE connection inside ONE transaction, committing on return and rolling back on throw.
+   * Both are required by the migration runner: an advisory lock only holds for the transaction that took
+   * it, and the runner has to read `_migrations` *after* taking it.
+   */
+  transaction<T>(fn: (tx: DbTransaction) => Promise<T>): Promise<T>;
   close(): Promise<void>;
   backend: "postgres" | "pglite";
 }
@@ -39,22 +49,34 @@ export async function pendingMigrations(db: DbClient): Promise<string[]> {
 }
 
 /**
- * Applies pending SQL files from supabase/migrations. All pending files run inside ONE transaction that
- * holds an advisory lock, so concurrent cold starts (AUTO_MIGRATE on Vercel) serialise instead of racing.
- * Migration files are written idempotently (IF NOT EXISTS / DROP IF EXISTS) so a repeated run is harmless.
+ * Applies pending SQL files from supabase/migrations, and returns the ones this call applied.
+ *
+ * Everything happens inside ONE transaction that takes the advisory lock as its first statement:
+ *  - `create table if not exists _migrations` is DDL, and concurrent `IF NOT EXISTS` DDL is a known
+ *    Postgres race that raises a duplicate-key error on pg_type — so it runs *after* the lock, never before.
+ *  - the applied set is re-read *after* the lock, not before it. The previous version computed the pending
+ *    list first, so two cold starts (AUTO_MIGRATE on Vercel) both saw the same file as pending and both
+ *    applied it once the loser got the lock.
+ * Migration files are written idempotently (IF NOT EXISTS / guarded DO blocks) so a repeated run is harmless,
+ * but "harmless" is not a plan: the re-read is what makes a double apply impossible.
  */
 export async function runMigrations(db: DbClient): Promise<string[]> {
-  await db.exec(`create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())`);
-  const pending = await pendingMigrations(db);
-  if (!pending.length) return [];
+  const files = migrationFiles();
+  if (!files.length) return [];
   const dir = migrationsDir();
-  const statements = [`select pg_advisory_xact_lock(${MIGRATION_LOCK});`];
-  for (const f of pending) {
-    statements.push(fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8"));
-    statements.push(`insert into _migrations(name) values ('${f.replace(/'/g, "''")}') on conflict do nothing;`);
-  }
-  await db.execTransaction(statements);
-  return pending;
+  return db.transaction(async (tx) => {
+    await tx.exec(`select pg_advisory_xact_lock(${MIGRATION_LOCK})`);
+    await tx.exec(`create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())`);
+    const applied = new Set((await tx.query<{ name: string }>(`select name from _migrations`)).map((r) => r.name));
+    const done: string[] = [];
+    for (const f of files) {
+      if (applied.has(f)) continue;
+      await tx.exec(fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, f), "utf8"));
+      await tx.query(`insert into _migrations(name) values ($1) on conflict do nothing`, [f]);
+      done.push(f);
+    }
+    return done;
+  });
 }
 
 async function createPostgres(url: string): Promise<DbClient> {
@@ -64,8 +86,16 @@ async function createPostgres(url: string): Promise<DbClient> {
   const passthrough = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
   const sql = postgres(url, {
     prepare: false,
-    max: Number(process.env.DATABASE_POOL_MAX || 3),
-    idle_timeout: 20,
+    // One connection per instance, not three. A Node function on Vercel serves one request at a time, so a
+    // larger pool buys no throughput — it only holds extra pooler connections open, and a frozen instance
+    // never releases them: its timers are paused, so `idle_timeout` cannot fire until it thaws. Each idle
+    // instance was therefore parked on 3 Supabase pooler slots. Callers that fan out with Promise.all still
+    // work; their queries queue on the single connection instead of opening more.
+    max: Number(process.env.DATABASE_POOL_MAX || 1),
+    // Short idle timeout so a thawed instance hands the slot back on its next event-loop tick, and a hard
+    // lifetime so a connection to a pooler that silently dropped it is replaced rather than reused.
+    idle_timeout: 5,
+    max_lifetime: 300,
     connect_timeout: 15,
     ssl: url.includes("localhost") || url.includes("127.0.0.1") ? undefined : "require",
     types: {
@@ -83,11 +113,19 @@ async function createPostgres(url: string): Promise<DbClient> {
       await sql.unsafe(text);
     },
     // postgres.js refuses a BEGIN it did not issue itself (it would leak a transaction across the pool), so
-    // the statements go through sql.begin, which reserves one connection and commits or rolls back as a unit.
-    async execTransaction(statements: string[]) {
-      await sql.begin(async (t) => {
-        for (const stmt of statements) await t.unsafe(stmt);
-      });
+    // the work goes through sql.begin, which reserves one connection and commits or rolls back as a unit.
+    async transaction<T>(fn: (tx: DbTransaction) => Promise<T>) {
+      return (await sql.begin(async (t) => {
+        return fn({
+          async query<R>(text: string, params: unknown[] = []) {
+            const rows = await t.unsafe(text, params as never[]);
+            return rows as unknown as R[];
+          },
+          async exec(text: string) {
+            await t.unsafe(text);
+          },
+        });
+      })) as T;
     },
     async close() {
       await sql.end({ timeout: 5 });
@@ -113,8 +151,22 @@ async function createPglite(): Promise<DbClient> {
     async exec(text: string) {
       await pg.exec(text);
     },
-    async execTransaction(statements: string[]) {
-      await pg.exec(["begin;", ...statements, "commit;"].join("\n"));
+    // PGlite's own transaction helper, not a hand-rolled "begin; ...; commit;" script. That script had no
+    // rollback: one failing statement aborted the transaction, the trailing COMMIT became a ROLLBACK, and
+    // the session was left in an aborted state where every later query failed with 25P02 until the process
+    // restarted. `pg.transaction` issues the ROLLBACK for us and rethrows.
+    async transaction<T>(fn: (tx: DbTransaction) => Promise<T>) {
+      return pg.transaction<T>(async (tx) => {
+        return fn({
+          async query<R>(text: string, params: unknown[] = []) {
+            const res = await tx.query<R>(text, params);
+            return res.rows;
+          },
+          async exec(text: string) {
+            await tx.exec(text);
+          },
+        });
+      });
     },
     async close() {
       await pg.close();

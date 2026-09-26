@@ -44,15 +44,76 @@ describe("proxy (host routing, visitor cookie, header hygiene)", () => {
     expect(setCookie).toContain("dk_vid_new=1");
   });
 
-  it("keeps a valid visitor cookie and replaces an invalid one", () => {
-    const kept = proxy(req("https://elite.decokuwait.com/", { cookie: "dk_vid=123456" }));
+  it("keeps a visitor cookie pair and replaces an invalid one", () => {
+    const secret = "a".repeat(32);
+    const kept = proxy(req("https://elite.decokuwait.com/", { cookie: `dk_vid=123456; dk_vsec=${secret}` }));
     expect(forwarded(kept, "x-dk-vid")).toBe("123456");
+    expect(forwarded(kept, "x-dk-vsec")).toBe(secret);
     expect(forwarded(kept, "x-dk-vid-new")).toBeNull();
-    const replaced = proxy(req("https://elite.decokuwait.com/", { cookie: "dk_vid=012345" }));
+    const replaced = proxy(req("https://elite.decokuwait.com/", { cookie: `dk_vid=012345; dk_vsec=${secret}` }));
     const vid = forwarded(replaced, "x-dk-vid");
     expect(vid).toMatch(/^[1-9]\d{5}$/);
     expect(vid).not.toBe("012345");
     expect(forwarded(replaced, "x-dk-vid-new")).toBe("1");
+  });
+
+  // A code on its own is not an identity: it is six digits in a readable cookie, so anyone can present
+  // anyone's. The pair has to be complete, or the visitor is re-identified from scratch.
+  it("refuses a visitor code that arrives without its secret, and mints the pair together", () => {
+    const orphan = proxy(req("https://elite.decokuwait.com/", { cookie: "dk_vid=123456" }));
+    expect(forwarded(orphan, "x-dk-vid")).not.toBe("123456");
+    expect(forwarded(orphan, "x-dk-vid-new")).toBe("1");
+    const badSecret = proxy(req("https://elite.decokuwait.com/", { cookie: "dk_vid=123456; dk_vsec=short" }));
+    expect(forwarded(badSecret, "x-dk-vid")).not.toBe("123456");
+
+    const minted = proxy(req("https://elite.decokuwait.com/"));
+    const setCookie = res_setCookie(minted);
+    const vsec = setCookie.match(/dk_vsec=([0-9a-f]{32})/)?.[1];
+    expect(vsec).toMatch(/^[0-9a-f]{32}$/);
+    expect(forwarded(minted, "x-dk-vsec")).toBe(vsec);
+    // HttpOnly is the whole point: a script on the page may read the code, never the secret.
+    expect(cookieAttrs(setCookie, "dk_vsec")).toMatch(/HttpOnly/i);
+    expect(cookieAttrs(setCookie, "dk_vsec")).toMatch(/SameSite=lax/i);
+    expect(cookieAttrs(setCookie, "dk_vid")).not.toMatch(/HttpOnly/i);
+  });
+
+  // A crawler handed a code costs a visitor row with an IP and a user agent, plus the writes to create it.
+  it("mints nothing for known crawlers and marks the request as a bot", () => {
+    for (const ua of ["Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)", "Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"]) {
+      const res = proxy(req("https://elite.decokuwait.com/", { headers: { "user-agent": ua } }));
+      expect(forwarded(res, "x-dk-vid")).toBeNull();
+      expect(forwarded(res, "x-dk-bot")).toBe("1");
+      expect(res_setCookie(res)).not.toContain("dk_vid=");
+    }
+    // A real browser is untouched, and so is the headless Chromium the e2e suite drives.
+    for (const ua of ["Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", "Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/120.0.0.0 Safari/537.36"]) {
+      const res = proxy(req("https://elite.decokuwait.com/", { headers: { "user-agent": ua } }));
+      expect(forwarded(res, "x-dk-vid")).toMatch(/^\d{6}$/);
+      expect(forwarded(res, "x-dk-bot")).toBeNull();
+    }
+  });
+
+  // The panels render no third-party script, so they can take a policy that public tenant pages (which
+  // inline the ad-pixel bootstraps) cannot. The nonce has to reach the request too, or Next cannot stamp
+  // it onto the inline script it streams the RSC payload through.
+  it("puts a nonced strict CSP on the admin and super panels only", () => {
+    for (const url of ["https://elite.decokuwait.com/admin/login", "https://decokuwait.com/super"]) {
+      const res = proxy(req(url));
+      const csp = res.headers.get("content-security-policy") || "";
+      const nonce = csp.match(/'nonce-([a-f0-9]+)'/)?.[1];
+      expect(nonce).toBeTruthy();
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toContain("object-src 'none'");
+      expect(csp).toContain("base-uri 'none'");
+      expect(csp).toContain("frame-ancestors 'none'");
+      expect(forwarded(res, "content-security-policy")).toBe(csp);
+      expect(forwarded(res, "x-nonce")).toBe(nonce);
+    }
+    // Public tenant pages keep their inline pixel bootstraps.
+    expect(proxy(req("https://elite.decokuwait.com/")).headers.get("content-security-policy")).toBeNull();
+    // And a client cannot choose the nonce Next will stamp by sending its own CSP header.
+    const spoofed = proxy(req("https://elite.decokuwait.com/", { headers: { "content-security-policy": "script-src 'nonce-attacker'" } }));
+    expect(forwarded(spoofed, "content-security-policy")).toBeNull();
   });
 
   it("strips spoofed internal headers from the client request", () => {
@@ -102,4 +163,16 @@ describe("proxy (host routing, visitor cookie, header hygiene)", () => {
 
 function res_setCookie(res: Response) {
   return res.headers.get("set-cookie") || "";
+}
+
+/**
+ * The attributes of one cookie inside a joined Set-Cookie header. Splitting on "," alone does not work:
+ * the Expires attribute contains one ("Wed, 22 Sep 2027 ...").
+ */
+function cookieAttrs(setCookie: string, name: string) {
+  const start = setCookie.indexOf(`${name}=`);
+  if (start < 0) return "";
+  const rest = setCookie.slice(start);
+  const next = rest.slice(1).search(/, [A-Za-z0-9_-]+=/);
+  return next < 0 ? rest : rest.slice(0, next + 1);
 }

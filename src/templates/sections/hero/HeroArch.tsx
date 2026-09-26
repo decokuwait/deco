@@ -1,5 +1,7 @@
 import type { SectionProps } from "../../types";
-import { Container, Img } from "../../ui/primitives";
+import { Container, Img, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
+import { headingLeading, heroAlt, heroTitle } from "../shared/helpers";
 import { HeroBadge, HeroCtas, mainImage } from "./shared";
 
 /** Photo masked into a Gulf-style arch with a geometric ring, text beside it. */
@@ -14,13 +16,13 @@ export function HeroArch({ ctx }: SectionProps) {
           <div aria-hidden className="absolute -inset-4 rounded-t-[999px] rounded-b-card border-2 border-dashed border-accent/60" />
           <div aria-hidden className="absolute -inset-10 -z-10 rounded-t-[999px] rounded-b-card bg-primary/10" />
           <div className="aspect-[3/4] overflow-hidden rounded-t-[999px] rounded-b-card shadow-2xl">
-            <Img src={mainImage(ctx)} alt={ctx.text(h.title)} className="h-full w-full object-cover" eager />
+            <Img src={mainImage(ctx)} alt={heroAlt(ctx)} sizes={SIZES.third} ratio="3/4" className="h-full w-full object-cover" eager />
           </div>
           <span aria-hidden className="absolute -end-5 top-1/3 h-12 w-12 rotate-45 rounded-sm bg-accent shadow-lg animate-float" />
         </div>
         <div className="animate-fade-up">
           <HeroBadge ctx={ctx} />
-          <h1 className="mt-5 font-heading text-4xl font-black leading-[1.12] sm:text-5xl lg:text-6xl">{ctx.text(h.title)}</h1>
+          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.12] sm:text-5xl lg:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted sm:text-xl">{ctx.text(h.subtitle)}</p>
           <HeroCtas ctx={ctx} className="mt-8" />
           {points.length > 0 && (

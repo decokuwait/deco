@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import type { PixelConfig } from "@/lib/types";
+import type { EventKey, PixelConfig } from "@/lib/types";
 import type { Provider, SendContext } from "../types";
 import { postJson } from "../types";
 import { hashPhoneE164 } from "../hash";
@@ -52,8 +52,25 @@ export function xCredsOf(pixel: PixelConfig): OAuth1Creds | null {
   return { consumerKey: e.consumerKey, consumerSecret: e.consumerSecret, accessToken: pixel.accessToken, tokenSecret: e.tokenSecret };
 }
 
+/**
+ * X is only ready when at least one event is mapped.
+ *
+ * It has no standard event names: every event is an Event ID minted in X Events Manager, and the
+ * default map is all empty strings. Credentials alone used to count as ready, so `send` returned
+ * `skipped: "missing_event_id"` and the owner — who had connected X perfectly — was told "signal
+ * failed" on every stage mark until they opened a collapsed accordion.
+ */
 export function xReady(pixel: PixelConfig): boolean {
-  return !!pixel.pixelId && xCredsOf(pixel) !== null;
+  if (!pixel.pixelId || xCredsOf(pixel) === null) return false;
+  return Object.values(pixel.eventMap ?? {}).some((v) => typeof v === "string" && v.trim().length > 0);
+}
+
+/** The first event key this pixel actually has an Event ID for — what a test send must use. */
+export function xFirstMappedEventKey(pixel: PixelConfig): EventKey | null {
+  for (const [key, value] of Object.entries(pixel.eventMap ?? {})) {
+    if (typeof value === "string" && value.trim()) return key as EventKey;
+  }
+  return null;
 }
 
 function twclidFromCookie(raw: string | undefined): string | undefined {

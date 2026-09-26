@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { q, one, iso, isoOrNull, isUuid, json, parseJson } from "./client";
 import type { SourcePlatform, Stage, Visitor } from "@/lib/types";
 import { detectAttribution, fbcFromClickId } from "@/lib/visitor/attribution";
@@ -28,6 +29,56 @@ interface Row {
   phone: string | null;
 }
 
+/**
+ * Explicit column list, never `select *`.
+ *
+ * `secret` is deliberately absent: it is the bearer credential for the public endpoints, and the only code
+ * allowed to hold it is the code that mints it or checks it. Keeping it out of `Row` means it cannot reach
+ * `mapVisitor`, and so cannot end up in an admin JSON payload or a server-component prop by accident.
+ */
+const VISITOR_FIELDS = [
+  "id",
+  "site_id",
+  "code",
+  "source_platform",
+  "utm",
+  "click_ids",
+  "cookies",
+  "referrer",
+  "landing_url",
+  "user_agent",
+  "ip",
+  "first_seen_at",
+  "last_seen_at",
+  "visits",
+  "whatsapp_clicks",
+  "stage",
+  "stage_updated_at",
+  "notes",
+  "name",
+  "phone",
+];
+function visitorCols(alias = "v") {
+  return VISITOR_FIELDS.map((c) => `${alias}.${c}`).join(", ");
+}
+
+const SECRET_RE = /^[0-9a-f]{32}$/;
+
+/** 128 bits of randomness, hex. The HttpOnly companion to the 6-digit code, which is guessable by design. */
+export function generateVisitorSecret(): string {
+  return randomBytes(16).toString("hex");
+}
+
+/** Compares two secrets without letting the comparison's duration say how much of the prefix was right. */
+function secretMatches(stored: string | null | undefined, supplied: string | null | undefined): boolean {
+  if (!stored || !supplied) return false;
+  const a = Buffer.from(stored, "utf8");
+  const b = Buffer.from(supplied, "utf8");
+  // timingSafeEqual throws on a length mismatch, which would itself leak the length; compare a fixed shape.
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 export function mapVisitor(r: Row): Visitor {
   return {
     id: r.id,
@@ -53,14 +104,34 @@ export function mapVisitor(r: Row): Visitor {
   };
 }
 
+/**
+ * Lookup by code alone. The code is a 6-digit number in a readable cookie and printed in WhatsApp messages,
+ * so it proves nothing: this is for the ADMIN, behind the session guard. A public endpoint must use
+ * `getVisitorByCodeAndSecret` instead.
+ */
 export async function getVisitorByCode(siteId: string, code: string): Promise<Visitor | null> {
-  const r = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [siteId, code]);
+  const r = await one<Row>(`select ${visitorCols("v")} from visitors v where v.site_id = $1 and v.code = $2`, [siteId, code]);
   return r ? mapVisitor(r) : null;
+}
+
+/**
+ * Lookup for the public endpoints: the caller must present the HttpOnly secret that was issued with the row.
+ * A row created before 0005 has no secret and can therefore never be matched here — that is intended. Those
+ * visitors get a new row (and a secret) on their next visit rather than a credential anyone could guess.
+ */
+export async function getVisitorByCodeAndSecret(siteId: string, code: string, secret: string | null | undefined): Promise<Visitor | null> {
+  if (!isUuid(siteId) || !code || !secret) return null;
+  const r = await one<Row & { secret: string | null }>(
+    `select ${visitorCols("v")}, v.secret from visitors v where v.site_id = $1 and v.code = $2`,
+    [siteId, code],
+  );
+  if (!r || !secretMatches(r.secret, secret)) return null;
+  return mapVisitor(r);
 }
 
 export async function getVisitorById(id: string): Promise<Visitor | null> {
   if (!isUuid(id)) return null;
-  const r = await one<Row>(`select * from visitors where id = $1`, [id]);
+  const r = await one<Row>(`select ${visitorCols("v")} from visitors v where v.id = $1`, [id]);
   return r ? mapVisitor(r) : null;
 }
 
@@ -68,8 +139,30 @@ export interface TrackInput {
   siteId: string;
   /** Code from the visitor's cookie (null when there is none). */
   code: string | null;
+  /**
+   * The HttpOnly secret that goes with `code`.
+   *
+   * For a public caller (`requireSecret`) it is the credential being *presented*, and nothing else.
+   * For a trusted caller — the server render, reading the `x-dk-vsec` header the proxy forwarded — it is
+   * also the secret to STORE on a row this call creates, because the proxy has already put that value in
+   * the visitor's cookie. Without it the row would get a different secret from the cookie, every first
+   * visit would fail its own /api/track check, and the endpoint would answer by creating a second row.
+   */
+  secret?: string | null;
   /** True when the proxy just generated this code: a collision must then allocate a new code instead of merging. */
   fresh?: boolean;
+  /**
+   * Set by callers that cannot trust their input — i.e. the public /api/track endpoint.
+   *
+   * With it, a supplied `code` is honoured only when `secret` matches the stored one; otherwise the call
+   * falls through to allocating a FRESH code. Without it (the server render, which reads the cookie the
+   * proxy itself set), a supplied code may still mint a row at that code.
+   *
+   * This closes the hole in the old `useOwnCode = attempt === 0 && input.code`: an unauthenticated caller
+   * could POST any 6-digit code and mint a visitor row at it, or — worse — have their attribution,
+   * user agent and IP merged into a stranger's existing row by guessing that stranger's code.
+   */
+  requireSecret?: boolean;
   /**
    * Whether this call is a page view of its own (default true).
    *
@@ -85,12 +178,23 @@ export interface TrackInput {
   cookies?: Record<string, string>;
 }
 
+export interface TrackResult {
+  visitor: Visitor;
+  created: boolean;
+  /**
+   * The row's secret, for the caller to (re)issue as an HttpOnly cookie. Present on every call, including a
+   * returning visit, so that a row created before 0005 — or one whose cookie was lost — gets one on its
+   * next visit instead of staying unauthenticatable for ever.
+   */
+  secret: string;
+}
+
 /**
  * Register a visit. Unknown codes create a visitor row with attribution; known codes count a repeat visit
  * and refresh last-touch attribution when the new landing URL carries a click id or utm_source.
  * Concurrency-safe: the insert uses ON CONFLICT so two parallel first requests never allocate two codes.
  */
-export async function trackVisit(input: TrackInput): Promise<{ visitor: Visitor; created: boolean }> {
+export async function trackVisit(input: TrackInput): Promise<TrackResult> {
   const cookies = input.cookies ?? {};
   const attr = detectAttribution(input.landingUrl, input.referrer);
   if (attr.clickIds.fbclid && !cookies._fbc) cookies._fbc = fbcFromClickId(attr.clickIds.fbclid)!;
@@ -99,25 +203,50 @@ export async function trackVisit(input: TrackInput): Promise<{ visitor: Visitor;
   const ua = (input.userAgent || "").slice(0, 500) || null;
 
   const countVisit = input.countVisit ?? true;
+  // A caller that has to prove itself may present a secret but may never choose one: that would let anyone
+  // pick the credential for a row they are about to create at a code of their choosing.
+  const chosenSecret = !input.requireSecret && typeof input.secret === "string" && SECRET_RE.test(input.secret) ? input.secret : null;
+
   if (input.code && !input.fresh) {
-    const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, input.code]);
-    if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null, countVisit), created: false };
+    const existing = await one<Row & { secret: string | null }>(
+      `select ${visitorCols("v")}, v.secret from visitors v where v.site_id = $1 and v.code = $2`,
+      [input.siteId, input.code],
+    );
+    // A caller that has to prove ownership and cannot is treated as a stranger: it gets its own new row.
+    if (existing && (!input.requireSecret || secretMatches(existing.secret, input.secret))) {
+      return touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null, countVisit, chosenSecret);
+    }
   }
 
+  // A code the caller supplied may only be *created* when the caller is trusted. A public caller always
+  // gets a fresh one, so it can neither choose its own code nor squat on somebody else's.
+  // `fresh` does NOT mean "discard the proxy's code" — it means "if that code is already taken, allocate a
+  // new one instead of merging into a stranger's row". Excluding fresh here threw the proxy's code away on
+  // every first visit, so the row never matched the `dk_vid` cookie (or the id already printed in the
+  // WhatsApp message) and the reconciliation round trip fired every single time.
+  const mayUseOwnCode = !!input.code && !input.requireSecret;
   for (let attempt = 0; attempt < 8; attempt++) {
-    const useOwnCode = attempt === 0 && input.code;
+    const useOwnCode = attempt === 0 && mayUseOwnCode;
     const code = useOwnCode ? input.code! : generateVisitorCode();
+    // The same secret across retries: a collision changes the code, not the browser, and the cookie the
+    // proxy already set holds this value.
+    const secret = chosenSecret ?? generateVisitorSecret();
     const r = await one<Row>(
-      `insert into visitors (site_id, code, source_platform, utm, click_ids, cookies, referrer, landing_url, user_agent, ip)
-       values ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8, $9, $10)
-       on conflict (site_id, code) do nothing returning *`,
-      [input.siteId, code, attr.sourcePlatform, json(attr.utm), json(attr.clickIds), json(cookies), referrer, landing, ua, input.ip ?? null],
+      `insert into visitors (site_id, code, secret, source_platform, utm, click_ids, cookies, referrer, landing_url, user_agent, ip)
+       values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11)
+       on conflict (site_id, code) do nothing returning ${visitorCols("visitors")}`,
+      [input.siteId, code, secret, attr.sourcePlatform, json(attr.utm), json(attr.clickIds), json(cookies), referrer, landing, ua, input.ip ?? null],
     );
-    if (r) return { visitor: mapVisitor(r), created: true };
+    if (r) return { visitor: mapVisitor(r), created: true, secret };
     if (useOwnCode && !input.fresh) {
       // Lost a race with a parallel request for the same cookie code: treat as the existing visitor.
-      const existing = await one<Row>(`select * from visitors where site_id = $1 and code = $2`, [input.siteId, code]);
-      if (existing) return { visitor: await touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null, countVisit), created: false };
+      // Guarded on `!fresh`: a *fresh* code that collides belongs to somebody else, and merging there
+      // would hand this visitor a stranger's lead history. That case falls through and re-rolls instead.
+      const existing = await one<Row & { secret: string | null }>(
+        `select ${visitorCols("v")}, v.secret from visitors v where v.site_id = $1 and v.code = $2`,
+        [input.siteId, code],
+      );
+      if (existing) return touch(existing, attr, cookies, landing, referrer, ua, input.ip ?? null, countVisit, chosenSecret);
     }
     // A fresh proxy code that collides with another visitor: allocate a new one (never merge strangers).
   }
@@ -125,7 +254,7 @@ export async function trackVisit(input: TrackInput): Promise<{ visitor: Visitor;
 }
 
 async function touch(
-  existing: Row,
+  existing: Row & { secret: string | null },
   attr: ReturnType<typeof detectAttribution>,
   cookies: Record<string, string>,
   landing: string | null,
@@ -133,12 +262,17 @@ async function touch(
   ua: string | null,
   ip: string | null,
   countVisit: boolean,
-): Promise<Visitor> {
+  chosenSecret: string | null,
+): Promise<TrackResult> {
   const mergedCookies = { ...parseJson<Record<string, string>>(existing.cookies, {}), ...cookies };
   const knownPlatform = attr.sourcePlatform !== "direct" && attr.sourcePlatform !== "other";
   const hasClick = Object.keys(attr.clickIds).length > 0;
   // Last-touch attribution: a new campaign click updates the source; a plain revisit keeps the old one.
   const retouch = knownPlatform && (hasClick || !!attr.utm.utm_source);
+  // Rows created before 0005 have no secret. One is adopted from the trusted caller's cookie, or minted, on
+  // the next visit so the visitor can be authenticated from then on. An existing secret is never rotated,
+  // or the visitor's own cookie would stop matching on their next request.
+  const secret = existing.secret || chosenSecret || generateVisitorSecret();
   const r = await one<Row>(
     `update visitors set
        last_seen_at = now(),
@@ -146,15 +280,16 @@ async function touch(
        cookies = $3::jsonb,
        user_agent = coalesce($4, user_agent),
        ip = coalesce($5, ip),
+       secret = coalesce(secret, $13),
        source_platform = case when $6::boolean then $7 else source_platform end,
        click_ids = case when $6::boolean then click_ids || $8::jsonb else click_ids end,
        utm = case when $6::boolean then utm || $9::jsonb else utm end,
        landing_url = case when $6::boolean then coalesce($10, landing_url) else landing_url end,
        referrer = case when $6::boolean then coalesce($11, referrer) else referrer end
-     where id = $1 and site_id = $2 returning *`,
-    [existing.id, existing.site_id, json(mergedCookies), ua, ip, retouch, attr.sourcePlatform, json(attr.clickIds), json(attr.utm), landing, referrer, countVisit],
+     where id = $1 and site_id = $2 returning ${visitorCols("visitors")}`,
+    [existing.id, existing.site_id, json(mergedCookies), ua, ip, retouch, attr.sourcePlatform, json(attr.clickIds), json(attr.utm), landing, referrer, countVisit, secret],
   );
-  return mapVisitor(r!);
+  return { visitor: mapVisitor(r!), created: false, secret };
 }
 
 export interface VisitorSearch {
@@ -177,24 +312,27 @@ export async function searchVisitors(siteId: string, s: VisitorSearch = {}): Pro
   // not valid SQL, so a crafted query string turned the visitors page into a 500.
   const limit = clampInt(s.limit, 30, 1, 200);
   const offset = clampInt(s.offset, 0, 0, 1_000_000);
-  const where = [`site_id = $1`];
+  const where = [`v.site_id = $1`];
   const params: unknown[] = [siteId];
   if (s.code) {
     params.push(`${s.code.replace(/[%_]/g, "")}%`);
-    where.push(`code like $${params.length}`);
+    where.push(`v.code like $${params.length}`);
   }
-  if (s.stage === "leads") where.push(`stage <> 'new'`);
+  if (s.stage === "leads") where.push(`v.stage <> 'new'`);
   else if (s.stage) {
     params.push(s.stage);
-    where.push(`stage = $${params.length}`);
+    where.push(`v.stage = $${params.length}`);
   }
   if (s.source) {
     params.push(s.source);
-    where.push(`source_platform = $${params.length}`);
+    where.push(`v.source_platform = $${params.length}`);
   }
   const w = where.join(" and ");
-  const totalRow = await one<{ n: unknown }>(`select count(*) as n from visitors where ${w}`, params);
-  const rows = await q<Row>(`select * from visitors where ${w} order by last_seen_at desc limit $${params.length + 1} offset $${params.length + 2}`, [...params, limit, offset]);
+  const totalRow = await one<{ n: unknown }>(`select count(*) as n from visitors v where ${w}`, params);
+  const rows = await q<Row>(
+    `select ${visitorCols("v")} from visitors v where ${w} order by v.last_seen_at desc limit $${params.length + 1} offset $${params.length + 2}`,
+    [...params, limit, offset],
+  );
   return { items: rows.map(mapVisitor), total: Number(totalRow?.n ?? 0) };
 }
 
@@ -213,7 +351,7 @@ export async function updateVisitor(id: string, patch: Partial<{ stage: Stage; n
        notes = case when $3::boolean then notes else $4 end,
        name  = case when $5::boolean then name  else $6 end,
        phone = case when $7::boolean then phone else $8 end
-     where id = $1 returning *`,
+     where id = $1 returning ${visitorCols("visitors")}`,
     [
       id,
       patch.stage ?? null,
@@ -265,4 +403,40 @@ export async function visitorStats(siteId: string): Promise<VisitorStats> {
     bySource,
     whatsappClicks: Number(totals?.wa ?? 0),
   };
+}
+
+/**
+ * Retention, for the cron.
+ *
+ * A visitor row holds an IP, a user agent, a referrer and a landing URL: personal data collected for
+ * attribution, which stops being useful long before it stops being a liability. After `months` the
+ * identifying half is nulled out and the row keeps only what the funnel reports on (code, stage, counts).
+ * The stage history and the lead's own name and phone are untouched — those are the business record.
+ */
+export async function anonymiseOldVisitors(months = 18): Promise<number> {
+  const m = clampInt(months, 18, 1, 600);
+  const rows = await q<{ id: string }>(
+    `update visitors set ip = null, user_agent = null, referrer = null, landing_url = null
+     where last_seen_at < now() - ($1::int * interval '1 month')
+       and (ip is not null or user_agent is not null or referrer is not null or landing_url is not null)
+     returning id`,
+    [m],
+  );
+  return rows.length;
+}
+
+/**
+ * Visitors that never became anything: still at stage `new`, no name, no phone, no WhatsApp click, and not
+ * seen for `months`. These are bounces, and keeping a personal record of a bounce for years has no defence.
+ */
+export async function deleteStaleNewVisitors(months = 24): Promise<number> {
+  const m = clampInt(months, 24, 1, 600);
+  const rows = await q<{ id: string }>(
+    `delete from visitors
+     where stage = 'new' and whatsapp_clicks = 0 and name is null and phone is null
+       and last_seen_at < now() - ($1::int * interval '1 month')
+     returning id`,
+    [m],
+  );
+  return rows.length;
 }

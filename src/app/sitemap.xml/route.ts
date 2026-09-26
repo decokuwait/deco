@@ -1,65 +1,101 @@
 import { headers } from "next/headers";
-import { canonicalHost, parseHost } from "@/lib/tenant";
+import { isIndexableRootHost, parseHost, subdomainHost } from "@/lib/tenant";
 import { ROOT_DOMAIN, rootUrl, siteUrl } from "@/lib/config";
-import { getSiteByHost } from "@/lib/db/sites";
-import { TEMPLATES } from "@/templates/registry";
+import { getSiteByHost, listSites } from "@/lib/db/sites";
+import { listProjects } from "@/lib/db/projects";
 import { CATEGORIES } from "@/lib/types";
+import { getSitePrimaryHost, primaryUrl, resolvePrimaryHost } from "@/lib/seo/primary-host";
+import { publishedLocales } from "@/lib/seo/locale";
+import { siteLastmod } from "@/lib/seo/lastmod";
+import { serviceSlugs } from "@/lib/seo/service-slugs";
+import { pageCount, pageSlice, platformUrls, renderSitemapIndex, renderUrlset, tenantUrls } from "@/lib/seo/sitemap";
 
 export const dynamic = "force-dynamic";
 
-interface Entry {
-  loc: string;
-  lastmod?: string;
-  priority?: string;
-  alternates?: { lang: string; href: string }[];
-}
+const XML = { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600", Vary: "X-Forwarded-Host, Host" };
 
-function esc(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-}
-
-function xml(urls: Entry[]) {
-  const body = urls
-    .map((u) => {
-      const alts = (u.alternates ?? []).map((a) => `<xhtml:link rel="alternate" hreflang="${a.lang}" href="${esc(a.href)}"/>`).join("");
-      return `  <url><loc>${esc(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod.slice(0, 10)}</lastmod>` : ""}${u.priority ? `<priority>${u.priority}</priority>` : ""}${alts}</url>`;
-    })
-    .join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
+function xml(body: string) {
+  return new Response(body, { headers: XML });
 }
 
 /**
- * sitemap.xml per host: a tenant site lists its home page (in both languages when the language toggle is
- * on) and its privacy page; the platform lists the gallery and every template preview.
+ * `lastmod` for the platform's own pages, which had none — and it is the one field Google actually uses.
+ *
+ * Evaluated once per cold start, so it tracks the deployment rather than the clock: a `lastmod` of "now"
+ * on every request tells a crawler the page changed every time it looked, which is worse than omitting it.
  */
-export async function GET() {
+const BUILT_AT = new Date().toISOString();
+
+/** The site list omits `is_primary`; the resolver only needs to know which host wins, and a verified custom domain always does. */
+function asDomain(d: { hostname: string; kind: "subdomain" | "custom"; verified: boolean }) {
+  return { ...d, isPrimary: false };
+}
+
+function pageParam(url: string): number {
+  const v = Number(new URL(url).searchParams.get("page"));
+  return Number.isFinite(v) && v > 0 ? Math.trunc(v) : 1;
+}
+
+/**
+ * sitemap.xml per host.
+ *
+ * Tenant: every URL is built on the site's PRIMARY host, so the sitemap can never nominate the copy the
+ * canonical tag disowns. The second language appears only when it is genuinely written (see
+ * `publishedLocales`), `/privacy` is gone because it is `noindex`, and `lastmod` is the later of the
+ * site's own timestamp and its newest published project — adding a project is the change that matters and
+ * it never touched `sites.updated_at`. Above `SITEMAP_PAGE_SIZE` URLs the response becomes a sitemap
+ * index over `?page=N`.
+ *
+ * Platform: a sitemap index. `?part=platform` holds the platform's own pages (the 60 preview URLs are
+ * gone: they are `noindex` near-duplicates now), and each active tenant whose primary host is its
+ * `*.decokuwait.com` subdomain is listed alongside. That cross-submission is legitimate because one
+ * Search Console **Domain property** for `decokuwait.com` covers every subdomain — which is also the only
+ * way this scales, since an account is capped at 1,000 properties and a per-site URL-prefix property
+ * would spend one of them per tenant. A tenant on its own custom domain is NOT listed here: nothing
+ * verifies `decokuwait.com` for `gulfalu.com`, so Google would ignore the entry.
+ */
+export async function GET(req: Request) {
   const h = await headers();
   const host = h.get("x-forwarded-host") || h.get("host");
   const info = parseHost(host, ROOT_DOMAIN);
-  let urls: Entry[];
+
   if (info.kind === "site") {
     const site = await getSiteByHost(info.candidates, info.subdomain).catch(() => null);
     if (!site || site.status !== "active") return new Response("Not found", { status: 404 });
-    const base = siteUrl(canonicalHost(info.host));
-    const def = site.content.settings.defaultLocale;
-    const other = def === "ar" ? "en" : "ar";
-    const alternates = site.content.settings.showLangToggle
-      ? [
-          { lang: def, href: base },
-          { lang: other, href: `${base}?lang=${other}` },
-          { lang: "x-default", href: base },
-        ]
-      : undefined;
-    urls = [{ loc: base, lastmod: site.updatedAt, priority: "1.0", alternates }];
-    if (alternates) urls.push({ loc: `${base}?lang=${other}`, lastmod: site.updatedAt, priority: "0.8", alternates });
-    urls.push({ loc: `${base}privacy`, lastmod: site.updatedAt, priority: "0.2" });
-  } else {
-    urls = [
-      { loc: rootUrl("/"), priority: "1.0" },
-      { loc: rootUrl("/templates"), priority: "0.9" },
-      ...CATEGORIES.map((c) => ({ loc: rootUrl(`/templates/${c}`), priority: "0.8" })),
-      ...TEMPLATES.map((t) => ({ loc: rootUrl(`/template/${t.code}`), priority: "0.6" })),
-    ];
+    const primary = await getSitePrimaryHost(site);
+    const base = primaryUrl(primary);
+    const [lastmod, projects] = await Promise.all([
+      siteLastmod(site.id, site.updatedAt),
+      listProjects(site.id, { publishedOnly: true }).catch(() => []),
+    ]);
+    const services = site.content.sections.services ? site.content.services.items : [];
+    const all = tenantUrls({
+      base,
+      locales: publishedLocales(site.content),
+      defaultLocale: site.content.settings.defaultLocale,
+      lastmod,
+      projects: projects.filter((p) => p.slug).map((p) => ({ slug: p.slug })),
+      services: serviceSlugs(services).map((slug) => ({ slug })),
+    });
+    const pages = pageCount(all.length);
+    if (pages === 1) return xml(renderUrlset(all));
+    const page = pageParam(req.url);
+    if (page > 1) return xml(renderUrlset(pageSlice(all, page)));
+    return xml(renderSitemapIndex(Array.from({ length: pages }, (_, i) => ({ loc: `${base}sitemap.xml?page=${i + 1}`, lastmod }))));
   }
-  return new Response(xml(urls), { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600", Vary: "X-Forwarded-Host, Host" } });
+
+  if (!isIndexableRootHost(host, ROOT_DOMAIN)) return new Response("Not found", { status: 404 });
+
+  if (new URL(req.url).searchParams.get("part") === "platform") {
+    return xml(renderUrlset(platformUrls({ rootUrl, categories: CATEGORIES, lastmod: BUILT_AT })));
+  }
+  const sites = await listSites({ limit: 200 }).catch(() => []);
+  const tenants = sites
+    .filter((s) => s.status === "active")
+    .map((s) => ({ site: s, primary: resolvePrimaryHost(s.domains.map(asDomain), { slug: s.slug }) }))
+    // Subdomains only: nothing verifies `decokuwait.com` for a tenant's own custom domain, so an entry
+    // for one would be ignored — and the subdomain 301s there anyway once the domain is verified.
+    .filter(({ site, primary }) => primary.host === subdomainHost(site.slug, ROOT_DOMAIN))
+    .map(({ site, primary }) => ({ loc: siteUrl(primary.host, "/sitemap.xml"), lastmod: site.updatedAt }));
+  return xml(renderSitemapIndex([{ loc: rootUrl("/sitemap.xml?part=platform"), lastmod: BUILT_AT }, ...tenants]));
 }

@@ -1,7 +1,7 @@
 import type { LText } from "@/lib/types";
 import { BilingualInput, Field, Input, Select } from "@/components/admin/ui";
 import { Uploader } from "@/components/admin/Uploader";
-import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { ReorderRows } from "./ReorderRows";
 import type { FieldSpec, SectionSpec } from "../content/_lib/spec";
 import { getPath } from "../content/_lib/spec";
 import type { T } from "../_lib/guard";
@@ -78,12 +78,9 @@ export function FlatFields({ spec, content, t, siteId }: { spec: SectionSpec; co
   );
 }
 
-const rowBtn = "inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold disabled:opacity-40 sm:min-h-8";
-
 /**
- * Editable list rows. Each row has hidden id, move buttons and a confirmed delete that submit the whole
- * form with an `op` value (and skip HTML validation so reordering never depends on other rows);
- * a trailing "new row" block appends an item when filled.
+ * Editable list rows: ordering and removal happen on the device (see ReorderRows) and travel with the
+ * one save at the bottom of the page; a trailing "new row" block appends an item when filled.
  */
 export function ListEditor({ spec, content, t, siteId }: { spec: SectionSpec; content: unknown; t: T; siteId: string }) {
   const list = spec.list;
@@ -94,36 +91,24 @@ export function ListEditor({ spec, content, t, siteId }: { spec: SectionSpec; co
     <div className="grid gap-4">
       <input type="hidden" name="rows.count" value={rows.length} />
       {rows.length === 0 && <p className="text-sm text-slate-500">{t("no_items")}</p>}
-      {rows.map((row, i) => {
-        const prefix = `rows.${i}`;
-        const id = simple ? `${list.idPrefix}-${i}` : String((row as Record<string, unknown>).id ?? `${list.idPrefix}-${i}`);
-        return (
-          <div key={id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <input type="hidden" name={`${prefix}.id`} value={id} />
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <span className="text-xs font-black text-slate-500">#{i + 1}</span>
-              <div className="flex items-center gap-2">
-                <button type="submit" name="op" value={`move:${i}:up`} disabled={i === 0} formNoValidate className={rowBtn} aria-label={t("move_up")}>
-                  ↑ {t("move_up")}
-                </button>
-                <button type="submit" name="op" value={`move:${i}:down`} disabled={i === rows.length - 1} formNoValidate className={rowBtn} aria-label={t("move_down")}>
-                  ↓ {t("move_down")}
-                </button>
-                <ConfirmButton message={t("confirm_delete_row")} name="op" value={`delete:${i}`} className="ms-2 min-h-10 sm:min-h-8">
-                  {t("delete")}
-                </ConfirmButton>
+      {rows.length > 0 && (
+        <ReorderRows count={rows.length} labels={{ up: t("move_up"), down: t("move_down"), remove: t("delete"), undo: t("undo"), willBeDeleted: t("will_be_deleted") }}>
+          {rows.map((row, i) => {
+            const prefix = `rows.${i}`;
+            const id = simple ? `${list.idPrefix}-${i}` : String((row as Record<string, unknown>).id ?? `${list.idPrefix}-${i}`);
+            return (
+              <div key={id} className="grid gap-3">
+                <input type="hidden" name={`${prefix}.id`} value={id} />
+                {simple ? (
+                  <BilingualInput name={prefix} value={row as LText} />
+                ) : (
+                  list.fields.map((f) => <FieldInput key={f.key} f={f} name={`${prefix}.${f.key}`} value={(row as Record<string, unknown>)[f.key]} t={t} siteId={siteId} />)
+                )}
               </div>
-            </div>
-            <div className="grid gap-3">
-              {simple ? (
-                <BilingualInput name={prefix} value={row as LText} />
-              ) : (
-                list.fields.map((f) => <FieldInput key={f.key} f={f} name={`${prefix}.${f.key}`} value={(row as Record<string, unknown>)[f.key]} t={t} siteId={siteId} />)
-              )}
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </ReorderRows>
+      )}
       <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-4">
         <div className="mb-3 text-sm font-black text-emerald-800">+ {t("add_item")}</div>
         <div className="grid gap-3">

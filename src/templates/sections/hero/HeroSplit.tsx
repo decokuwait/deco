@@ -1,7 +1,8 @@
 import type { SectionProps } from "../../types";
 import { Badge, Btn, Container, Img, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
-import { projectsAnchor } from "../shared/helpers";
+import { SIZES } from "../../ui/img";
+import { headingLeading, heroAlt, heroTitle, projectsAnchor } from "../shared/helpers";
 
 /** Text on one side, large image with a floating stat card on the other. */
 export function HeroSplit({ ctx }: SectionProps) {
@@ -14,7 +15,7 @@ export function HeroSplit({ ctx }: SectionProps) {
       <Container className="relative grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2 lg:py-28">
         <div className="animate-fade-up">
           {ctx.text(h.badge) && <Badge>{ctx.text(h.badge)}</Badge>}
-          <h1 className="mt-5 font-heading text-4xl font-black leading-[1.15] sm:text-5xl lg:text-6xl">{ctx.text(h.title)}</h1>
+          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.15] sm:text-5xl lg:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted sm:text-xl">{ctx.text(h.subtitle)}</p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(ctx.def.tokens.buttonStyle, "primary", "lg")}>
@@ -44,7 +45,7 @@ export function HeroSplit({ ctx }: SectionProps) {
         </div>
         <div className="relative">
           <div className={cx("relative aspect-[4/5] overflow-hidden rounded-card shadow-2xl sm:aspect-[5/4] lg:aspect-[4/5]")}>
-            <Img src={h.imageUrl} alt={ctx.text(h.title)} className="h-full w-full object-cover" eager />
+            <Img src={h.imageUrl} alt={heroAlt(ctx)} sizes={SIZES.half} ratio="4/5" className="h-full w-full object-cover" eager />
             <div className="absolute inset-0 bg-gradient-to-t from-secondary/40 to-transparent" />
           </div>
           <div aria-hidden className="absolute -end-6 -top-6 -z-10 h-40 w-40 rounded-card bg-accent/30" />

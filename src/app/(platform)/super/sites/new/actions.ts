@@ -38,6 +38,7 @@ export async function createSiteAction(fd: FormData) {
   const slug = readStr(fd, "slug", 63).toLowerCase();
   const customDomain = normalizeHostname(readStr(fd, "customDomain", 253));
   const whatsapp = readStr(fd, "whatsapp", 20).replace(/[^\d]/g, "");
+  const email = readStr(fd, "email", 200).toLowerCase();
   const adminEmail = readStr(fd, "adminEmail", 200).toLowerCase();
   const adminPassword = String(fd.get("adminPassword") ?? "");
   const seedDemo = readBool(fd, "seedDemo");
@@ -50,6 +51,7 @@ export async function createSiteAction(fd: FormData) {
     slug,
     customDomain,
     whatsapp,
+    email,
     adminEmail,
     seedDemo: seedDemo ? "1" : "0",
     startPaused: startPaused ? "1" : "0",
@@ -82,8 +84,10 @@ export async function createSiteAction(fd: FormData) {
       category,
       templateCode: template.code,
       whatsapp: whatsapp || undefined,
-      seedProjects: seedDemo,
-      demoContent: seedDemo,
+      email: email || undefined,
+      // One explicit opt-in covers the whole showcase: invented copy, stock projects and sample
+      // testimonials travel together, and nothing invented is written when it is off.
+      demo: seedDemo,
       status: startPaused ? "paused" : "active",
     });
     siteId = site.id;

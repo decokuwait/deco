@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading, Video } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
 import { progressSlides, projectsOf } from "../shared/helpers";
 
 /** Horizontal snap-scroll filmstrip: every step is a frame with its label and date; videos play inline. */
@@ -29,12 +30,12 @@ export function ProgressFilmstrip({ ctx }: SectionProps) {
                 {slides.map((s, i) => (
                   <figure key={s.id} className="snap-item w-[78%] shrink-0 overflow-hidden rounded-card bg-black/30 ring-1 ring-white/15 sm:w-[46%] lg:w-[32%]">
                     <div className="relative aspect-[4/3] bg-black">
-                      {s.kind === "video" ? <Video item={{ url: s.url, posterUrl: s.posterUrl }} className="h-full w-full object-contain" /> : <Img src={s.url} alt={s.label} className="h-full w-full object-cover" />}
+                      {s.kind === "video" ? <Video item={{ url: s.url, posterUrl: s.posterUrl }} className="h-full w-full object-contain" /> : <Img src={s.url} alt={s.alt} sizes={SIZES.third} className="h-full w-full object-cover" />}
                       <span className="absolute start-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-accent font-heading text-sm font-black text-accent-fg">{i + 1}</span>
                     </div>
                     <figcaption className="flex items-center justify-between gap-2 p-3 text-sm">
                       <span className="font-heading font-bold">{s.label}</span>
-                      {s.date && <span className="font-mono text-xs opacity-75">{s.date}</span>}
+                      {s.date && <span className="text-xs opacity-75">{s.date}</span>}
                     </figcaption>
                   </figure>
                 ))}

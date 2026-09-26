@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { FOCUS_RING } from "../primitives";
 import { usePageVisible, useReducedMotion } from "./motion";
 
 function Chevron({ className = "" }: { className?: string }) {
@@ -123,7 +124,7 @@ export function QuoteCarousel({
             type="button"
             onClick={() => go(index - 1)}
             aria-label={prevLabel}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-fg ring-1 ring-line transition hover:bg-primary hover:text-primary-fg"
+            className={`flex h-10 w-10 items-center justify-center rounded-full bg-surface text-fg ring-1 ring-line transition hover:bg-primary hover:text-primary-fg ${FOCUS_RING}`}
           >
             <Chevron className={dir === "rtl" ? "" : "rotate-180"} />
           </button>
@@ -136,7 +137,7 @@ export function QuoteCarousel({
                 aria-label={`${i + 1} / ${count}`}
                 aria-current={i === index ? "true" : undefined}
                 onClick={() => go(i)}
-                className="group flex h-7 min-w-7 shrink-0 items-center justify-center px-0.5"
+                className={`group flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-0.5 ${FOCUS_RING}`}
               >
                 <span aria-hidden className={`h-2 rounded-full transition-all ${i === index ? "w-7 bg-accent" : "w-2 bg-line group-hover:bg-muted"}`} />
               </button>
@@ -146,7 +147,7 @@ export function QuoteCarousel({
             type="button"
             onClick={() => go(index + 1)}
             aria-label={nextLabel}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-fg ring-1 ring-line transition hover:bg-primary hover:text-primary-fg"
+            className={`flex h-10 w-10 items-center justify-center rounded-full bg-surface text-fg ring-1 ring-line transition hover:bg-primary hover:text-primary-fg ${FOCUS_RING}`}
           >
             <Chevron className={dir === "rtl" ? "rotate-180" : ""} />
           </button>

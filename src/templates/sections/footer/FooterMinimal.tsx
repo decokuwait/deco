@@ -13,7 +13,7 @@ export function FooterMinimal({ ctx }: SectionProps) {
       <Container className="flex flex-col items-center gap-5 py-8 text-center lg:flex-row lg:justify-between lg:gap-6 lg:text-start">
         <a href="/#top" className="flex items-center gap-2.5">
           {c.brand.logoUrl ? (
-            <Img src={c.brand.logoUrl} alt="" className="h-8 w-auto object-contain" />
+            <Img src={c.brand.logoUrl} alt={name} ratio={null} className="h-8 w-auto object-contain" />
           ) : (
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-heading text-sm font-black text-primary-fg">{name.trim().charAt(0)}</span>
           )}

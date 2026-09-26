@@ -13,7 +13,7 @@ export function FooterColumns({ ctx }: SectionProps) {
       <Container className="relative grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div className="flex items-center gap-3">
-            {c.brand.logoUrl ? <Img src={c.brand.logoUrl} alt="" className="h-10 w-auto object-contain" /> : null}
+            {c.brand.logoUrl ? <Img src={c.brand.logoUrl} alt={ctx.text(c.brand.name)} ratio={null} className="h-10 w-auto object-contain" /> : null}
             <span className="font-heading text-xl font-extrabold">{ctx.text(c.brand.name)}</span>
           </div>
           <p className="mt-4 max-w-xs text-sm leading-relaxed opacity-80">{ctx.text(c.brand.tagline)}</p>
@@ -39,18 +39,22 @@ export function FooterColumns({ ctx }: SectionProps) {
             ))}
           </ul>
         </div>
-        <div>
-          <h3 className="font-heading text-base font-bold">{ctx.ui("nav_services")}</h3>
-          <ul className="mt-4 space-y-2 text-sm opacity-85">
-            {c.services.items.slice(0, 6).map((s) => (
-              <li key={s.id}>
-                <a href="/#services" className="inline-flex min-h-6 items-center hover:text-accent">
-                  {ctx.text(s.title)}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* A heading with nothing under it: the column printed "خدماتنا" and an empty list whenever the
+            owner had not added a service yet. Hide it, the way every other empty section hides itself. */}
+        {c.services.items.length > 0 && (
+          <div>
+            <h3 className="font-heading text-base font-bold">{ctx.ui("nav_services")}</h3>
+            <ul className="mt-4 space-y-2 text-sm opacity-85">
+              {c.services.items.slice(0, 6).map((s) => (
+                <li key={s.id}>
+                  <a href="/#services" className="inline-flex min-h-6 items-center hover:text-accent">
+                    {ctx.text(s.title)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div>
           <h3 className="font-heading text-base font-bold">{ctx.ui("nav_contact")}</h3>
           <ul className="mt-4 space-y-2 text-sm opacity-85">

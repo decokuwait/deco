@@ -50,6 +50,24 @@ function pick(ctx: RenderCtx, key: SectionKey): ComponentType<SectionProps> {
   }
 }
 
+/**
+ * First stop in the tab order, and invisible until it is focused.
+ *
+ * Every page of every template opens with the same six nav links, a language switch and a WhatsApp CTA.
+ * Without this, a keyboard or screen-reader visitor walked all of it again on every page before reaching
+ * a word of content. WCAG 2.4.1.
+ */
+function SkipLink({ ctx }: { ctx: RenderCtx }) {
+  return (
+    <a
+      href="#main"
+      className="sr-only focus:not-sr-only focus:absolute focus:z-[200] focus:m-3 focus:rounded-card focus:bg-primary focus:px-4 focus:py-2.5 focus:font-bold focus:text-primary-fg focus:shadow-lg"
+    >
+      {ctx.ui("skip_to_content")}
+    </a>
+  );
+}
+
 /** Site chrome (theme wrapper, fonts, nav, footer, floating WhatsApp) around any inner page such as /privacy. */
 export function TemplateShell({ ctx, children }: { ctx: RenderCtx; children: React.ReactNode }) {
   const tokens = effectiveTokens(ctx.def, ctx.site);
@@ -58,8 +76,11 @@ export function TemplateShell({ ctx, children }: { ctx: RenderCtx; children: Rea
   return (
     <div className="tpl min-h-dvh" style={tokensToStyle(tokens)} dir={ctx.dir} lang={ctx.locale} data-template={ctx.def.code}>
       {ctx.preview && <HtmlLang locale={ctx.locale} />}
+      <SkipLink ctx={ctx} />
       <Nav ctx={ctx} />
-      <main>{children}</main>
+      <main id="main" tabIndex={-1}>
+        {children}
+      </main>
       <Footer ctx={ctx} />
       <FloatingWhatsApp ctx={ctx} />
     </div>
@@ -78,8 +99,9 @@ export function TemplateRenderer({ ctx }: { ctx: RenderCtx }) {
   return (
     <div className="tpl min-h-dvh" style={tokensToStyle(tokens)} dir={ctx.dir} lang={ctx.locale} data-template={ctx.def.code}>
       {ctx.preview && <HtmlLang locale={ctx.locale} />}
+      <SkipLink ctx={ctx} />
       <Nav ctx={ctx} />
-      <main>
+      <main id="main" tabIndex={-1}>
         {order.map((key) => {
           if (!sectionEnabled(ctx, key)) return null;
           const C = pick(ctx, key);

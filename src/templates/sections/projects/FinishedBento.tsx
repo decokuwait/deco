@@ -2,7 +2,8 @@ import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading, cx } from "../../ui/primitives";
 import { GalleryFrame, GalleryOpen } from "../../ui/client/GalleryFrame";
 import { PlayBadge } from "../../ui/client/Lightbox";
-import { coverOf, lightboxItems, projectsOf } from "../shared/helpers";
+import { SIZES } from "../../ui/img";
+import { coverOf, lightboxItems, projectAlt, projectsOf } from "../shared/helpers";
 
 /** Bento grid: the first project spans 2x2, the rest fill around it; titles sit on dark overlays. */
 export function FinishedBento({ ctx }: SectionProps) {
@@ -26,7 +27,7 @@ export function FinishedBento({ ctx }: SectionProps) {
                   label={ctx.text(pr.title)}
                   className={cx("group relative block h-full w-full overflow-hidden rounded-card bg-surface-2 text-start ring-1 ring-line", big && "col-span-2 row-span-2", wide && !big && "col-span-2")}
                 >
-                  <Img src={coverOf(pr)} alt={ctx.text(pr.title)} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                  <Img src={coverOf(pr)} alt={projectAlt(ctx, pr)} sizes={SIZES.quarter} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                   {hasVideo && <PlayBadge />}
                   <div className="tone-dark absolute inset-x-0 bottom-0 p-3 text-white sm:p-4">

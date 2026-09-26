@@ -16,7 +16,7 @@ export function FooterCentered({ ctx }: SectionProps) {
       <Container className="relative flex flex-col items-center py-14 text-center">
         <a href="/#top" className="flex flex-col items-center gap-3">
           {c.brand.logoUrl ? (
-            <Img src={c.brand.logoUrl} alt="" className="h-14 w-auto object-contain" />
+            <Img src={c.brand.logoUrl} alt={name} ratio={null} className="h-14 w-auto object-contain" />
           ) : (
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary font-heading text-2xl font-black text-primary-fg ring-4 ring-accent/30">
               {name.trim().charAt(0)}

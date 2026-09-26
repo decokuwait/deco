@@ -47,6 +47,27 @@ export const SITE_UI = {
   next_slide: { ar: "التالي", en: "Next" },
   go_to_slide: { ar: "اذهب إلى الشريحة", en: "Go to slide" },
   privacy_policy: { ar: "سياسة الخصوصية", en: "Privacy policy" },
+  skip_to_content: { ar: "تخطَّ إلى المحتوى", en: "Skip to content" },
+  photo: { ar: "صورة من أعمالنا", en: "Photo of our work" },
+  // For /projects and /services, the pages that give each project and service its own URL.
+  all_projects: { ar: "كل الأعمال", en: "All projects" },
+  view_project: { ar: "شاهد المشروع", en: "View project" },
+  photo_gallery: { ar: "معرض الصور", en: "Photo gallery" },
+  related_projects: { ar: "أعمال مشابهة", en: "Related work" },
+  related_services: { ar: "خدمات ذات صلة", en: "Related services" },
+  no_projects_title: { ar: "لم نضف أعمالنا بعد", en: "Our work is not online yet" },
+  no_projects_text: { ar: "ننفّذ مشاريع كل أسبوع وسنضيف صورها هنا قريباً. تواصل معنا الآن لنعرض عليك أعمالنا مباشرة.", en: "We deliver projects every week and the photos are going up here shortly. Message us now and we will show you our work directly." },
+  ask_about: { ar: "استفساري عن", en: "I am asking about" },
+  prev_page: { ar: "الصفحة السابقة", en: "Previous page" },
+  next_page: { ar: "الصفحة التالية", en: "Next page" },
+  // Tracking notice. Kuwait has no general data protection law and the CITRA rules bind
+  // licensed telecom providers only; this exists for the ad platforms' own business-tool terms, which
+  // outside the EEA ask for disclosure. Kept to one line so it does not fight the page for attention.
+  consent_text: { ar: "نستخدم ملفات تعريف الارتباط وأدوات قياس من منصات الإعلان لتحسين خدمتنا ومتابعة طلبك.", en: "We use cookies and ad-platform measurement tools to improve our service and follow up on your request." },
+  consent_accept: { ar: "موافق", en: "Accept" },
+  consent_decline: { ar: "بدون تتبّع", en: "No tracking" },
+  consent_dismiss: { ar: "حسناً", en: "Got it" },
+  consent_more: { ar: "سياسة الخصوصية", en: "Privacy policy" },
 } satisfies Record<string, LText>;
 
 export type SiteUiKey = keyof typeof SITE_UI;

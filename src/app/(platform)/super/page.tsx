@@ -1,8 +1,10 @@
 import { requireSuper, sp1, superError, type SearchParams } from "./_lib/guard";
 import { SuperPanel } from "./_components/Panel";
 import { PageHeader, Flash, LinkButton, Badge, EmptyState } from "@/components/admin/ui";
+import { BillingBadge, PlanSummary } from "./_components/Billing";
 import { listSites } from "@/lib/db/sites";
 import { CATEGORY_LABELS } from "@/lib/types";
+import { billingStatus, todayIso } from "@/lib/billing";
 import { getTemplate } from "@/templates/registry";
 import { siteUrl, rootPort } from "@/lib/config";
 
@@ -12,15 +14,27 @@ export default async function SitesPage({ searchParams }: { searchParams: Search
   const { t, locale } = ctx;
   const sites = await listSites();
   const port = rootPort();
+  const today = todayIso();
+  // Anything overdue or about to lapse is sorted to the top: the list is the closest thing this platform
+  // has to a collections dashboard, and a site that has gone dark for non-payment is the one thing on this
+  // page that needs acting on today.
+  const ordered = [...sites].sort((a, b) => {
+    const rank = (paidUntil: string | null) => {
+      const s = billingStatus(paidUntil, today).state;
+      return s === "overdue" ? 0 : s === "expiring" ? 1 : s === "unsold" ? 2 : 3;
+    };
+    return rank(a.paidUntil) - rank(b.paidUntil);
+  });
+  const savedText = sp1(sp.saved) === "soft_deleted" ? t("soft_deleted") : t("saved");
   return (
     <SuperPanel ctx={ctx} active="sites">
       <PageHeader title={t("sites")} subtitle={`${sites.length}`} actions={<LinkButton href="/super/sites/new" variant="primary">+ {t("new_site")}</LinkButton>} />
-      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} translate={superError(t)} />
+      <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={savedText} errorText={t("error")} translate={superError(t)} />
       {sites.length === 0 ? (
         <EmptyState title={t("no_sites")} action={<LinkButton href="/super/sites/new" variant="primary">{t("new_site")}</LinkButton>} />
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
-          {sites.map((s) => {
+          {ordered.map((s) => {
             const tpl = getTemplate(s.templateCode);
             const primary = s.domains.find((d) => d.kind === "subdomain") ?? s.domains[0];
             const host = primary ? `${primary.hostname}${port}` : null;
@@ -37,6 +51,10 @@ export default async function SitesPage({ searchParams }: { searchParams: Search
                         {s.templateCode} {tpl ? `· ${tpl.name[locale]}` : ""}
                       </Badge>
                       <Badge tone={s.status === "active" ? "green" : "amber"}>{s.status === "active" ? t("active") : t("paused")}</Badge>
+                      <BillingBadge paidUntil={s.paidUntil} t={t} today={today} />
+                    </div>
+                    <div className="mt-1">
+                      <PlanSummary plan={s.plan} priceFils={s.priceFils} cycle={s.billingCycle} locale={locale} t={t} />
                     </div>
                   </div>
                   <span className="h-10 w-10 shrink-0 rounded-xl" style={{ background: tpl?.tokens.primary ?? "#999" }} />

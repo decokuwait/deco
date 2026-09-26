@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
 
 /** Image with offset accent frame beside the story text and highlight points. */
 export function AboutSplit({ ctx }: SectionProps) {
@@ -11,7 +12,7 @@ export function AboutSplit({ ctx }: SectionProps) {
         <div className="relative order-2 lg:order-1">
           <div aria-hidden className="absolute -start-4 -top-4 h-full w-full rounded-card border-2 border-accent" />
           <div className="relative aspect-[4/3] overflow-hidden rounded-card">
-            <Img src={a.imageUrl || ctx.site.content.hero.imageUrl} alt={ctx.text(a.title)} className="h-full w-full object-cover" />
+            <Img src={a.imageUrl || ctx.site.content.hero.imageUrl} alt={ctx.text(a.title)} sizes={SIZES.half} className="h-full w-full object-cover" />
           </div>
         </div>
         <div className="order-1 lg:order-2">

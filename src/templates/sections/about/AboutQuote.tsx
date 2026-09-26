@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
 import { longTextFont } from "../shared/helpers";
 
 function QuoteMark({ className = "" }: { className?: string }) {
@@ -55,7 +56,7 @@ export function AboutQuote({ ctx }: SectionProps) {
           <div className={cx("mt-12 grid gap-3 sm:mt-16 sm:gap-4", stripCols)}>
             {imgs.map((src, i) => (
               <div key={src} className={cx("overflow-hidden rounded-card shadow-lg", imgs.length === 1 ? "aspect-[21/9]" : "aspect-[4/5]", imgs.length > 1 && i % 2 === 1 && "sm:translate-y-6")}>
-                <Img src={src} alt={ctx.text(brand.name)} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+                <Img src={src} alt={ctx.text(brand.name)} sizes={SIZES.third} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
               </div>
             ))}
           </div>

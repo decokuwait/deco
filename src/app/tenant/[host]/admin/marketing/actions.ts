@@ -8,8 +8,9 @@ import { getPixel, upsertPixel } from "@/lib/db/pixels";
 import { patchSiteContent } from "@/lib/db/sites";
 import { dispatchEvent, testVisitor } from "@/lib/marketing/dispatch";
 import { EVENT_KEYS } from "@/lib/marketing/mapping";
+import { xFirstMappedEventKey } from "@/lib/marketing/providers/x";
 import { siteUrl } from "@/lib/config";
-import { isPlatform, type EventKey } from "@/lib/types";
+import { CONSENT_MODES, SIGNAL_MODES, isPlatform, type ConsentMode, type EventKey, type Platform, type SignalMode } from "@/lib/types";
 
 export async function savePixel(host: string, platform: string, fd: FormData) {
   const { site } = await requireSiteAdmin(host);
@@ -55,8 +56,15 @@ export async function savePixel(host: string, platform: string, fd: FormData) {
 
 export async function saveSignalMode(host: string, fd: FormData) {
   const { site } = await requireSiteAdmin(host);
-  const mode = readStr(fd, "signalMode", 10) === "all" ? "all" : "smart";
-  await patchSiteContent(site.id, { settings: { signalMode: mode } });
+  const raw = readStr(fd, "signalMode", 12);
+  // Unrecognised input falls back to the mode that under-reports rather than the one that fans out:
+  // a lost conversion is a missing number, a duplicated one moves real money to the wrong platform.
+  const mode: SignalMode = (SIGNAL_MODES as string[]).includes(raw) ? (raw as SignalMode) : "source";
+  const primaryRaw = readStr(fd, "primaryPlatform", 20);
+  const primaryPlatform: Platform | null = isPlatform(primaryRaw) ? primaryRaw : null;
+  const consentRaw = readStr(fd, "consentMode", 12);
+  const consentMode: ConsentMode = (CONSENT_MODES as string[]).includes(consentRaw) ? (consentRaw as ConsentMode) : "notice";
+  await patchSiteContent(site.id, { settings: { signalMode: mode, primaryPlatform, consentMode } });
   revalidatePath("/", "layout");
   redirect(withQuery("/admin/marketing", { saved: "1" }));
 }
@@ -67,11 +75,19 @@ export async function sendTestEvent(host: string, platform: string) {
   if (!isPlatform(platform)) redirect("/admin/marketing?error=bad_platform");
   const pixel = await getPixel(site.id, platform);
   if (!pixel || !pixel.pixelId) redirect(withQuery("/admin/marketing", { tested: platform, ok: "0", msg: "pixel_not_configured" }) + `#${platform}`);
+  // X has no standard event names, so "contacted" resolves to "" and the test could only ever report
+  // missing_event_id. Test with whatever the owner HAS mapped, which is what they want to verify.
+  let eventKey: EventKey = "contacted";
+  if (platform === "x") {
+    const mapped = xFirstMappedEventKey(pixel);
+    if (!mapped) redirect(withQuery("/admin/marketing", { tested: platform, ok: "0", msg: "no_mapped_event" }) + `#${platform}`);
+    eventKey = mapped;
+  }
   const url = siteUrl(host);
   const result = await dispatchEvent({
     activePixels: [{ ...pixel, active: true }],
     visitor: testVisitor(url),
-    eventKey: "contacted",
+    eventKey,
     stage: "contacted",
     test: true,
     signalMode: "all",
@@ -81,7 +97,9 @@ export async function sendTestEvent(host: string, platform: string) {
   // Only a code travels in the URL. The provider's own words go to the function log: they are attacker-
   // influenceable text that would otherwise be rendered inside the panel, and for Snapchat/GA4 the failing
   // request can quote a URL that carries the token.
-  const code = !d ? "no_delivery" : d.skipped ? d.skipped : d.ok ? "ok" : d.error ? "network" : `status_${d.status ?? 0}`;
+  // An expired token and a retired API version are named, because they are the two failures that break
+  // every event for every tenant at once and cannot be waited out.
+  const code = !d ? "no_delivery" : d.skipped ? d.skipped : d.ok ? "ok" : d.alarm ? d.alarm : d.error ? "network" : `status_${d.status ?? 0}`;
   if (d && !d.ok) console.error(`[test-event] ${platform} failed:`, { status: d.status, error: d.error, response: d.response });
   redirect(withQuery("/admin/marketing", { tested: platform, ok: d?.ok ? "1" : "0", msg: code }) + `#${platform}`);
 }

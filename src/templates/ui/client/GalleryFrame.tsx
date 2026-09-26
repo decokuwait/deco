@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { Gallery, type LightboxItem } from "./Lightbox";
+import { FOCUS_RING } from "../primitives";
 
 const OpenCtx = createContext<(index: number) => void>(() => {});
 
@@ -34,7 +35,7 @@ export function GalleryOpen({
 }) {
   const open = useContext(OpenCtx);
   return (
-    <button type="button" onClick={() => open(index)} className={className} aria-label={label} disabled={disabled}>
+    <button type="button" onClick={() => open(index)} className={`${className} ${FOCUS_RING}`} aria-label={label} disabled={disabled}>
       {children}
     </button>
   );

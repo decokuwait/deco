@@ -9,7 +9,7 @@ import { buildCtx } from "@/templates/ctx";
 import { TemplateRenderer } from "@/templates/render/TemplateRenderer";
 import { previewSiteData } from "@/lib/preview";
 import { CATEGORY_LABELS, type Locale } from "@/lib/types";
-import { rootUrl } from "@/lib/config";
+import { APP_NAME, rootUrl } from "@/lib/config";
 
 // The gallery thumbnails are fixed files in public/; checking the directory once per process beats a
 // synchronous existsSync on every request (a crawler walking all 60 previews paid 60 of them).
@@ -43,15 +43,30 @@ export async function generateMetadata({ params, searchParams }: { params: Param
   const def = getTemplate(code);
   if (!def) return { title: "Template not found" };
   const locale = previewLocale(await searchParams);
-  const title = `${def.code} · ${def.name.ar} · ${def.name.en}`;
+  const title = `${def.name.ar} — قالب ${CATEGORY_LABELS[def.category].ar} رقم ${def.code}`;
   const description = locale === "en" ? def.description.en : def.description.ar;
   const canonical = rootUrl(`/template/${def.code}`);
   const image = hasThumb(def.code) ? rootUrl(`/templates/${def.code}.jpg`) : undefined;
   return {
     title,
     description,
-    alternates: { canonical, languages: { ar: `${canonical}?lang=ar`, en: `${canonical}?lang=en`, "x-default": canonical } },
-    openGraph: { title, description, type: "website", url: canonical, siteName: "DecoKuwait", images: image ? [image] : [] },
+    /**
+     * `noindex, follow`.
+     *
+     * Every one of the fifteen gypsum previews renders the *same* demo Arabic body text, so to a search
+     * engine this is one page published sixty times on the money domain — and the old `<title>`,
+     * `101 · الديرة · Al Deera`, was a code and two design names with no search intent behind either.
+     * `follow` is kept deliberately: the links out of a preview should still carry weight to `/templates`
+     * and the four category pages, which are the pages that are meant to rank.
+     */
+    robots: { index: false, follow: true },
+    /**
+     * No `alternates.languages` any more. It pointed hreflang at `?lang=ar` / `?lang=en` URLs that
+     * canonicalise to this bare one; Google requires an hreflang cluster to be reciprocal and
+     * self-consistent and discards one that is not — wholesale, taking the valid annotations with it.
+     */
+    alternates: { canonical },
+    openGraph: { title, description, type: "website", url: canonical, siteName: APP_NAME, images: image ? [image] : [] },
     twitter: { card: image ? "summary_large_image" : "summary", title, description, images: image ? [image] : undefined },
   };
 }

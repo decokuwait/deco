@@ -115,7 +115,17 @@ export default async function ProjectsPage({ params, searchParams }: { params: P
                           {t("edit")}
                         </LinkButton>
                         <form action={deleteProjectAction.bind(null, host, p.id)}>
-                          <ConfirmButton message={t("confirm_delete")}>{t("delete")}</ConfirmButton>
+                          <ConfirmButton
+                            message={t("confirm_delete_project")}
+                            detail={p.title[locale] || p.title.ar || p.title.en}
+                            labels={{ title: t("confirm_title"), confirm: t("delete"), cancel: t("cancel") }}
+                            // Deleting a project with photos also deletes the files; typing its name is
+                            // the difference between a decision and a mis-tap on a phone.
+                            requireText={p.media.length > 0 ? p.title[locale] || p.title.ar || p.title.en : undefined}
+                            requireHint={t("type_name_to_confirm")}
+                          >
+                            {t("delete")}
+                          </ConfirmButton>
                         </form>
                       </div>
                     </li>

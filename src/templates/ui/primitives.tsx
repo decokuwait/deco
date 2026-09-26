@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { MediaItem } from "@/lib/types";
 import type { ButtonStyle, RenderCtx } from "../types";
 import { dividerPath } from "../decor/patterns";
+import { AR_LEADING } from "../leading";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -64,14 +65,24 @@ export function SectionHeading({
       {eyebrow && (
         <span className={cx("mb-3 inline-block text-xs font-bold uppercase tracking-widest", light ? "text-accent-text" : "text-primary-text")}>{eyebrow}</span>
       )}
-      <h2 className="font-heading text-3xl font-extrabold leading-tight sm:text-4xl">{title}</h2>
+      <h2 className={cx("font-heading text-3xl font-extrabold leading-tight sm:text-4xl", AR_LEADING)}>{title}</h2>
       {subtitle && <p className={cx("mt-3 text-base sm:text-lg", light ? "opacity-85" : "text-muted")}>{subtitle}</p>}
     </div>
   );
 }
 
+/**
+ * The site's focus indicator, on every shared control class below.
+ *
+ * Nothing here designed one, so a keyboard visitor was left with whatever the browser drew on top of a
+ * branded surface — and with nothing at all where a component had switched the outline off. One token,
+ * in the accent's text-legible variant (which the `tone-*` bands re-point for themselves), keeps the
+ * indicator visible on every background the templates use. WCAG 2.4.7.
+ */
+export const FOCUS_RING = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text";
+
 export function buttonClass(style: ButtonStyle, variant: "primary" | "accent" | "ghost" | "light" = "primary", size: "md" | "lg" = "md") {
-  const base = "inline-flex items-center justify-center gap-2 font-bold transition-all duration-200 select-none whitespace-nowrap";
+  const base = cx("inline-flex items-center justify-center gap-2 font-bold transition-all duration-200 select-none whitespace-nowrap", FOCUS_RING);
   const sizes = size === "lg" ? "px-7 py-3.5 text-base sm:text-lg" : "px-5 py-2.5 text-sm sm:text-base";
   const shape =
     style === "pill"
@@ -128,6 +139,7 @@ export function chromeButtonClass({ round = false, icon = false, slim = false }:
   return cx(
     "inline-flex shrink-0 items-center justify-center gap-1.5 border border-line bg-surface-2 text-fg shadow-sm transition",
     "hover:border-primary/40 hover:bg-surface hover:shadow active:scale-95",
+    FOCUS_RING,
     round ? "rounded-full" : "rounded-card",
     icon ? "h-11 w-11" : cx("h-11 text-xs font-bold", slim ? "px-3" : "px-3.5"),
   );
@@ -157,16 +169,59 @@ export function Btn({
   );
 }
 
-export function Img({ src, alt = "", className = "", eager = false, sizes, style }: { src?: string | null; alt?: string; className?: string; eager?: boolean; sizes?: string; style?: CSSProperties }) {
+/**
+ * Intrinsic size for a remote picture whose real dimensions are not known at render time. Only the
+ * *ratio* matters: it reserves a box of the right shape before the file arrives, so a section that
+ * forgets to wrap its image in an `aspect-[…]` container no longer shifts the page when the image loads.
+ * Every call site that does size the image in CSS (`h-full w-full`, an `aspect-*` parent) overrides it,
+ * which is why it is safe to default. `ratio={null}` is for a picture whose own proportions decide its
+ * width — a logo set with `h-10 w-auto` — where claiming a ratio it does not have sets that width wrong.
+ */
+export function intrinsic(ratio: string | null): { width?: number; height?: number } {
+  if (!ratio) return {};
+  const [w, h] = ratio.split("/").map(Number);
+  if (!w || !h) return {};
+  return { width: 1600, height: Math.round((1600 * h) / w) };
+}
+
+/**
+ * `alt` is required, and `""` is not a description: an empty alt declares a picture decorative, and on a
+ * decoration portfolio the photographs *are* the content (WCAG 1.1.1 Level A). Callers derive it from the
+ * authored `MediaItem.alt`, the caption, or the project's title and location — see `mediaAlt`.
+ */
+export function Img({ src, alt, className = "", eager = false, sizes, ratio = "4/3", style }: { src?: string | null; alt: string; className?: string; eager?: boolean; sizes?: string; ratio?: string | null; style?: CSSProperties }) {
   if (!src) return <div className={cx("bg-surface-2", className)} style={style} aria-hidden />;
   // Eager images are the LCP candidates (hero, first cards): tell the browser to fetch them first.
-  return <img src={src} {...responsiveSrc(src, sizes)} alt={alt} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className={className} style={style} />;
+  return (
+    <img
+      src={src}
+      {...responsiveSrc(src, sizes)}
+      {...intrinsic(ratio)}
+      alt={alt}
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : undefined}
+      decoding="async"
+      className={className}
+      style={style}
+    />
+  );
+}
+
+/**
+ * A `<video preload="metadata">` with no poster paints a black rectangle until it is played — in the
+ * template gallery a prospect is looking at, that is what a whole progress section looks like. The media
+ * fragment asks the browser to seek to the first frame while it loads the metadata it was going to load
+ * anyway, so the frame itself becomes the poster.
+ */
+export function posterSrc(item: Pick<MediaItem, "url" | "posterUrl">): string {
+  if (!item.url || item.posterUrl || item.url.includes("#")) return item.url;
+  return `${item.url}#t=0.1`;
 }
 
 export function Video({ item, className = "", autoPlay = false, controls = true }: { item: Pick<MediaItem, "url" | "posterUrl">; className?: string; autoPlay?: boolean; controls?: boolean }) {
   return (
     <video
-      src={item.url}
+      src={posterSrc(item)}
       poster={item.posterUrl || undefined}
       className={className}
       controls={controls}
@@ -179,9 +234,13 @@ export function Video({ item, className = "", autoPlay = false, controls = true 
   );
 }
 
-export function Media({ item, className = "", autoPlay = false }: { item: MediaItem; className?: string; autoPlay?: boolean }) {
+/**
+ * Any media item, image or video. `alt` is required and reaches the image: this component had no alt prop
+ * at all, so every gallery picture that routed through it shipped `alt=""`.
+ */
+export function Media({ item, alt, className = "", autoPlay = false, sizes, ratio = "4/3" }: { item: MediaItem; alt: string; className?: string; autoPlay?: boolean; sizes?: string; ratio?: string | null }) {
   if (item.kind === "video") return <Video item={item} className={className} autoPlay={autoPlay} />;
-  return <Img src={item.url} alt="" className={className} />;
+  return <Img src={item.url} alt={alt} className={className} sizes={sizes} ratio={ratio} />;
 }
 
 export function Divider({ ctx, from = "bg", flip = false }: { ctx: RenderCtx; from?: "bg" | "surface" | "surface2" | "primary" | "secondary"; flip?: boolean }) {

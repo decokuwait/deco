@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
-import { Container, PhoneIcon, WhatsAppIcon, buttonClass } from "../../ui/primitives";
+import { Container, PhoneIcon, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
+import { AR_LEADING } from "../../leading";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 import { formatPhone } from "../shared/helpers";
 
@@ -15,7 +16,7 @@ export function CtaMinimal({ ctx }: SectionProps) {
     <section className="bg-bg py-20 text-fg sm:py-28 lg:py-32">
       <Container className="max-w-2xl text-center">
         <span aria-hidden className="mx-auto mb-8 block h-px w-16 bg-accent" />
-        <h2 className="font-heading text-2xl font-bold leading-snug sm:text-3xl">{ctx.text(c.title)}</h2>
+        <h2 className={cx("font-heading text-2xl font-bold leading-snug sm:text-3xl", AR_LEADING)}>{ctx.text(c.title)}</h2>
         {subtitle && <p className="mt-3 text-base text-muted sm:text-lg">{subtitle}</p>}
         <div className="mt-8 flex flex-col items-center justify-center gap-5 sm:flex-row sm:gap-8">
           <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(style, "primary", "md")}>

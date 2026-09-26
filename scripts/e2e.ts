@@ -130,13 +130,22 @@ async function main() {
     check(page.url().includes("tested=meta"), "send test event reports a result for Meta");
     void testBtn;
 
+    // A Server Action that redirects to the URL the page is already on is a soft navigation, so there is
+    // no `waitForURL` to hang on: wait for the action's POST and let the re-render settle instead.
+    const saveAndSettle = async (locator: ReturnType<Page["locator"]>) => {
+      await Promise.all([page.waitForResponse((r) => r.request().method() === "POST", { timeout: 30000 }), locator.click()]);
+      await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {});
+      await page.waitForTimeout(400);
+    };
+
     // content: hero title
     await page.goto(`${tenant}/admin/content/hero`);
     await page.fill('input[name="hero.title.ar"]', "عنوان تجريبي جديد");
     await page.fill('input[name="hero.title.en"]', "Brand new e2e title");
     await page.locator('button[type="submit"]').last().click();
     await page.waitForURL(/saved=1/);
-    const siteHtml = await (await hfetch("demo", "/", "dk_lang=en")).text();
+    check((await page.locator('input[name="hero.title.en"]').inputValue()) === "Brand new e2e title", "edited hero title is stored and comes back in the editor");
+    const siteHtml = await (await hfetch("demo", "/?lang=en")).text();
     check(siteHtml.includes("Brand new e2e title"), "edited hero title appears on the public site");
 
     // services list: add, then delete
@@ -148,10 +157,32 @@ async function main() {
     await page.waitForURL(/saved=1/);
     const after = await page.locator('input[name^="rows."][name$=".id"]').count();
     check(after === before + 1, `service added through the list editor (${before} -> ${after})`);
-    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.locator('button[name="op"][value="delete:0"]').click()]);
-    check((await page.locator('input[name^="rows."][name$=".id"]').count()) === after - 1, "service deleted through the list editor");
-    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.locator('button[name="op"][value="move:1:up"]').click()]);
-    check(page.url().includes("saved=1"), "service moved up through the list editor");
+    // Reordering and removing are now done on the device and travel with the one save at the bottom of
+    // the page, so neither costs a page load. Removing is undoable right up to that save.
+    const secondService = await page.locator('input[name="rows.1.title.en"]').inputValue();
+    await page.locator('[data-dk="rows-up"]').nth(1).click();
+    check((await page.locator('input[name="rows.order"]').inputValue()).startsWith("1,0"), "moving a service up does not reload the page");
+    // The moved row is now first in the DOM too, so this removes an untouched one further down.
+    await page.locator('[data-dk="rows-remove"]').last().click();
+    check((await page.locator('input[name="rows.removed"]').inputValue()) !== "", "removing a service is staged, not submitted");
+    await page.locator('[data-dk="rows-undo"]').first().click();
+    check((await page.locator('input[name="rows.removed"]').inputValue()) === "", "removing a service can be undone before saving");
+    await page.locator('[data-dk="rows-remove"]').last().click();
+    await saveAndSettle(page.locator('form button[type="submit"]').last());
+    check(page.url().includes("saved=1") && (await page.locator('input[name^="rows."][name$=".id"]').count()) === after - 1, "the staged removal and reorder are applied by the one save");
+    const nowFirst = await page.locator('input[name="rows.0.title.en"]').inputValue();
+    check(nowFirst === secondService, `the reordered service is now first (${secondService} -> ${nowFirst})`);
+
+    // A form rendered from content that has since changed elsewhere is refused instead of overwriting it.
+    const staleVersion = await page.locator('input[name="__version"]').inputValue();
+    await page.evaluate(() => {
+      const el = document.querySelector('input[name="__version"]') as HTMLInputElement | null;
+      if (el) el.value = "0000000000000000";
+    });
+    await saveAndSettle(page.locator('form button[type="submit"]').last());
+    check(page.url().includes("error=content_changed") && staleVersion.length > 0, "a stale editor is refused rather than silently deleting another tab's work");
+    const stillThere = await page.goto(`${tenant}/admin/content/services`);
+    check(!!stillThere && (await page.locator('input[name^="rows."][name$=".id"]').count()) === after - 1, "the refused save changed nothing");
 
     // theme override
     await page.goto(`${tenant}/admin/content/theme`);
@@ -177,16 +208,24 @@ async function main() {
     }, null, { timeout: 20000 });
     await uploadForm.locator('button[type="submit"]').last().click();
     await page.waitForURL(/saved=media/);
-    check((await page.locator('form input[name="op"], form button[name="op"][value="delete"]').count()) > 0, "uploaded image added as project media");
+    check((await page.locator('input[name^="media."][name$=".id"]').count()) > 0, "uploaded image added as project media");
+    // Alt text and the focal point are edited in the same form as everything else and saved by the one
+    // "save all" button — the page no longer has four buttons that all say "حفظ".
+    await page.fill('input[name="media.0.alt.en"]', "Gypsum ceiling detail");
+    await page.locator('input[name="media.0.focal"][value="top"]').check({ force: true });
+    await page.locator("form").filter({ has: page.locator('input[name="published"]') }).locator('button[type="submit"]').last().click();
+    await page.waitForURL(/saved=1/);
+    check((await page.locator('input[name="media.0.alt.en"]').inputValue()) === "Gypsum ceiling detail", "photo description saved with the project, in one submit");
+    check(await page.locator('input[name="media.0.focal"][value="top"]').isChecked(), "focal point saved with the project");
     const mediaUrl = await page.locator("img").filter({ hasNot: page.locator("[alt]:not([alt=''])") }).last().getAttribute("src");
     check(!!mediaUrl && (await hfetch("demo", mediaUrl)).status === 200, `uploaded file is served back (${mediaUrl ?? "no media url"})`);
-    const publicSite = await (await hfetch("demo", "/", "dk_lang=en")).text();
+    const publicSite = await (await hfetch("demo", "/?lang=en")).text();
     check(publicSite.includes("E2E project"), "new finished project appears on the public site");
     await page.goto(projectUrl);
     await page.locator('input[name="published"]').uncheck({ force: true });
     await page.locator("form").filter({ has: page.locator('input[name="published"]') }).locator('button[type="submit"]').last().click();
     await page.waitForURL(/saved=1/);
-    check(!(await (await hfetch("demo", "/", "dk_lang=en")).text()).includes("E2E project"), "unpublished project disappears from the site");
+    check(!(await (await hfetch("demo", "/?lang=en")).text()).includes("E2E project"), "unpublished project disappears from the site");
     await snap(page, "project-editor");
 
     // before/after project through the admin form (roles before + after, warning badge disappears)
@@ -212,7 +251,7 @@ async function main() {
     await addMedia("before");
     const incomplete = needsBoth(await page.locator("body").innerText());
     await addMedia("after");
-    const baHtml = await (await hfetch("demo", "/", "dk_lang=en")).text();
+    const baHtml = await (await hfetch("demo", "/?lang=en")).text();
     check(incomplete && baHtml.includes("E2E before after") && baHtml.includes('id="before-after"'), "before/after project built from the admin form renders on the site");
     await page.goto(baUrl);
     check(!needsBoth(await page.locator("body").innerText()), "before/after warning cleared once both roles exist");
@@ -237,8 +276,12 @@ async function main() {
     };
     await addStep("اليوم الأول", "Day one");
     await addStep("اليوم الثاني", "Day two");
-    await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.locator('button[name="op"][value="up"]:not([disabled])').last().click()]);
-    const progressHtml = await (await hfetch("demo", "/", "dk_lang=en")).text();
+    // Moving a photo is now instant on the device; the new order rides along with the single save.
+    await page.locator('[data-dk="media-up"]').nth(1).click();
+    check((await page.locator('input[name="media.order"]').inputValue()).startsWith("1,0"), "moving a photo up does not reload the page");
+    await page.locator("form").filter({ has: page.locator('input[name="published"]') }).locator('button[type="submit"]').last().click();
+    await page.waitForURL(/saved=1/);
+    const progressHtml = await (await hfetch("demo", "/?lang=en")).text();
     check(progressHtml.includes("E2E progress") && progressHtml.indexOf("Day two") < progressHtml.indexOf("Day one"), "progress project steps render on the site in the reordered sequence");
 
     // project type toggle
@@ -282,6 +325,13 @@ async function main() {
     await sp.fill('input[name="adminEmail"]', "ceramic-admin@example.com");
     await sp.fill('input[name="adminPassword"]', "Ceramic123!");
     await sp.check('input[name="template"][value="404"]', { force: true });
+    // A new site is created paused by default so a customer's domain never serves Google an unfinished
+    // shell. The operator publishes it when the content is in — which is what this unchecks, after
+    // confirming the toggle really does default to on.
+    const pausedToggle = sp.locator('input[name="startPaused"]');
+    check(await pausedToggle.isChecked(), "new sites default to starting paused");
+    check(!(await sp.locator('input[name="seedDemo"]').isChecked()), "demo content is off by default");
+    await pausedToggle.uncheck({ force: true });
     await sp.locator('button[type="submit"]').last().click();
     await sp.waitForURL(/\/super\/sites\/[0-9a-f-]+\?saved=(1|created)/, { timeout: 30000 });
     check(/\/super\/sites\/[0-9a-f-]{36}\?saved=created$/.test(sp.url()), "super admin created a new site from template 404 with its admin account");

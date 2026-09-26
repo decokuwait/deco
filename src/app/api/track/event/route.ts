@@ -1,14 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { getRequestSite, clientIp } from "@/lib/site-request";
-import { getVisitorByCode, incrementWhatsappClicks } from "@/lib/db/visitors";
+import { getVisitorByCodeAndSecret, incrementWhatsappClicks } from "@/lib/db/visitors";
 import { clickDedupeKey, createEvent, hasRecentEvent, setEventDeliveries } from "@/lib/db/events";
 import { getActivePixels } from "@/lib/db/pixels";
 import { dispatchEvent } from "@/lib/marketing/dispatch";
 import { isValidVisitorCode } from "@/lib/visitor/code";
 import { VISITOR_COOKIE } from "@/lib/config";
+import { VISITOR_SECRET_COOKIE, isValidVisitorSecret } from "@/lib/auth/visitor-secret";
 import { rateLimit } from "@/lib/rate-limit";
-import { isCrossSite } from "@/lib/request-origin";
+import { isCrossSite, sameHostUrl } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
 // Server-side deliveries to up to five ad platforms run in after(); give the function room beyond the 10 s default.
@@ -19,17 +20,25 @@ export const dynamic = "force-dynamic";
 const DEDUPE_MINUTES = 10;
 
 /**
- * Client-side conversion events (WhatsApp / call clicks). The visitor is identified by its own cookie only,
- * the event is stored, and delivery to the platform APIs happens after the response so the click is never
- * delayed. Google is excluded here because the browser gtag already reported the click (avoids double counting).
+ * Client-side conversion events (WhatsApp / call clicks). The visitor is identified by its own cookie pair
+ * — the readable `dk_vid` code *and* the HttpOnly `dk_vsec` secret — the event is stored, and delivery to
+ * the platform APIs happens after the response so the click is never delayed. Google is excluded here
+ * because the browser gtag already reported the click (avoids double counting).
+ *
+ * The code alone used to be enough, which meant anyone who guessed a 6-digit number could post conversions
+ * onto a stranger's lead and have them delivered to that tenant's ad accounts. The response also told them
+ * whether the guess had landed (`unknown_visitor` vs `ok`); it no longer does.
  */
 export async function POST(req: NextRequest) {
   if (isCrossSite(req.headers)) return NextResponse.json({ error: "cross_site" }, { status: 403 });
   const site = await getRequestSite();
   if (!site) return NextResponse.json({ error: "no_site" }, { status: 404 });
   if (site.status !== "active") return NextResponse.json({ error: "site_paused" }, { status: 403 });
+  // A crawler that executes the page's JavaScript is not a conversion. The proxy classifies the user agent
+  // and strips any inbound copy of this header.
+  if (req.headers.get("x-dk-bot") === "1") return NextResponse.json({ ok: true });
   const ip = clientIp(req.headers) || "unknown";
-  if (!rateLimit(`event:${ip}`, 30, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  if (!(await rateLimit(`event:${ip}`, 30, 60))) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
   let body: { eventKey?: unknown; eventId?: unknown; url?: unknown } = {};
   try {
@@ -39,10 +48,13 @@ export async function POST(req: NextRequest) {
   }
   const eventKey = body.eventKey === "call_click" ? "call_click" : "whatsapp_click";
   const cookieCode = req.cookies.get(VISITOR_COOKIE)?.value;
-  if (!isValidVisitorCode(cookieCode)) return NextResponse.json({ error: "no_visitor" }, { status: 400 });
+  const cookieSecret = req.cookies.get(VISITOR_SECRET_COOKIE)?.value;
+  if (!isValidVisitorCode(cookieCode) || !isValidVisitorSecret(cookieSecret)) return NextResponse.json({ error: "no_visitor" }, { status: 400 });
 
-  const visitor = await getVisitorByCode(site.id, cookieCode);
-  if (!visitor) return NextResponse.json({ error: "unknown_visitor" }, { status: 404 });
+  const visitor = await getVisitorByCodeAndSecret(site.id, cookieCode, cookieSecret);
+  // One answer for "no such code", "wrong secret" and "not your visitor", so the endpoint cannot be used
+  // to test whether a guessed code exists. The next page load re-issues the caller their own identity.
+  if (!visitor) return NextResponse.json({ error: "no_visitor" }, { status: 400 });
 
   // Sliding-window check first (it is the behaviour the admin panel documents), then let the insert
   // itself be the arbiter: a bucketed dedupe key means two parallel beacons from one double tap cannot
@@ -59,7 +71,9 @@ export async function POST(req: NextRequest) {
   });
   if (!ev) return NextResponse.json({ ok: true, deduped: true });
   if (eventKey === "whatsapp_click") await incrementWhatsappClicks(visitor.id);
-  const sourceUrl = typeof body.url === "string" ? body.url.slice(0, 2000) : visitor.landingUrl;
+  // The URL is reported to the ad platforms as the page the conversion happened on; a foreign one is not
+  // something this site can vouch for, so it falls back to the row's own landing URL.
+  const sourceUrl = sameHostUrl(req.headers, typeof body.url === "string" ? body.url : null) ?? visitor.landingUrl;
   const ua = req.headers.get("user-agent") || visitor.userAgent;
   const reqIp = clientIp(req.headers) || visitor.ip;
 

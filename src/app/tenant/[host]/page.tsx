@@ -2,53 +2,67 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata, Viewport } from "next";
 import { createHash } from "node:crypto";
-import { getRequestSite, getRequestLocale, getRequestVisitorCode, clientIp } from "@/lib/site-request";
+import { getRequestSite, getRequestVisitorCode, clientIp } from "@/lib/site-request";
 import { getSiteData } from "@/lib/db/sites";
 import { getActivePixels } from "@/lib/db/pixels";
 import { trackVisit } from "@/lib/db/visitors";
+import { VISITOR_SECRET_HEADER } from "@/lib/auth/visitor-secret";
 import { getTemplate, defaultTemplateFor } from "@/templates/registry";
 import { buildCtx, effectiveTokens } from "@/templates/ctx";
 import { TemplateRenderer } from "@/templates/render/TemplateRenderer";
-import { socialLinks } from "@/templates/ui/primitives";
 import { SiteRuntime, type BrowserPixel } from "@/components/site/SiteRuntime";
 import { VisitorCookie } from "@/components/site/VisitorCookie";
 import { resolveEventName } from "@/lib/marketing/mapping";
 import { lt } from "@/lib/i18n/site";
-import { safeMediaUrl, safeUrl } from "@/lib/safe-url";
-import { whatsappDigits } from "@/lib/content/defaults";
+import { safeMediaUrl } from "@/lib/safe-url";
 import { siteUrl } from "@/lib/config";
-import type { Locale, SiteData } from "@/lib/types";
-import type { RenderCtx } from "@/templates/types";
+import { enforcePrimaryHost, getSitePrimaryHost, primaryUrl, type PrimaryHost } from "@/lib/seo/primary-host";
+import { langPath, publishedLocales, urlLocale } from "@/lib/seo/locale";
+import { ldJson, tenantGraph } from "@/lib/seo/jsonld";
+import { tenantDescription, tenantTitle } from "@/lib/seo/titles";
+import type { Locale, SiteData, SiteRecord } from "@/lib/types";
 import { ComingSoon } from "./ComingSoon";
 
 export const dynamic = "force-dynamic";
 
-/** Canonical URL of the home page in a given language (the default language lives on the bare URL). */
-function langUrl(host: string, locale: Locale, defaultLocale: Locale) {
-  return locale === defaultLocale ? siteUrl(host) : `${siteUrl(host)}?lang=${locale}`;
+/** Canonical URL of the home page in a given language, always on the site's PRIMARY host. */
+function langUrl(primary: PrimaryHost, locale: Locale, defaultLocale: Locale) {
+  return primaryUrl(primary, langPath("/", locale, defaultLocale));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ host: string }> }): Promise<Metadata> {
   const { host } = await params;
   const site = await getRequestSite(host);
   if (!site) return { title: "Not found" };
-  const defaultLocale = site.content.settings.defaultLocale;
-  const locale = await getRequestLocale(defaultLocale);
-  const seo = site.content.seo;
-  const brand = site.content.brand;
-  const brandName = lt(locale, brand.name) || site.name;
-  const title = lt(locale, seo.title) || brandName;
-  if (site.status !== "active") return { title, robots: { index: false, follow: false } };
-  const description = lt(locale, seo.description) || lt(locale, brand.tagline);
-  const icon = safeMediaUrl(brand.faviconUrl) || safeMediaUrl(brand.logoUrl);
-  const og = safeMediaUrl(seo.ogImageUrl) || safeMediaUrl(site.content.hero.imageUrl);
-  const canonical = langUrl(host, locale, defaultLocale);
-  const multilingual = site.content.settings.showLangToggle;
+  const c = site.content;
+  const defaultLocale = c.settings.defaultLocale;
+  const locale = await urlLocale(defaultLocale);
+  const primary = await getSitePrimaryHost(site);
+  const base = primaryUrl(primary);
+  const title = tenantTitle(locale, c, site.category, site.name);
+  const brandName = lt(locale, c.brand.name) || site.name;
+  if (site.status !== "active") return { title, metadataBase: new URL(base), robots: { index: false, follow: false } };
+
+  const description = tenantDescription(locale, c, site.category);
+  const icon = safeMediaUrl(c.brand.faviconUrl) || safeMediaUrl(c.brand.logoUrl);
+  const og = safeMediaUrl(c.seo.ogImageUrl) || safeMediaUrl(c.hero.imageUrl);
+  const canonical = langUrl(primary, locale, defaultLocale);
+  // The second language is published only when it is actually written; otherwise this URL is the default
+  // language's content wearing the wrong `lang` attribute, and must not be indexed or annotated.
+  const locales = publishedLocales(c);
+  const multilingual = locales.length > 1;
+  const indexable = locales.includes(locale);
+  const verification = c.seo.verification;
   return {
+    // Absolute base for every relative URL below: an `/api/files/...` image is meaningless to a crawler.
+    metadataBase: new URL(base),
     title,
     description,
-    keywords: seo.keywords || undefined,
+    // `keywords` is not emitted: Google has ignored the meta tag since 2009 and it leaks the target terms
+    // to competitors for nothing. The stored field is left alone.
     icons: icon ? { icon, apple: icon } : { icon: "/icon" },
+    robots: indexable ? undefined : { index: false, follow: true },
+    verification: { google: verification?.google || undefined, other: verification?.bing ? { "msvalidate.01": verification.bing } : undefined },
     openGraph: {
       title,
       description,
@@ -62,8 +76,10 @@ export async function generateMetadata({ params }: { params: Promise<{ host: str
     twitter: { card: og ? "summary_large_image" : "summary", title, description, images: og ? [og] : undefined },
     alternates: {
       canonical,
+      // hreflang is emitted only for a cluster whose every member is real and reciprocal; a cluster
+      // Google cannot make self-consistent is discarded whole, taking the good annotations with it.
       languages: multilingual
-        ? { ar: langUrl(host, "ar", defaultLocale), en: langUrl(host, "en", defaultLocale), "x-default": siteUrl(host) }
+        ? { ...Object.fromEntries(locales.map((l) => [l, langUrl(primary, l, defaultLocale)])), "x-default": base }
         : undefined,
     },
   };
@@ -79,43 +95,37 @@ export async function generateViewport({ params }: { params: Promise<{ host: str
   return { width: "device-width", initialScale: 1, themeColor: tokens.bg, colorScheme: tokens.mode };
 }
 
-/** schema.org LocalBusiness data so search engines can show phone, hours and address next to the result. */
-function structuredData(ctx: RenderCtx, host: string, siteName: string) {
-  const { locale } = ctx;
-  const data = ctx.site;
-  const c = data.content;
-  const phone = whatsappDigits(c.contact.phone) || whatsappDigits(c.contact.whatsapp);
-  const logo = safeMediaUrl(c.brand.logoUrl);
-  const image = safeMediaUrl(c.seo.ogImageUrl) || safeMediaUrl(c.hero.imageUrl);
-  const sameAs = socialLinks(ctx).map((s) => safeUrl(s.url)).filter(Boolean);
-  const ld: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "HomeAndConstructionBusiness",
-    name: lt(locale, c.brand.name) || siteName,
-    url: siteUrl(host),
-    inLanguage: locale,
-    description: lt(locale, c.seo.description) || lt(locale, c.brand.tagline) || undefined,
-    telephone: phone ? `+${phone}` : undefined,
-    logo: logo || undefined,
-    image: image || undefined,
-    address: lt(locale, c.contact.address) ? { "@type": "PostalAddress", streetAddress: lt(locale, c.contact.address), addressCountry: "KW" } : undefined,
-    openingHours: lt(locale, c.contact.hours) || undefined,
-    sameAs: sameAs.length ? sameAs : undefined,
-    areaServed: { "@type": "Country", name: "Kuwait" },
-  };
-  return JSON.stringify(ld).replace(/</g, "\\u003c");
+/** The whole page as one schema.org `@graph`: business, website and page, cross-referenced by `@id`. */
+function structuredData(site: SiteRecord, locale: Locale, primary: PrimaryHost, canonical: string) {
+  const base = primaryUrl(primary);
+  return ldJson(
+    tenantGraph({
+      content: site.content,
+      locale,
+      siteUrl: base,
+      pageUrl: canonical,
+      siteName: site.name,
+      pageTitle: tenantTitle(locale, site.content, site.category, site.name),
+      description: tenantDescription(locale, site.content, site.category),
+    }),
+  );
 }
 
 export default async function TenantSite({ params }: { params: Promise<{ host: string }> }) {
   const { host } = await params;
   const site = await getRequestSite(host);
   if (!site) notFound();
-  const locale = await getRequestLocale(site.content.settings.defaultLocale);
+  const primary = await getSitePrimaryHost(site);
+  const h = await headers();
+  // Before anything streams: once the body starts the HTTP status is fixed, and a duplicate host would
+  // get a 200 carrying a canonical hint instead of the 308 that actually collapses the two copies.
+  enforcePrimaryHost(primary, host, h.get("x-dk-path") || "/");
+  const defaultLocale = site.content.settings.defaultLocale;
+  const locale = await urlLocale(defaultLocale);
   if (site.status !== "active") return <ComingSoon site={site} locale={locale} />;
 
   const def = getTemplate(site.templateCode) ?? defaultTemplateFor(site.category);
   let visitorCode = await getRequestVisitorCode();
-  const h = await headers();
 
   // First visit: create the visitor row before rendering (one insert), so the id printed inside the WhatsApp
   // message always exists in the database. If the proxy's provisional id collided with another visitor,
@@ -127,6 +137,11 @@ export default async function TenantSite({ params }: { params: Promise<{ host: s
       ? trackVisit({
           siteId: site.id,
           code: visitorCode,
+          // The proxy minted the code and its HttpOnly secret together and has already put the secret in
+          // the visitor's cookie, so the row this call creates must be given that same value. Without it
+          // the row and the cookie disagree, the browser's first /api/track fails its own check, and the
+          // endpoint answers by creating a SECOND visitor row — every first visit counted twice.
+          secret: h.get(VISITOR_SECRET_HEADER),
           fresh: true,
           landingUrl: siteUrl(host) + (h.get("x-dk-path") || "").replace(/^\//, ""),
           referrer: h.get("referer"),
@@ -158,10 +173,22 @@ export default async function TenantSite({ params }: { params: Promise<{ host: s
   const externalIdHash = visitorCode ? createHash("sha256").update(visitorCode).digest("hex") : null;
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData(ctx, host, site.name) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: structuredData(site, locale, primary, langUrl(primary, locale, defaultLocale)) }}
+      />
       <TemplateRenderer ctx={ctx} />
       {fresh && <VisitorCookie code={visitorCode} />}
-      <SiteRuntime visitorCode={visitorCode} externalIdHash={externalIdHash} pixels={browserPixels} preview={false} />
+      {/* consentMode and locale are not optional decoration: without them SiteRuntime falls back to its
+          own defaults and the owner's consent setting has no effect on the page at all. */}
+      <SiteRuntime
+        visitorCode={visitorCode}
+        externalIdHash={externalIdHash}
+        pixels={browserPixels}
+        preview={false}
+        consentMode={site.content.settings.consentMode}
+        locale={locale}
+      />
     </>
   );
 }

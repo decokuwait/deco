@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { FOCUS_RING } from "../primitives";
 
 /**
  * Grid of independently toggleable FAQ cards (several can be open at once).
@@ -43,7 +44,7 @@ export function FaqCardGrid({
                 onClick={() => toggle(it.id)}
                 aria-expanded={isOpen}
                 aria-controls={`${base}-${it.id}-panel`}
-                className="flex w-full items-start gap-4 p-5 text-start"
+                className={`flex w-full items-start gap-4 p-5 text-start ${FOCUS_RING}`}
               >
                 <span className="mt-0.5 shrink-0 font-heading text-xs font-black tracking-widest text-accent-text" aria-hidden>
                   {String(i + 1).padStart(2, "0")}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { FOCUS_RING } from "../primitives";
 import { usePageVisible, useReducedMotion } from "./motion";
 
 /**
@@ -92,12 +93,12 @@ export function Carousel({
       </div>
       {showArrows && count > 1 && (
         <>
-          <button type="button" onClick={prev} aria-label={prevLabel} className="absolute start-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex">
+          <button type="button" onClick={prev} aria-label={prevLabel} className={`absolute start-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex ${FOCUS_RING}`}>
             <svg viewBox="0 0 24 24" className={`h-5 w-5 ${dir === "rtl" ? "" : "rotate-180"}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M9 6l6 6-6 6" />
             </svg>
           </button>
-          <button type="button" onClick={next} aria-label={nextLabel} className="absolute end-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex">
+          <button type="button" onClick={next} aria-label={nextLabel} className={`absolute end-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-fg shadow-lg ring-1 ring-line sm:flex ${FOCUS_RING}`}>
             <svg viewBox="0 0 24 24" className={`h-5 w-5 ${dir === "rtl" ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M9 6l6 6-6 6" />
             </svg>
@@ -116,7 +117,7 @@ export function Carousel({
               aria-label={dotLabelTemplate ? dotLabelTemplate.replace("{n}", String(i + 1)).replace("{total}", String(count)) : `${i + 1} / ${count}`}
               aria-current={i === index ? "true" : undefined}
               onClick={() => scrollTo(i)}
-              className="flex h-7 w-7 shrink-0 items-center justify-center"
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${FOCUS_RING}`}
             >
               <span aria-hidden className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-primary" : "w-2 bg-line"}`} />
             </button>

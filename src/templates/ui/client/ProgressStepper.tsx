@@ -1,6 +1,7 @@
 "use client";
 
-import { responsiveSrc } from "../img";
+import { SIZES, responsiveSrc } from "../img";
+import { FOCUS_RING, intrinsic, posterSrc } from "../primitives";
 import { useState } from "react";
 import type { ProgressSlide } from "./ProgressSlideshow";
 
@@ -25,7 +26,7 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
                   onClick={() => setI(k)}
                   aria-current={active ? "step" : undefined}
                   aria-label={`${stepWord} ${k + 1}: ${s.label}`}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 font-heading text-sm font-black transition ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 font-heading text-sm font-black transition ${FOCUS_RING} ${
                     active ? "border-primary bg-primary text-primary-fg shadow-lg" : done ? "border-primary bg-primary/15 text-primary-text" : "border-line bg-surface text-muted"
                   }`}
                 >
@@ -43,21 +44,24 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
       </ol>
       <div className="relative mt-4 aspect-[16/10] overflow-hidden rounded-card bg-black ring-1 ring-line">
         {cur.kind === "video" ? (
-          <video key={cur.id} src={cur.url} poster={cur.posterUrl || undefined} controls playsInline preload="metadata" className="h-full w-full object-contain" />
+          <video key={cur.id} src={posterSrc(cur)} poster={cur.posterUrl || undefined} controls playsInline preload="metadata" className="h-full w-full object-contain" />
         ) : (
-          <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url)} alt={cur.label} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
+          <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url, SIZES.half)} {...intrinsic("16/10")} alt={cur.alt} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
         )}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4 text-white">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">
             {stepWord} {i + 1}/{n}
           </span>
-          {cur.date && <span className="font-mono text-xs opacity-90">{cur.date}</span>}
+          {cur.date && <span className="text-xs opacity-90">{cur.date}</span>}
         </div>
       </div>
       <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto" dir={dir}>
         {slides.map((s, k) => (
-          <button key={s.id} type="button" onClick={() => setI(k)} aria-label={s.label} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-card ring-2 transition ${k === i ? "ring-primary" : "ring-transparent opacity-70 hover:opacity-100"}`}>
-            <img src={s.kind === "video" ? s.posterUrl || s.url : s.url} {...responsiveSrc(s.kind === "video" ? s.posterUrl || s.url : s.url, "96px")} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+          // The thumbnail is the button's whole content, so its alt *is* the button's accessible name —
+          // an `alt=""` plus an `aria-label` said the same thing twice and left the picture undescribed
+          // anywhere the label is not read out.
+          <button key={s.id} type="button" onClick={() => setI(k)} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-card ring-2 transition ${FOCUS_RING} ${k === i ? "ring-primary" : "ring-transparent opacity-70 hover:opacity-100"}`}>
+            <img src={s.kind === "video" ? s.posterUrl || s.url : s.url} {...responsiveSrc(s.kind === "video" ? s.posterUrl || s.url : s.url, SIZES.thumb)} {...intrinsic("3/2")} alt={s.label} loading="lazy" decoding="async" className="h-full w-full object-cover" />
             {s.kind === "video" && <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow">▶</span>}
           </button>
         ))}

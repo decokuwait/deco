@@ -1,16 +1,23 @@
 import { requireSiteAdmin, sp1, type SearchParams } from "../_lib/guard";
 import { Panel } from "../_components/Panel";
-import { Card, PageHeader, Flash, Field, Input, Toggle, Badge, translateCode } from "@/components/admin/ui";
+import { Card, PageHeader, Flash, Field, Input, Select, Toggle, Badge, translateCode } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { listPixels } from "@/lib/db/pixels";
-import { PLATFORMS, PLATFORM_LABELS, type PixelConfig, type Platform } from "@/lib/types";
+import { CONSENT_MODES, PLATFORMS, PLATFORM_LABELS, SIGNAL_MODES, type ConsentMode, type PixelConfig, type Platform, type SignalMode } from "@/lib/types";
 import { DEFAULT_EVENT_MAP, EVENT_KEYS, EVENT_KEY_LABELS } from "@/lib/marketing/mapping";
 import { serverReady } from "@/lib/marketing/dispatch";
+import { signalHealth } from "@/lib/marketing/store";
+import { PLATFORM_SHORT } from "../_components/badges";
+import { fmtDateTime } from "../_lib/format";
 import { savePixel, saveSignalMode, sendTestEvent } from "./actions";
 import type { AdminUiKey } from "@/lib/i18n/admin";
 
 // Stage marking / test events fan out to the ad platforms (8 s timeout each, in parallel): allow more than the 10 s default.
 export const maxDuration = 30;
+
+const MODE_LABEL: Record<SignalMode, AdminUiKey> = { source: "send_mode_source", primary: "send_mode_primary", all: "send_mode_all" };
+const MODE_HINT: Record<SignalMode, AdminUiKey> = { source: "send_mode_source_hint", primary: "send_mode_primary_hint", all: "send_mode_all_hint" };
+const CONSENT_LABEL: Record<ConsentMode, AdminUiKey> = { off: "consent_mode_off", notice: "consent_mode_notice", explicit: "consent_mode_explicit" };
 
 const ID_LABEL: Record<Platform, AdminUiKey> = { meta: "meta_pixel_id", tiktok: "tiktok_pixel_code", snapchat: "snap_pixel_id", google: "ga4_measurement_id", x: "x_pixel_id" };
 const TOKEN_LABEL: Record<Platform, AdminUiKey> = { meta: "meta_token", tiktok: "tiktok_token", snapchat: "snap_token", google: "api_secret", x: "x_access_token" };
@@ -20,8 +27,12 @@ export default async function MarketingPage({ params, searchParams }: { params: 
   const sp = await searchParams;
   const ctx = await requireSiteAdmin(host);
   const { t, site, locale } = ctx;
-  const pixels = await listPixels(site.id);
+  const [pixels, health] = await Promise.all([listPixels(site.id), signalHealth(site.id)]);
   const byPlatform = new Map(pixels.map((p) => [p.platform, p]));
+  const signalMode = site.content.settings.signalMode;
+  // Health is only meaningful for a connection the owner actually made; an untouched platform would
+  // otherwise sit there reading "never" forever and train them to ignore the card.
+  const activePlatforms = PLATFORMS.filter((p) => byPlatform.get(p)?.active || health[p]);
   const tested = sp1(sp.tested);
   const testOk = sp1(sp.ok) === "1";
   // The test result is a code, not the provider's text: translate what we know, say nothing otherwise
@@ -37,16 +48,82 @@ export default async function MarketingPage({ params, searchParams }: { params: 
 
       <Card title={t("send_mode")} className="mb-5">
         <form action={modeAction} className="grid gap-3">
-          {(["smart", "all"] as const).map((m) => (
+          {SIGNAL_MODES.map((m) => (
             <label key={m} className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
-              <input type="radio" name="signalMode" value={m} defaultChecked={site.content.settings.signalMode === m} className="mt-1 h-4 w-4" />
-              <span className="text-sm font-bold text-slate-800">{m === "smart" ? t("send_mode_smart") : t("send_mode_all")}</span>
+              <input type="radio" name="signalMode" value={m} defaultChecked={signalMode === m} className="mt-1 h-4 w-4" />
+              <span>
+                <span className="block text-sm font-bold text-slate-800">{t(MODE_LABEL[m])}</span>
+                <span className={`mt-0.5 block text-xs ${m === "all" ? "font-bold text-amber-700" : "text-slate-500"}`}>{t(MODE_HINT[m])}</span>
+              </span>
             </label>
           ))}
+          <Field label={t("primary_platform")} hint={t("primary_platform_hint")}>
+            <Select name="primaryPlatform" defaultValue={site.content.settings.primaryPlatform ?? ""}>
+              <option value="">{t("select")}</option>
+              {PLATFORMS.map((p) => (
+                <option key={p} value={p}>
+                  {PLATFORM_LABELS[p]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t("consent_mode")} hint={t("consent_mode_hint")}>
+            <Select name="consentMode" defaultValue={site.content.settings.consentMode}>
+              {CONSENT_MODES.map((c) => (
+                <option key={c} value={c}>
+                  {t(CONSENT_LABEL[c])}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <div>
             <SubmitButton pendingText={t("saving")}>{t("save")}</SubmitButton>
           </div>
         </form>
+      </Card>
+
+      {/* Signal health: the difference between a feature a contractor trusts and one they quietly stop
+          believing in. An expired token used to be invisible — console.error'd into a JSON column. */}
+      <Card title={t("signal_health")} className="mb-5">
+        {activePlatforms.length === 0 ? (
+          <p className="text-sm text-slate-500">{t("no_signal_data")}</p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {activePlatforms.map((platform) => {
+              const h = health[platform];
+              const alarming = h?.lastFailCode === "auth" || h?.lastFailCode === "api_version";
+              return (
+                <li key={platform} className={`rounded-xl border p-3 text-xs ${alarming ? "border-red-300 bg-red-50" : "border-slate-200 bg-slate-50"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold text-slate-800">{PLATFORM_SHORT[platform]}</span>
+                    {alarming && <Badge tone="red">{t("needs_attention")}</Badge>}
+                  </div>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                    <dt className="text-slate-400">{t("last_success")}</dt>
+                    <dd className="font-bold text-slate-700">{h?.lastOkAt ? fmtDateTime(h.lastOkAt, locale) : t("never")}</dd>
+                    <dt className="text-slate-400">{t("failures_7d")}</dt>
+                    <dd className="font-bold tabular-nums text-slate-700">{h?.failures7d ?? 0}</dd>
+                    {h?.lastFailAt && (
+                      <>
+                        <dt className="text-slate-400">{t("last_failure")}</dt>
+                        <dd className="font-bold text-slate-700">
+                          {fmtDateTime(h.lastFailAt, locale)}
+                          {h.lastFailCode && <span className="block font-normal text-slate-500">{translateCode(locale, h.lastFailCode) ?? h.lastFailCode}</span>}
+                        </dd>
+                      </>
+                    )}
+                    {!!h?.queued && (
+                      <>
+                        <dt className="text-slate-400">{t("queued_retries")}</dt>
+                        <dd className="font-bold tabular-nums text-amber-700">{h.queued}</dd>
+                      </>
+                    )}
+                  </dl>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </Card>
 
       <div className="grid gap-5">

@@ -1,5 +1,7 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, Section } from "../../ui/primitives";
+import { Container, Img, Section, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
+import { AR_LEADING } from "../../leading";
 
 /** Full-width secondary band with pattern: circular medallion image, centred story, points as pills and inline stats. */
 export function AboutBand({ ctx }: SectionProps) {
@@ -15,7 +17,7 @@ export function AboutBand({ ctx }: SectionProps) {
         <div className="relative mb-8 animate-float">
           <div aria-hidden className="absolute -inset-3 rounded-full border-2 border-dashed border-accent/50" />
           <div className="relative h-36 w-36 overflow-hidden rounded-full ring-4 ring-accent ring-offset-4 ring-offset-secondary sm:h-44 sm:w-44">
-            <Img src={img} alt={ctx.text(brand.name)} className="h-full w-full object-cover" />
+            <Img src={img} alt={ctx.text(brand.name)} sizes={SIZES.half} className="h-full w-full object-cover" />
           </div>
           {ctx.text(brand.name) && (
             <div className="absolute inset-x-0 -bottom-3 flex justify-center">
@@ -23,7 +25,7 @@ export function AboutBand({ ctx }: SectionProps) {
             </div>
           )}
         </div>
-        <h2 className="max-w-3xl font-heading text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">{ctx.text(a.title)}</h2>
+        <h2 className={cx("max-w-3xl font-heading text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl", AR_LEADING)}>{ctx.text(a.title)}</h2>
         <p className="mt-5 max-w-3xl text-base leading-relaxed opacity-85 sm:text-lg">{ctx.text(a.body)}</p>
         {a.points.length > 0 && (
           <ul className="mt-7 flex flex-wrap justify-center gap-2">

@@ -1,7 +1,8 @@
 import type { SectionProps } from "../../types";
 import { Container, Media, Section, SectionHeading } from "../../ui/primitives";
 import { Tabs } from "../../ui/client/Tabs";
-import { beforeAfterOf, projectsOf } from "../shared/helpers";
+import { SIZES } from "../../ui/img";
+import { beforeAfterOf, mediaAlt, projectsOf } from "../shared/helpers";
 import { ProjectMeta } from "./shared";
 
 /** Each project is a card with BEFORE / AFTER tabs switching the large media. */
@@ -16,8 +17,8 @@ export function BeforeAfterTabs({ ctx }: SectionProps) {
           {projects.map((pr) => {
             const { before, after } = beforeAfterOf(pr);
             const tabs = [
-              { id: "before", label: ctx.ui("before"), content: <div className="aspect-[4/3] overflow-hidden rounded-card bg-surface-2">{before && <Media item={before} className="h-full w-full object-cover" />}</div> },
-              { id: "after", label: ctx.ui("after"), content: <div className="aspect-[4/3] overflow-hidden rounded-card bg-surface-2">{after && <Media item={after} className="h-full w-full object-cover" />}</div> },
+              { id: "before", label: ctx.ui("before"), content: <div className="aspect-[4/3] overflow-hidden rounded-card bg-surface-2">{before && <Media item={before} alt={`${ctx.ui("before")} — ${mediaAlt(ctx, before, pr)}`} sizes={SIZES.half} className="h-full w-full object-cover" />}</div> },
+              { id: "after", label: ctx.ui("after"), content: <div className="aspect-[4/3] overflow-hidden rounded-card bg-surface-2">{after && <Media item={after} alt={`${ctx.ui("after")} — ${mediaAlt(ctx, after, pr)}`} sizes={SIZES.half} className="h-full w-full object-cover" />}</div> },
             ];
             return (
               <article key={pr.id} className="rounded-card border border-line bg-bg p-4 sm:p-5">

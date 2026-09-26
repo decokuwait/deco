@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Section, SectionHeading, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
+import { AR_LEADING } from "../../leading";
 import { Icon } from "../../ui/icons";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 
@@ -24,7 +25,7 @@ export function ServicesIconRow({ ctx }: SectionProps) {
                 <Icon name={it.icon} className="h-7 w-7" />
                 <span aria-hidden className="absolute -end-0.5 -top-0.5 h-3.5 w-3.5 rounded-full bg-accent ring-2 ring-surface" />
               </span>
-              <h3 className="font-heading text-sm font-bold leading-snug sm:text-base">{ctx.text(it.title)}</h3>
+              <h3 className={cx("font-heading text-sm font-bold leading-snug sm:text-base", AR_LEADING)}>{ctx.text(it.title)}</h3>
             </li>
           ))}
         </ul>

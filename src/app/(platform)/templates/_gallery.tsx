@@ -3,6 +3,7 @@ import { CATEGORIES, CATEGORY_LABELS, type Category } from "@/lib/types";
 import { templatesFor } from "@/templates/registry";
 import { TemplateThumb } from "@/templates/Thumb";
 import { APP_NAME } from "@/lib/config";
+import { GALLERY_COPY } from "./_copy";
 
 export type GalleryFilter = Category | "all";
 
@@ -79,6 +80,31 @@ function CategorySection({ cat, withHeading }: { cat: Category; withHeading: boo
   );
 }
 
+/**
+ * The prose that makes a gallery page a page.
+ *
+ * Without it these five URLs were a grid of thumbnails and one sentence — nothing for a contractor to
+ * read and nothing for a query to match, on the only pages of the platform that are meant to rank. The
+ * sixty previews they link to are `noindex` demos, so this is where the substance has to live.
+ */
+function GalleryProse({ active }: { active: GalleryFilter }) {
+  const copy = GALLERY_COPY[active];
+  return (
+    <div className="mt-16 border-t border-white/10 pt-12">
+      {copy.sections.map((s) => (
+        <section key={s.heading} className="mx-auto mt-10 max-w-3xl first:mt-0">
+          <h2 className="text-2xl font-extrabold">{s.heading}</h2>
+          {s.body.map((p, i) => (
+            <p key={i} className="mt-4 text-lg leading-loose text-white/70">
+              {p}
+            </p>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /** The template gallery, either complete (`active: "all"`) or narrowed to one trade. */
 export function TemplateGallery({ active }: { active: GalleryFilter }) {
   const shown: Category[] = active === "all" ? CATEGORIES : [active];
@@ -97,14 +123,13 @@ export function TemplateGallery({ active }: { active: GalleryFilter }) {
         <h1 className="text-3xl font-black sm:text-4xl">
           {active === "all" ? "معرض القوالب" : `قوالب ${CATEGORY_LABELS[active].ar}`}
         </h1>
-        <p className="mt-2 text-white/60">
-          {active === "all"
-            ? "كل قالب له رقم من ثلاثة أرقام. افتح أي قالب لمعاينته كاملاً بمحتوى تجريبي عربي وإنجليزي."
-            : `${count} قالباً جاهزاً لهذا القسم. افتح أي قالب لمعاينته كاملاً بمحتوى تجريبي عربي وإنجليزي.`}
+        <p className="mt-3 max-w-3xl text-lg leading-relaxed text-white/70">
+          {active === "all" ? GALLERY_COPY.all.intro : `${count} قالباً جاهزاً لهذا القسم. ${GALLERY_COPY[active].intro}`}
         </p>
         {shown.map((cat) => (
           <CategorySection key={cat} cat={cat} withHeading={active === "all"} />
         ))}
+        <GalleryProse active={active} />
       </main>
     </div>
   );

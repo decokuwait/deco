@@ -23,6 +23,20 @@ export const ALLOWED_TYPES = new Set([
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 300 * 1024 * 1024;
 
+/**
+ * Total bytes one site may hold in the bucket.
+ *
+ * `/api/upload` records `media_assets.size` for every target it issues and nothing ever summed it, so a
+ * single authenticated site admin could mint presigned PUTs for 300 MB each, without limit, and the bill
+ * lands on the platform. Counted from what was *issued* rather than from the bucket: an issued URL is a
+ * promise of that many bytes, and counting only completed uploads would let a burst of 10,000 outstanding
+ * URLs overshoot the quota before any of them finished.
+ */
+export const SITE_STORAGE_QUOTA_BYTES = Math.max(1, Number(process.env.SITE_STORAGE_QUOTA_MB) || 5120) * 1024 * 1024;
+
+/** Upload targets one user may request per hour, across all their sites. */
+export const UPLOADS_PER_HOUR = 120;
+
 export function r2Configured(): boolean {
   return !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY && process.env.R2_BUCKET);
 }
@@ -289,6 +303,57 @@ export function siteKeyFromUrl(siteId: string, url: string | null | undefined): 
   const key = keyFromUrl(url);
   if (!key) return null;
   return key.startsWith(`sites/${siteId}/`) ? key : null;
+}
+
+/** ISO base-media brands we accept, by the container they identify. */
+const FTYP_BRANDS: Record<string, string> = {
+  avif: "image/avif",
+  avis: "image/avif",
+  mif1: "image/avif",
+  isom: "video/mp4",
+  iso2: "video/mp4",
+  iso4: "video/mp4",
+  iso5: "video/mp4",
+  iso6: "video/mp4",
+  mp41: "video/mp4",
+  mp42: "video/mp4",
+  avc1: "video/mp4",
+  dash: "video/mp4",
+  mmp4: "video/mp4",
+  "qt  ": "video/quicktime",
+};
+
+function ascii(b: Uint8Array, from: number, length: number): string {
+  let s = "";
+  for (let i = from; i < from + length && i < b.length; i++) s += String.fromCharCode(b[i]);
+  return s;
+}
+
+function startsWith(b: Uint8Array, bytes: number[]): boolean {
+  if (b.length < bytes.length) return false;
+  return bytes.every((v, i) => b[i] === v);
+}
+
+/**
+ * The content type the bytes actually are, or null when they are nothing we accept.
+ *
+ * The declared `Content-Type` is a claim by the uploader and was never verified: a file announced as
+ * `image/png` was written to disk and then served back with the type the `media_assets` row recorded —
+ * so "png" could be an HTML document, and on the tenant's own origin that is stored XSS. The sniff is not
+ * a full format parse; it only has to agree with what was declared, and disagreement is the answer.
+ *
+ * SVG has no magic number, is XML, and executes script when a browser renders it. It is not in
+ * ALLOWED_TYPES and nothing here can produce it, which is deliberate.
+ */
+export function sniffContentType(b: Uint8Array): string | null {
+  if (startsWith(b, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (startsWith(b, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (ascii(b, 0, 6) === "GIF87a" || ascii(b, 0, 6) === "GIF89a") return "image/gif";
+  if (ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 4) === "WEBP") return "image/webp";
+  // EBML header: Matroska and WebM share it, and WebM is the only one we accept.
+  if (startsWith(b, [0x1a, 0x45, 0xdf, 0xa3])) return "video/webm";
+  if (ascii(b, 4, 4) === "ftyp") return FTYP_BRANDS[ascii(b, 8, 4).toLowerCase()] ?? null;
+  return null;
 }
 
 export function contentTypeFor(key: string): string {

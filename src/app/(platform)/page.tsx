@@ -1,73 +1,135 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { CATEGORIES, CATEGORY_LABELS } from "@/lib/types";
-import { TEMPLATES, templatesFor } from "@/templates/registry";
-import { APP_NAME } from "@/lib/config";
+import { rootUrl } from "@/lib/config";
+import { formatFils, planPriceFils } from "@/lib/billing";
+import { TEMPLATES } from "@/templates/registry";
+import { MarketingFooter, MarketingHeader, PlanCards, ProofSection, RequestFlash, RequestForm, TermsSection } from "./pricing/_components/marketing";
+import { HOW_IT_WORKS, SITE_PITCH } from "./pricing/_lib/copy";
 
-export const dynamic = "force-static";
+/**
+ * The platform's front door, rebuilt as something a customer can arrive on.
+ *
+ * What was here before was an internal index: the entire navigation was "القوالب" and "لوحة المشرف العام",
+ * there was no price, no contact, no phone number and no way to ask for anything — a Kuwaiti contractor who
+ * found decokuwait.com could not become a customer. The metadata was an English sentence with no canonical
+ * and no Open Graph image, on a page whose readers search in Arabic.
+ *
+ * The order of the page is the order of the argument: what this is, proof you can open on your phone, how
+ * it works, what it costs, what the terms are, and a form. The visitor-tracking and conversion-API
+ * machinery is mentioned once, inside the Plus tier, and never leads — it is a small part of the product,
+ * its deep-funnel promise does not survive a six-week fit-out job against Meta's 7-day click window, and an
+ * acronym is not how you open a conversation with the person this page is written for.
+ */
 
-export default function PlatformHome() {
+const TITLE = SITE_PITCH.title;
+
+export const metadata: Metadata = {
+  // The layout's template would otherwise put "DecoKuwait" around this; the home page owns its own title.
+  title: { absolute: `${TITLE} | جبس بورد، ألمنيوم، بارتيشن، سيراميك` },
+  description: SITE_PITCH.description,
+  keywords: "تصميم موقع شركة ديكور الكويت, موقع جبس بورد, موقع ألمنيوم, موقع بارتيشن, موقع سيراميك, مواقع جاهزة الكويت",
+  // Absolute, not relative: a relative metadata URL without a `metadataBase` is a build error, and this
+  // page must keep working whatever the layout above it does or does not set.
+  alternates: { canonical: rootUrl("/") },
+  openGraph: {
+    type: "website",
+    locale: "ar_KW",
+    url: rootUrl("/"),
+    title: TITLE,
+    description: SITE_PITCH.description,
+    siteName: TITLE,
+    images: [{ url: rootUrl("/templates/104.jpg"), width: 1200, height: 900, alt: "نموذج موقع لشركة ديكور في الكويت" }],
+  },
+  twitter: { card: "summary_large_image", title: TITLE, description: SITE_PITCH.description, images: [rootUrl("/templates/104.jpg")] },
+};
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+
+export default async function PlatformHome({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
   return (
     <div className="min-h-dvh bg-[#0b1220] text-white" dir="rtl" lang="ar">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <span className="text-xl font-black tracking-tight">{APP_NAME}</span>
-        <nav className="flex items-center gap-4 text-sm font-semibold">
-          <Link href="/templates" className="hover:text-amber-300">
-            القوالب
-          </Link>
-          <Link href="/super" className="rounded-full bg-white/10 px-4 py-2 hover:bg-white/20">
-            لوحة المشرف العام
-          </Link>
-        </nav>
-      </header>
-      <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">
-        <section className="text-center">
-          <span className="inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-1 text-xs font-bold text-amber-300">منصة مواقع جاهزة للشركات في الكويت</span>
-          <h1 className="mt-6 text-4xl font-black leading-tight sm:text-6xl">{TEMPLATES.length} قالباً احترافياً لأعمال الديكور</h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-white/70">
-            مواقع عربية أولاً مع ترجمة إنجليزية، لوحة تحكم كاملة من الجوال، تتبع الزوار برقم مميز، وإرسال إشارات التحويل إلى ميتا وتيك توك وسناب شات وجوجل وإكس.
+      <MarketingHeader active="home" />
+      <main>
+        <section className="mx-auto max-w-6xl px-5 pb-6 pt-14 sm:pt-20">
+          <span className="inline-block rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-1 text-xs font-bold text-amber-300">
+            للكويت · جبس بورد، ألمنيوم، بارتيشن، سيراميك
+          </span>
+          <h1 className="mt-6 max-w-3xl text-4xl font-black leading-[1.15] sm:text-6xl">{TITLE}</h1>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-white/70">
+            شغلك يستاهل أحسن من ألبوم صور في إنستغرام. موقع باسم شركتك يعرض مشاريعك و«قبل وبعد» ومراحل التنفيذ،
+            ويوصل العميل لك على الواتساب من أي صفحة — تديره بنفسك من جوالك، باشتراك سنوي يبدأ من{" "}
+            {formatFils(planPriceFils("basic", "yearly"), "ar")}.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/templates" className="rounded-full bg-amber-400 px-6 py-3 font-bold text-black hover:bg-amber-300">
-              استعرض القوالب
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href="#request" className="rounded-full bg-amber-400 px-6 py-3 font-bold text-black transition hover:bg-amber-300">
+              اطلب موقعك
+            </a>
+            <Link href="/pricing" className="rounded-full border border-white/25 px-6 py-3 font-bold transition hover:bg-white/10">
+              شوف الأسعار
             </Link>
-            <Link href="/super" className="rounded-full border border-white/20 px-6 py-3 font-bold hover:bg-white/10">
-              إدارة المواقع
-            </Link>
+            <a href="#work" className="rounded-full border border-white/25 px-6 py-3 font-bold transition hover:bg-white/10">
+              شوف نماذج الشغل
+            </a>
+          </div>
+          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-white/50">
+            ما نَعِد بعدد عملاء ولا بترتيب في جوجل — هذي أمور ما نتحكم فيها ولا يتحكم فيها أحد. اللي نقدمه: موقع
+            سريع ومرتب باسمك، تتحكم في محتواه، ويشتغل من أول يوم.
+          </p>
+        </section>
+
+        <RequestFlash sent={first(sp.sent)} error={first(sp.error)} />
+
+        <ProofSection />
+
+        <section className="border-y border-white/10 bg-white/[0.03]">
+          <div className="mx-auto max-w-6xl px-5 py-16">
+            <h2 className="text-3xl font-black sm:text-4xl">كيف تصير العملية</h2>
+            <ol className="mt-8 grid gap-5 sm:grid-cols-3">
+              {HOW_IT_WORKS.map((s) => (
+                <li key={s.title} className="rounded-2xl border border-white/10 bg-[#0b1220] p-6">
+                  <h3 className="text-lg font-black text-amber-300">{s.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/75">{s.body}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
-        <section className="mt-20 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {CATEGORIES.map((cat) => {
-            const list = templatesFor(cat);
-            const first = list[0];
-            return (
-              <Link key={cat} href={`/templates/${cat}`} className="group rounded-2xl border border-white/10 bg-white/5 p-6 transition hover:border-amber-300/50 hover:bg-white/10">
-                <div className="flex gap-1.5">
-                  {list.slice(0, 6).map((t) => (
-                    <span key={t.code} className="h-3 w-3 rounded-full ring-1 ring-white/20" style={{ background: t.tokens.primary }} />
-                  ))}
-                </div>
-                <h2 className="mt-4 text-xl font-extrabold">{CATEGORY_LABELS[cat].ar}</h2>
-                <p className="text-sm text-white/60">{CATEGORY_LABELS[cat].en}</p>
-                <p className="mt-3 text-sm text-white/70">
-                  {list.length} قالباً · الأكواد {first?.code} - {list[list.length - 1]?.code}
-                </p>
-              </Link>
-            );
-          })}
+
+        <section className="mx-auto max-w-6xl px-5 py-16">
+          <h2 className="text-3xl font-black sm:text-4xl">وش تاخذ بالضبط</h2>
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["معرض مشاريع يليق بشغلك", "مشاريع منجزة بالصور والفيديو، «قبل وبعد» بمقارنة يسحبها الزائر بإصبعه، ومراحل التنفيذ يوماً بيوم. ولكل مشروع صفحته الخاصة."],
+              ["عربي أولاً، وإنجليزي معه", "الموقع مكتوب من اليمين لليسار بشكل صحيح، وفيه نسخة إنجليزية لمن يحتاجها. مو ترجمة مقلوبة من قالب أجنبي."],
+              ["واتساب في كل صفحة", "زر ثابت يفتح محادثة برسالة جاهزة فيها رقم الزيارة، حتى تعرف من أي صفحة جاك العميل."],
+              ["لوحة تحكم من الجوال", "تضيف مشروعاً وأنت في الموقع، ترفع الصور من كاميرتك، وتغيّر النصوص والألوان بدون ما تتصل فينا."],
+              [`${TEMPLATES.length} قالباً جاهزاً`, "أربعة أقسام، وكل قسم فيه قوالب بألوان وخطوط وتخطيطات مختلفة. تختار واحداً، وتقدر تغيّره لاحقاً بضغطة."],
+              ["نطاقك وبريدك", "نربط الموقع بنطاق شركتك ونضبط سجلات DNS معك. النطاق يُسجَّل باسمك، مو باسمنا."],
+            ].map(([t, d]) => (
+              <article key={t} className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <h3 className="text-lg font-black">{t}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/70">{d}</p>
+              </article>
+            ))}
+          </div>
         </section>
-        <section className="mt-20 grid gap-6 rounded-3xl border border-white/10 bg-white/5 p-8 sm:grid-cols-3">
-          {[
-            ["رقم زائر من 6 أرقام", "كل زائر يحصل على رقم يظهر في أول رسالة واتساب، ليتمكن المدير من البحث عنه وتحديد حالته."],
-            ["إشارات التحويل الذكية", "عند تحديد الحالة (تم التواصل، طلب زيارة، طلب، دفعة أولى، اكتمال) تُرسل الإشارة للمنصة التي جاء منها الزائر."],
-            ["ثلاثة أنواع من المشاريع", "مشاريع منجزة بالصور والفيديو، قبل وبعد بمقارنة تفاعلية، ومراحل التنفيذ يوماً بيوم كعرض شرائح."],
-          ].map(([t, d]) => (
-            <div key={t}>
-              <h3 className="text-lg font-bold text-amber-300">{t}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-white/70">{d}</p>
-            </div>
-          ))}
+
+        <section className="mx-auto max-w-6xl px-5 pb-16">
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-3xl font-black sm:text-4xl">الأسعار</h2>
+            <Link href="/pricing" className="text-sm font-bold text-amber-300 hover:text-amber-200">
+              التفاصيل الكاملة والشروط ↗
+            </Link>
+          </div>
+          <PlanCards />
         </section>
+
+        <TermsSection />
+        <RequestForm source="home" />
       </main>
+      <MarketingFooter />
     </div>
   );
 }

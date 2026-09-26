@@ -2,7 +2,7 @@ import type { SectionProps } from "../../types";
 import { Container, Section, SectionHeading } from "../../ui/primitives";
 import { BeforeAfterSlider } from "../../ui/client/BeforeAfterSlider";
 import { HoverReveal } from "../../ui/client/HoverReveal";
-import { beforeAfterOf, projectsOf } from "../shared/helpers";
+import { beforeAfterOf, mediaAlt, projectAlt, projectsOf } from "../shared/helpers";
 
 /** Draggable before/after comparison cards. */
 export function BeforeAfterSliderSection({ ctx }: SectionProps) {
@@ -26,11 +26,21 @@ export function BeforeAfterSliderSection({ ctx }: SectionProps) {
                     after={{ kind: after.kind, url: after.url, posterUrl: after.posterUrl }}
                     beforeLabel={ctx.ui("before")}
                     afterLabel={ctx.ui("after")}
-                    alt={ctx.text(pr.title)}
+                    alt={projectAlt(ctx, pr)}
                     className="rounded-none"
                   />
                 ) : (
-                  <BeforeAfterSlider before={before.url} after={after.url} beforeLabel={ctx.ui("before")} afterLabel={ctx.ui("after")} hint={ctx.ui("drag_hint")} className="rounded-none" />
+                  <BeforeAfterSlider
+                    dir={ctx.dir}
+                    before={before.url}
+                    after={after.url}
+                    beforeLabel={ctx.ui("before")}
+                    afterLabel={ctx.ui("after")}
+                    beforeAlt={`${ctx.ui("before")} — ${mediaAlt(ctx, before, pr)}`}
+                    afterAlt={`${ctx.ui("after")} — ${mediaAlt(ctx, after, pr)}`}
+                    hint={ctx.ui("drag_hint")}
+                    className="rounded-none"
+                  />
                 )}
                 <div className="p-5">
                   <h3 className="font-heading text-lg font-bold">{ctx.text(pr.title)}</h3>

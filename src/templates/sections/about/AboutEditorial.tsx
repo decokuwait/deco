@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
+import { AR_LEADING } from "../../leading";
 
 /**
  * Magazine layout: oversized headline, two-column body copy with a drop cap (English) or an accent
@@ -14,10 +15,13 @@ export function AboutEditorial({ ctx }: SectionProps) {
     .split(/\n+/)
     .map((t) => t.trim())
     .filter(Boolean);
-  const lead =
-    ctx.locale === "en"
-      ? "first-letter:float-start first-letter:me-3 first-letter:mt-1 first-letter:font-heading first-letter:text-6xl first-letter:font-black first-letter:leading-[0.8] first-letter:text-primary-text"
-      : "border-s-4 border-accent ps-4";
+  // A floated initial at leading 0.8 clips an Arabic letter and breaks the shaping of the word it starts,
+  // which is why the Arabic branch is an accent rule instead. `ctx.locale === "en"` was not the same
+  // question, though: an English page falls back to the Arabic copy for any field the owner left empty, so
+  // it could still hand the drop cap an Arabic paragraph. Ask the text itself.
+  const lead = /^[A-Za-z]/.test(paras[0] ?? "")
+    ? "first-letter:float-start first-letter:me-3 first-letter:mt-1 first-letter:font-heading first-letter:text-6xl first-letter:font-black first-letter:leading-[0.8] first-letter:text-primary-text"
+    : "border-s-4 border-accent ps-4";
   return (
     <Section id="about" tone="bg">
       <Container>
@@ -27,7 +31,7 @@ export function AboutEditorial({ ctx }: SectionProps) {
               <span aria-hidden className="h-2 w-2 rotate-45 bg-accent" />
               {ctx.text(brand.name)}
             </span>
-            <h2 className="mt-3 font-heading text-3xl font-extrabold leading-tight sm:text-5xl">{ctx.text(a.title)}</h2>
+            <h2 className={cx("mt-3 font-heading text-3xl font-extrabold leading-tight sm:text-5xl", AR_LEADING)}>{ctx.text(a.title)}</h2>
           </div>
           {ctx.text(brand.tagline) && <p className="max-w-xs text-sm leading-relaxed text-muted lg:text-end">{ctx.text(brand.tagline)}</p>}
         </header>
@@ -36,7 +40,7 @@ export function AboutEditorial({ ctx }: SectionProps) {
             <figure className="float-end mb-4 ms-5 w-36 sm:w-52">
               <div className="relative">
                 <div aria-hidden className="absolute -end-2 -top-2 h-full w-full rounded-card bg-accent/20" />
-                <Img src={img} alt={ctx.text(a.title)} className="relative aspect-[3/4] w-full rounded-card object-cover" />
+                <Img src={img} alt={ctx.text(a.title)} sizes="(min-width: 640px) 13rem, 9rem" ratio="3/4" className="relative aspect-[3/4] w-full rounded-card object-cover" />
               </div>
             </figure>
           )}

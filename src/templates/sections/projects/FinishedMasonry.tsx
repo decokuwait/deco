@@ -2,7 +2,8 @@ import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading, cx } from "../../ui/primitives";
 import { GalleryFrame, GalleryOpen } from "../../ui/client/GalleryFrame";
 import { PlayBadge } from "../../ui/client/Lightbox";
-import { coverOf, lightboxItems, projectsOf } from "../shared/helpers";
+import { SIZES } from "../../ui/img";
+import { coverOf, lightboxItems, projectAlt, projectsOf } from "../shared/helpers";
 
 const RATIOS = ["aspect-[4/5]", "aspect-square", "aspect-[3/4]", "aspect-[4/3]", "aspect-[5/6]", "aspect-square"];
 
@@ -21,7 +22,7 @@ export function FinishedMasonry({ ctx }: SectionProps) {
             return (
               <GalleryFrame key={pr.id} items={items} closeLabel={ctx.ui("close")}>
                 <GalleryOpen index={0} disabled={!items.length} label={ctx.text(pr.title)} className={cx("group relative mb-4 block w-full break-inside-avoid overflow-hidden rounded-card bg-surface-2 text-start", RATIOS[i % RATIOS.length])}>
-                  <Img src={coverOf(pr)} alt={ctx.text(pr.title)} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                  <Img src={coverOf(pr)} alt={projectAlt(ctx, pr)} sizes={SIZES.third} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent opacity-90 transition group-hover:opacity-100" />
                   {hasVideo && <PlayBadge className="opacity-90" />}
                   <div className="tone-dark absolute inset-x-0 bottom-0 p-4 text-white">

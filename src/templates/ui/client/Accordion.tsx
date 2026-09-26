@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { FOCUS_RING } from "../primitives";
 
 /**
  * FAQ accordion.
@@ -42,7 +43,7 @@ export function Accordion({
                 onClick={() => setOpen(isOpen ? null : it.id)}
                 aria-expanded={isOpen}
                 aria-controls={panelId}
-                className="flex w-full items-center justify-between gap-4 px-5 py-4 text-start font-heading text-base font-bold sm:text-lg"
+                className={`flex w-full items-center justify-between gap-4 px-5 py-4 text-start font-heading text-base font-bold sm:text-lg ${FOCUS_RING}`}
               >
                 <span>{it.q}</span>
                 <span aria-hidden className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-text transition-transform ${isOpen ? "rotate-45" : ""}`}>

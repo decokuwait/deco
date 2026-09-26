@@ -8,7 +8,7 @@ import { EDITABLE_UI_KEYS } from "@/templates/ctx";
 
 export type FieldSpec =
   | { kind: "ltext"; key: string; label: AdminUiKey; textarea?: boolean; required?: boolean; hint?: AdminUiKey; labelText?: string; placeholderText?: { ar: string; en: string } }
-  | { kind: "text"; key: string; label: AdminUiKey; type?: "text" | "email" | "url" | "tel"; dir?: "ltr"; hint?: AdminUiKey; placeholder?: string; required?: boolean }
+  | { kind: "text"; key: string; label: AdminUiKey; type?: "text" | "email" | "url" | "tel"; dir?: "ltr"; hint?: AdminUiKey; placeholder?: string; required?: boolean; max?: number }
   | { kind: "upload"; key: string; label: AdminUiKey; media?: "image" | "video"; hint?: AdminUiKey }
   | { kind: "select"; key: string; label: AdminUiKey; options: { value: string; label: string }[] }
   | { kind: "number"; key: string; label: AdminUiKey; min?: number; max?: number; hint?: AdminUiKey };
@@ -21,6 +21,10 @@ export interface SectionSpec {
   fields: FieldSpec[];
   /** Optional editable list at a content path (e.g. "services.items"). Row fields are relative to the row. */
   list?: { path: string; fields: FieldSpec[]; idPrefix: string; primaryKey: string };
+  /** Heading over the flat fields when the section also has a list; `null` leaves that card untitled. */
+  flatTitle?: AdminUiKey | null;
+  /** Heading over the list card; defaults to the section title. */
+  listTitle?: AdminUiKey;
 }
 
 export const CONTENT_SECTIONS = ["general", "hero", "about", "services", "stats", "process", "testimonials", "faq", "cta", "labels", "legal", "seo", "theme", "sections"] as const;
@@ -56,6 +60,15 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
       { kind: "text", key: "contact.phone", label: "phone", type: "tel", dir: "ltr" },
       { kind: "text", key: "contact.email", label: "email", type: "email", dir: "ltr" },
       { kind: "ltext", key: "contact.address", label: "address" },
+      // The free-text address stays as the line a customer reads; these three are what a search engine can
+      // actually match to a place.
+      { kind: "ltext", key: "contact.addressParts.street", label: "address_street" },
+      { kind: "ltext", key: "contact.addressParts.area", label: "address_area" },
+      { kind: "ltext", key: "contact.addressParts.governorate", label: "address_governorate" },
+      { kind: "text", key: "contact.geo.lat", label: "geo_lat", dir: "ltr", hint: "geo_hint", placeholder: "29.37591", max: 20 },
+      { kind: "text", key: "contact.geo.lng", label: "geo_lng", dir: "ltr", placeholder: "47.97742", max: 20 },
+      { kind: "text", key: "contact.googleBusinessUrl", label: "google_business_url", type: "url", dir: "ltr", hint: "google_links_hint", placeholder: "https://maps.app.goo.gl/..." },
+      { kind: "text", key: "contact.googleReviewUrl", label: "google_review_url", type: "url", dir: "ltr", placeholder: "https://g.page/r/.../review" },
       { kind: "ltext", key: "contact.hours", label: "hours" },
       { kind: "ltext", key: "contact.title", label: "contact_title" },
       { kind: "ltext", key: "contact.subtitle", label: "contact_subtitle" },
@@ -67,6 +80,9 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
       { kind: "text", key: "socials.x", label: "x_social", type: "url", dir: "ltr", placeholder: "https://x.com/..." },
       { kind: "text", key: "socials.youtube", label: "youtube", type: "url", dir: "ltr", placeholder: "https://youtube.com/@..." },
     ],
+    flatTitle: null,
+    listTitle: "areas_served",
+    list: { path: "contact.areasServed", idPrefix: "area", primaryKey: "", fields: [{ kind: "ltext", key: "", label: "areas_served" }] },
   },
   hero: {
     key: "hero",
@@ -216,7 +232,13 @@ export const SPECS: Record<ContentSection, SectionSpec> = {
     fields: [
       { kind: "ltext", key: "seo.title", label: "meta_title" },
       { kind: "ltext", key: "seo.description", label: "meta_description", textarea: true },
-      { kind: "text", key: "seo.keywords", label: "keywords" },
+      // Not `<meta name="keywords">` any more — Google has ignored that since 2009. The words are kept
+      // because they are the one thing the owner knows and we do not: they feed the generated title and
+      // description when those are left empty.
+      { kind: "text", key: "seo.keywords", label: "keywords", hint: "seo_keywords_hint" },
+      { kind: "text", key: "seo.priceRange", label: "price_range", hint: "price_range_hint", placeholder: "KD 15 - KD 40 / م²", max: 100 },
+      { kind: "text", key: "seo.verification.google", label: "verification_google", dir: "ltr", hint: "verification_hint", max: 200 },
+      { kind: "text", key: "seo.verification.bing", label: "verification_bing", dir: "ltr", max: 200 },
       { kind: "upload", key: "seo.ogImageUrl", label: "og_image" },
     ],
   },
@@ -247,7 +269,7 @@ function readField(fd: FormData, prefix: string, f: FieldSpec): unknown {
     case "ltext":
       return readLText(fd, name);
     case "text": {
-      const v = readStr(fd, name, 4000);
+      const v = readStr(fd, name, f.max ?? 4000);
       return f.type === "url" ? safeUrl(v) : v;
     }
     case "upload":
@@ -267,6 +289,38 @@ function isEmptyValue(v: unknown): boolean {
   if (typeof v === "string") return !v.trim();
   if (typeof v === "object") return !Object.values(v as Record<string, unknown>).some((x) => typeof x === "string" && x.trim());
   return false;
+}
+
+/**
+ * The order the submitted rows are read in, and which of them the owner removed.
+ *
+ * Reordering used to be a form submit per step, so moving item 10 to the top was nine page reloads. The
+ * editor now reorders and removes rows on the device and submits the result once; `rows.order` is the new
+ * sequence of the original indexes and `rows.removed` the ones to drop.
+ *
+ * An index missing from `rows.order` is *appended*, never dropped: a truncated or stale order string must
+ * not be able to delete a row silently. Deletion is only ever what `rows.removed` says.
+ */
+export function rowSequence(order: string, removed: string, count: number): number[] {
+  const valid = (raw: string): number[] => {
+    const out: number[] = [];
+    const seen = new Set<number>();
+    for (const part of raw.split(",")) {
+      // An empty segment is not row 0: `Number("")` is 0, and an empty `rows.removed` would otherwise
+      // delete the first row of every list on every save.
+      if (!part.trim()) continue;
+      const n = Number(part.trim());
+      if (!Number.isInteger(n) || n < 0 || n >= count || seen.has(n)) continue;
+      seen.add(n);
+      out.push(n);
+    }
+    return out;
+  };
+  const sequence = valid(order);
+  const placed = new Set(sequence);
+  for (let i = 0; i < count; i++) if (!placed.has(i)) sequence.push(i);
+  const gone = new Set(valid(removed));
+  return sequence.filter((i) => !gone.has(i));
 }
 
 /**
@@ -294,7 +348,7 @@ export function parseSectionForm(fd: FormData, spec: SectionSpec, current: SiteC
     const existing = (getPath(current, spec.list.path) as Array<Record<string, unknown>> | undefined) ?? [];
     const rows: Array<Record<string, unknown> | { ar: string; en: string }> = [];
     const usedIds = new Set<string>();
-    for (let i = 0; i < count; i++) {
+    for (const i of rowSequence(readStr(fd, "rows.order", 4000), readStr(fd, "rows.removed", 4000), count)) {
       const prefix = `rows.${i}`;
       const submitted = readStr(fd, `${prefix}.id`, 80);
       // Row ids come from the form and end up as React keys and as the lookup into the stored rows, so

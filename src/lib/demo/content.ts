@@ -2,9 +2,27 @@ import type { Category, LText, MediaItem, Project, SiteContent } from "@/lib/typ
 import { emptyContent, deepMerge } from "@/lib/content/defaults";
 
 const U = (id: string, w = 1400) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=80`;
-/** Same photo at a smaller width for slots that render small (cards, mosaic tiles). */
-const sized = (url: string, w: number) => url.replace(/([?&])w=d+/, `$1w=${w}`);
-export const DEMO_VIDEO = "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4";
+/**
+ * Same photo at a smaller width for slots that render small (cards, mosaic tiles).
+ * The `\d` used to be written `d`, so the pattern matched nothing and every call was a silent
+ * no-op that shipped the 1400px original into a card. Twin of the one in `templates/ui/img.ts`.
+ */
+const sized = (url: string, w: number) => url.replace(/([?&])w=\d+/, `$1w=${w}`);
+
+/**
+ * URL segment for a demo project. The canonical generator used when a real project is
+ * created; this local one only has to be stable, unique inside the demo set and valid `[a-z0-9-]`,
+ * because these ids are what `/projects/<slug>` serves in the 60 template previews.
+ */
+function demoSlug(en: string, fallback: string): string {
+  const s = en
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/g, "");
+  return s || fallback;
+}
 
 export const IMAGES: Record<Category, string[]> = {
   gypsum: [
@@ -383,12 +401,18 @@ const SPECS: Record<Category, CategorySpec> = {
 export function demoContent(category: Category): SiteContent {
   const s = SPECS[category];
   const img = IMAGES[category];
-  const partial: Partial<SiteContent> = {
+  // `settings` is loosened to a partial: the demo only has an opinion about a few of those flags, and
+  // the rest have to keep coming from `emptyContent()` as fields are added to the union.
+  const partial: Omit<Partial<SiteContent>, "settings"> & { settings: Partial<SiteContent["settings"]> } = {
     brand: { name: s.brand, tagline: s.tagline, logoUrl: "" },
     contact: {
+      // Placeholder contact details are the one thing that must never survive onto a live site: a wrong
+      // number or an `info@example.com` mailto is a broken promise to whoever clicks it. The number is
+      // overwritten with the operator's at provision time and is here only so the previews have a link
+      // to render; the email has no such override, so the demo carries none at all.
       whatsapp: "96550000000",
       phone: "96550000000",
-      email: "info@example.com",
+      email: "",
       address: L("الكويت — الشويخ الصناعية، قطعة 3", "Kuwait — Shuwaikh Industrial, Block 3"),
       hours: L("السبت - الخميس: 9 صباحاً - 9 مساءً", "Sat - Thu: 9 AM - 9 PM"),
       mapEmbedUrl: "",
@@ -428,7 +452,9 @@ export function demoContent(category: Category): SiteContent {
     seo: { title: s.brand, description: s.tagline, ogImageUrl: img[0], keywords: s.seoKeywords },
     theme: {},
     sections: { about: true, services: true, stats: true, process: true, testimonials: true, faq: true, cta: true, order: [] },
-    settings: { defaultLocale: "ar", showLangToggle: true, floatingWhatsapp: true, showVisitorId: true, signalMode: "smart" },
+    // `demo: true` is what makes the fabricated parts of this content legal to store: provisioning
+    // refuses to write invented testimonials to a site without it. Showcase sites are also noindexed.
+    settings: { defaultLocale: "ar", showLangToggle: true, floatingWhatsapp: true, showVisitorId: true, signalMode: "source", demo: true },
   };
   return deepMerge(emptyContent(), partial);
 }
@@ -443,6 +469,14 @@ function hash(s: string) {
   return h;
 }
 
+/**
+ * Showcase projects for one trade.
+ *
+ * Every media item is an image. There used to be a video here, hotlinked from a third-party test-asset
+ * host (`test-videos.co.uk`, Big Buck Bunny) — a customer portfolio that played someone else's cartoon,
+ * with nothing to fall back to the day that host 404s or rate-limits. The demo makes its point with
+ * stills, and the video path stays covered by the render tests with a local fixture instead.
+ */
 export function demoProjects(category: Category): Project[] {
   const s = SPECS[category];
   const img = IMAGES[category];
@@ -454,14 +488,14 @@ export function demoProjects(category: Category): Project[] {
       media("image", img[(base + 1) % img.length], "gallery", 1),
       media("image", img[(base + 2) % img.length], "gallery", 2),
     ];
-    if (i === 0) m.push(media("video", DEMO_VIDEO, "gallery", 3, { posterUrl: img[base] }));
-    out.push({ id: `fin-${i}`, type: "finished", title: p.title, description: p.description, location: p.location, coverUrl: sized(img[base], 1000), published: true, order: i, media: m });
+    out.push({ id: `fin-${i}`, slug: demoSlug(p.title.en, `finished-${i + 1}`), type: "finished", title: p.title, description: p.description, location: p.location, coverUrl: sized(img[base], 1000), published: true, order: i, media: m });
   });
   s.beforeAfter.forEach((p, i) => {
     const before = img[(i * 2 + 7) % img.length];
     const after = img[(i * 2 + 1) % img.length];
     out.push({
       id: `ba-${i}`,
+      slug: demoSlug(p.title.en, `before-after-${i + 1}`),
       type: "before_after",
       title: p.title,
       description: p.description,
@@ -475,15 +509,22 @@ export function demoProjects(category: Category): Project[] {
   s.progress.forEach((p, i) => {
     const m: MediaItem[] = p.steps.map((label, j) => {
       const day = new Date(Date.UTC(2025, 0, 6 + j * 2));
-      const isVideo = i === 0 && j === p.steps.length - 1;
-      return media(isVideo ? "video" : "image", isVideo ? DEMO_VIDEO : img[(i * 4 + j + 3) % img.length], "step", j, {
+      return media("image", img[(i * 4 + j + 3) % img.length], "step", j, {
         stepLabel: label,
         stepDate: day.toISOString().slice(0, 10),
-        posterUrl: isVideo ? img[(i * 4 + j + 3) % img.length] : null,
       });
     });
-    out.push({ id: `prog-${i}`, type: "progress", title: p.title, description: p.description, location: p.location, coverUrl: m[0].url, published: true, order: i, media: m });
+    out.push({ id: `prog-${i}`, slug: demoSlug(p.title.en, `progress-${i + 1}`), type: "progress", title: p.title, description: p.description, location: p.location, coverUrl: m[0].url, published: true, order: i, media: m });
   });
+  // Two projects in one trade can share an English title; the slug is what the URL is keyed on, so a
+  // collision would make one of them unreachable in the preview.
+  const seen = new Set<string>();
+  for (const p of out) {
+    let slug = p.slug;
+    for (let n = 2; seen.has(slug); n++) slug = `${p.slug}-${n}`;
+    p.slug = slug;
+    seen.add(slug);
+  }
   return out;
 }
 

@@ -48,6 +48,10 @@ async function main() {
         name: CATEGORY_LABELS[category].ar,
         category,
         whatsapp: "96550000000",
+        // These four are the showcase sites the demo toggle exists for, so they say so explicitly:
+        // provisioning writes nothing invented to a site that does not ask for it.
+        demo: true,
+        status: "active",
         provisionVercel: process.env.SEED_VERCEL === "true",
       });
       await addMember(site.id, admin.id);

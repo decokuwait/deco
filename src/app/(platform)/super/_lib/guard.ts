@@ -6,7 +6,7 @@ import type { NavItem } from "@/components/admin/Shell";
 import type { Locale } from "@/lib/types";
 import type { User } from "@/lib/db/users";
 
-export type NavKey = "sites" | "new" | "templates" | "users";
+export type NavKey = "sites" | "new" | "leads" | "deleted" | "templates" | "users";
 export type T = (key: SuperUiKey) => string;
 export interface SuperCtx {
   user: User;
@@ -25,8 +25,12 @@ export function superNav(active: NavKey, t: T): NavItem[] {
   const items: Array<{ key: NavKey; href: string; icon: NavItem["icon"]; label: SuperUiKey }> = [
     { key: "sites", href: "/super", icon: "sites", label: "sites" },
     { key: "new", href: "/super/sites/new", icon: "edit", label: "new_site" },
+    // The lead inbox sits high in the nav on purpose: it is the only place a request from the public site
+    // is ever seen, and an unread one is a customer waiting on WhatsApp.
+    { key: "leads", href: "/super/leads", icon: "megaphone", label: "lead_inbox" },
     { key: "templates", href: "/super/templates", icon: "layout", label: "templates" },
     { key: "users", href: "/super/users", icon: "users", label: "users" },
+    { key: "deleted", href: "/super/deleted", icon: "grid", label: "deleted_sites" },
   ];
   return items.map((i) => ({ href: i.href, icon: i.icon, label: t(i.label), active: i.key === active }));
 }

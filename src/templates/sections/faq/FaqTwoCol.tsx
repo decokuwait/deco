@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
-import { Container, Section, SectionHeading } from "../../ui/primitives";
+import { Container, Section, SectionHeading, cx } from "../../ui/primitives";
+import { AR_LEADING } from "../../leading";
 import { FaqSchema } from "./schema";
 
 /** Two-column grid of always-open Q/A blocks with numbered accent markers. No accordion. */
@@ -17,7 +18,7 @@ export function FaqTwoCol({ ctx }: SectionProps) {
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span aria-hidden className="absolute bottom-0 start-[19px] top-12 w-px bg-line" />
-              <h3 className="font-heading text-lg font-bold leading-snug sm:text-xl">{ctx.text(it.q)}</h3>
+              <h3 className={cx("font-heading text-lg font-bold leading-snug sm:text-xl", AR_LEADING)}>{ctx.text(it.q)}</h3>
               <p className="mt-2 leading-relaxed text-muted">{ctx.text(it.a)}</p>
             </div>
           ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Img, Video, cx } from "../primitives";
+import { FOCUS_RING, Img, Video, cx } from "../primitives";
 
 export interface RevealMedia {
   kind: "image" | "video";
@@ -19,7 +19,7 @@ export function HoverReveal({
   after,
   beforeLabel,
   afterLabel,
-  alt = "",
+  alt,
   className = "",
   aspect = "4/3",
 }: {
@@ -27,7 +27,8 @@ export function HoverReveal({
   after: RevealMedia | null;
   beforeLabel: string;
   afterLabel: string;
-  alt?: string;
+  /** Describes the two photographs; each layer prefixes it with its own state chip. Never "". */
+  alt: string;
   className?: string;
   aspect?: string;
 }) {
@@ -56,7 +57,7 @@ export function HoverReveal({
           onClick={() => set(!showAfter)}
           aria-pressed={showAfter}
           aria-label={showAfter ? afterLabel : beforeLabel}
-          className="absolute inset-0 h-full w-full cursor-pointer"
+          className={cx("absolute inset-0 h-full w-full cursor-pointer", FOCUS_RING)}
         />
       )}
       <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
@@ -96,7 +97,7 @@ function Layer({ item, alt, visible }: { item: RevealMedia | null; alt: string; 
           <Img src={item.url} alt={alt} className="h-full w-full object-cover" />
         )
       ) : (
-        <Img src={null} className="h-full w-full" />
+        <Img src={null} alt="" className="h-full w-full" />
       )}
     </div>
   );
@@ -110,6 +111,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       aria-pressed={active}
       className={cx(
         "min-h-11 rounded-full px-4 text-xs font-black uppercase tracking-wider transition",
+        FOCUS_RING,
         active ? "bg-white text-black shadow" : "text-white/85 hover:text-white",
       )}
     >

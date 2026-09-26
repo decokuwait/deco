@@ -186,7 +186,12 @@ export function effectiveTokens(def: TemplateDef, site: SiteData): DesignTokens 
     tokens.surface = th.surface.toLowerCase();
   }
   if (th.text && HEX.test(th.text)) {
-    tokens.text = th.text.toLowerCase();
+    // An owner-set text colour used to be applied exactly as picked, while the branch above floors a
+    // derived one at 7:1 — so white body text on a white page was publishable straight from the admin
+    // colour picker. Floor it like every other text token here, and against the banded surfaces too:
+    // every card, FAQ panel and alternating section carries body text on one of them.
+    const picked = th.text.toLowerCase();
+    tokens.text = readableOn(picked, hardestFor(picked, tokens.bg, tokens.surface, tokens.surface2), 4.5);
     // The muted tone is the text colour faded towards the background; keep fading only while it still reads.
     tokens.muted = readableOn(mix(tokens.text, tokens.bg, 0.4), tokens.bg, 4.5);
   }

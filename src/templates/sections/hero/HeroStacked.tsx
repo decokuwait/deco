@@ -1,5 +1,7 @@
 import type { SectionProps } from "../../types";
-import { Container, Img } from "../../ui/primitives";
+import { Container, Img, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
+import { headingLeading, heroAlt, heroTitle } from "../shared/helpers";
 import { HeroBadge, HeroCtas, mainImage } from "./shared";
 
 /** Centered text above a wide cinematic photo, with a stats card row overlapping the image. */
@@ -13,12 +15,12 @@ export function HeroStacked({ ctx }: SectionProps) {
       <Container wide className="relative pt-14 sm:pt-20">
         <div className="mx-auto max-w-3xl text-center animate-fade-up">
           <HeroBadge ctx={ctx} />
-          <h1 className="mt-5 font-heading text-4xl font-black leading-[1.12] sm:text-6xl">{ctx.text(h.title)}</h1>
+          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.12] sm:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">{ctx.text(h.subtitle)}</p>
           <HeroCtas ctx={ctx} className="mt-8 justify-center" />
         </div>
         <div className="relative mt-12 aspect-[16/10] overflow-hidden rounded-card shadow-2xl ring-1 ring-line sm:aspect-[21/9]">
-          <Img src={mainImage(ctx)} alt={ctx.text(h.title)} className="h-full w-full object-cover" eager />
+          <Img src={mainImage(ctx)} alt={heroAlt(ctx)} sizes={SIZES.full} ratio="21/9" className="h-full w-full object-cover" eager />
           <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-secondary/50 to-transparent" />
         </div>
         {stats.length > 0 && (

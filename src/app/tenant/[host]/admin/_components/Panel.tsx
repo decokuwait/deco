@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminShell } from "@/components/admin/Shell";
-import { adminNav, type AdminCtx, type NavKey } from "../_lib/guard";
+import { DirtyGuard } from "@/components/admin/DirtyGuard";
+import { adminNav, type AdminCtx, type NavKey, type T } from "../_lib/guard";
 import { logoutAction } from "../_lib/actions";
 
 /** Admin shell wired to the current site: title = site name, subtitle = host, nav + logout. */
@@ -32,13 +33,30 @@ export function Panel({ ctx, active, children }: { ctx: AdminCtx; active: NavKey
   );
 }
 
-/** Sticky save bar: sits above the bottom tab bar on phones, inline on desktop. */
-export function SaveBar({ children }: { children: ReactNode }) {
+/**
+ * Sticky save bar: sits above the bottom tab bar on phones, inline on desktop.
+ *
+ * Pass `t` and the bar also carries the unsaved-change guard for the form it sits in, which is how every
+ * editor gets it without each page remembering to.
+ */
+export function SaveBar({ t, children }: { t?: T; children: ReactNode }) {
   return (
-    <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 -mx-4 mt-5 flex items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
+    <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 -mx-4 mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0">
+      {t && <DirtyGuard labels={dirtyLabels(t)} />}
       {children}
     </div>
   );
+}
+
+/** The guard's wording, in the panel's language. */
+export function dirtyLabels(t: T) {
+  return {
+    badge: t("unsaved_changes"),
+    title: t("unsaved_title"),
+    message: t("unsaved_message"),
+    leave: t("leave_without_saving"),
+    stay: t("stay_on_page"),
+  };
 }
 
 /** Small back link used at the top of sub pages. */

@@ -17,9 +17,12 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
   const category: Category | undefined = (CATEGORIES as string[]).includes(catRaw) ? (catRaw as Category) : preset?.category;
   const error = sp1(sp.error);
   // Values typed before a validation error come back through the query string (never the password).
-  const prev = { name: sp1(sp.name), slug: sp1(sp.slug), customDomain: sp1(sp.customDomain), whatsapp: sp1(sp.whatsapp), adminEmail: sp1(sp.adminEmail) };
-  const seedDemo = sp1(sp.seedDemo) === "" ? true : sp1(sp.seedDemo) === "1";
-  const startPaused = sp1(sp.startPaused) === "1";
+  const prev = { name: sp1(sp.name), slug: sp1(sp.slug), customDomain: sp1(sp.customDomain), whatsapp: sp1(sp.whatsapp), email: sp1(sp.email), adminEmail: sp1(sp.adminEmail) };
+  // Both default the safe way round. The demo fills the site with invented testimonials and other
+  // people's photographs: it is for showing the product, never for a customer who is paying for it.
+  // And a new site starts paused so nothing half-written is served to visitors or to Google.
+  const seedDemo = sp1(sp.seedDemo) === "1";
+  const startPaused = sp1(sp.startPaused) === "" ? true : sp1(sp.startPaused) === "1";
   const root = ROOT_DOMAIN.replace(/:\d+$/, "");
 
   return (
@@ -50,11 +53,15 @@ export default async function NewSitePage({ searchParams }: { searchParams: Sear
             <Field label={t("whatsapp")}>
               <Input name="whatsapp" dir="ltr" placeholder="96550000000" required defaultValue={prev.whatsapp} />
             </Field>
+            <Field label={t("business_email")} hint={t("business_email_hint")}>
+              <Input name="email" type="email" dir="ltr" defaultValue={prev.email} />
+            </Field>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Toggle name="seedDemo" defaultChecked={seedDemo} label={t("seed_demo")} />
-            <Toggle name="startPaused" defaultChecked={startPaused} label={t("start_paused")} />
+            <Toggle name="seedDemo" defaultChecked={seedDemo} label={t("seed_demo")} hint={t("seed_demo_hint")} />
+            <Toggle name="startPaused" defaultChecked={startPaused} label={t("start_paused")} hint={t("start_paused_hint")} />
           </div>
+          <p className="mt-3 text-xs text-slate-500">{t("starter_copy_note")}</p>
         </Card>
         <Card title={t("admin_user")}>
           <p className="mb-3 text-sm text-slate-600">{t("admin_user_hint")}</p>

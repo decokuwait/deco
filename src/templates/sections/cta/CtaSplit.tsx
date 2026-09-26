@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
-import { PhoneIcon, WhatsAppIcon, buttonClass } from "../../ui/primitives";
+import { PhoneIcon, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
+import { AR_LEADING } from "../../leading";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 import { formatPhone } from "../shared/helpers";
 
@@ -15,7 +16,7 @@ export function CtaSplit({ ctx }: SectionProps) {
         <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-40" />
         <div className="relative mx-auto max-w-xl text-center lg:me-0 lg:pe-8 lg:text-start">
           <span className="text-xs font-bold uppercase tracking-widest text-accent-text">{ctx.text(ctx.site.content.cta.eyebrow) || ctx.ui("get_quote")}</span>
-          <h2 className="mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl">{ctx.text(c.title)}</h2>
+          <h2 className={cx("mt-3 font-heading text-3xl font-black leading-tight sm:text-4xl", AR_LEADING)}>{ctx.text(c.title)}</h2>
           {subtitle && <p className="mt-4 text-base opacity-85 sm:text-lg">{subtitle}</p>}
         </div>
       </div>

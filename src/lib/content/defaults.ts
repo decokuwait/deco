@@ -1,4 +1,4 @@
-import type { LText, SiteContent } from "@/lib/types";
+import { CONSENT_MODES, PLATFORMS, SIGNAL_MODES, type LText, type Platform, type SignalMode, type SiteContent } from "@/lib/types";
 
 const e = (): LText => ({ ar: "", en: "" });
 
@@ -22,6 +22,12 @@ export function emptyContent(): SiteContent {
       whatsappMessage: { ar: "مرحباً، رقم الزائر: {id}\nأرغب في الاستفسار عن خدماتكم.", en: "Hello, my visitor ID: {id}\nI would like to ask about your services." },
       title: e(),
       subtitle: e(),
+      addressParts: { street: e(), area: e(), governorate: e() },
+      geo: { lat: "", lng: "" },
+      hoursSpec: [],
+      googleBusinessUrl: "",
+      googleReviewUrl: "",
+      areasServed: [],
     },
     ui: {},
     legal: { privacy: { ...DEFAULT_PRIVACY }, privacyTitle: { ar: "سياسة الخصوصية", en: "Privacy policy" } },
@@ -41,10 +47,13 @@ export function emptyContent(): SiteContent {
     testimonials: { title: e(), subtitle: e(), items: [] },
     faq: { title: e(), subtitle: e(), items: [] },
     cta: { title: e(), subtitle: e(), buttonText: e(), eyebrow: e() },
-    seo: { title: e(), description: e(), ogImageUrl: "", keywords: "" },
+    seo: { title: e(), description: e(), ogImageUrl: "", keywords: "", verification: { google: "", bing: "" }, priceRange: "" },
     theme: {},
     sections: { about: true, services: true, stats: true, process: true, testimonials: true, faq: true, cta: true, order: [] },
-    settings: { defaultLocale: "ar", showLangToggle: true, floatingWhatsapp: true, showVisitorId: true, signalMode: "smart" },
+    // showLangToggle now defaults OFF: it used to publish ?lang=en containing Arabic
+    // body text (the i18n fallback), declared lang="en", and submit it in the sitemap.
+    // The toggle is turned on once the English side is actually written.
+    settings: { defaultLocale: "ar", showLangToggle: false, floatingWhatsapp: true, showVisitorId: true, signalMode: "source", primaryPlatform: null, consentMode: "notice", demo: false },
   };
 }
 
@@ -75,7 +84,26 @@ export function deepMerge<T>(base: T, patch: unknown): T {
  * not a plain object is treated as no content at all.
  */
 export function normalizeContent(raw: unknown): SiteContent {
-  return deepMerge(emptyContent(), isPlainObject(raw) ? raw : {});
+  const content = deepMerge(emptyContent(), isPlainObject(raw) ? raw : {});
+  content.settings.signalMode = normalizeSignalMode(content.settings.signalMode);
+  content.settings.primaryPlatform = normalizePrimaryPlatform(content.settings.primaryPlatform);
+  if (!(CONSENT_MODES as string[]).includes(content.settings.consentMode)) content.settings.consentMode = "notice";
+  return content;
+}
+
+/**
+ * `SignalMode` used to be `"smart" | "all"`, and "smart" fanned out to every connected platform
+ * whenever the source was unknown — one lead became N conversions in N ad accounts. Rows written
+ * before the change still hold that string, so it is read as its honest successor, `"source"`.
+ * Anything unrecognised lands there too: over-reporting must never be the fallback.
+ */
+export function normalizeSignalMode(raw: unknown): SignalMode {
+  if (raw === "smart") return "source";
+  return typeof raw === "string" && (SIGNAL_MODES as string[]).includes(raw) ? (raw as SignalMode) : "source";
+}
+
+function normalizePrimaryPlatform(raw: unknown): Platform | null {
+  return typeof raw === "string" && (PLATFORMS as string[]).includes(raw) ? (raw as Platform) : null;
 }
 
 export function whatsappDigits(number: string | null | undefined): string {
@@ -94,6 +122,17 @@ export function internationalDigits(number: string | null | undefined): string {
   if (d.startsWith("00")) d = d.slice(2);
   if (d.length === 8) d = `965${d}`;
   return d;
+}
+
+/**
+ * A number a Kuwaiti customer can actually be reached on: country code 965 plus an 8-digit mobile
+ * starting 5, 6 or 9. Landlines start with 2 and cannot receive WhatsApp.
+ *
+ * `/^\d{8,15}$/` accepted a 9-digit typo, which becomes a wa.me link to a number that does not exist.
+ * Nobody sees an error: the owner sees a saved form, and every lead dies silently at the link.
+ */
+export function isKuwaitMobile(number: string | null | undefined): boolean {
+  return /^965[569]\d{7}$/.test(internationalDigits(number));
 }
 
 /** WhatsApp's own cap on a prefilled message, so a long template cannot produce a link wa.me rejects. */

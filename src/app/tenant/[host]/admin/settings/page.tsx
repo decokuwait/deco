@@ -1,5 +1,6 @@
 import { requireSiteAdmin, sp1, type SearchParams } from "../_lib/guard";
-import { Panel } from "../_components/Panel";
+import { Panel, dirtyLabels } from "../_components/Panel";
+import { DirtyGuard } from "@/components/admin/DirtyGuard";
 import { Card, PageHeader, Flash, Field, Input, Select, Toggle } from "@/components/admin/ui";
 import { SubmitButton } from "@/components/admin/SubmitButton";
 import { getTemplate, templatesFor } from "@/templates/registry";
@@ -33,7 +34,10 @@ export default async function SettingsPage({ params, searchParams }: { params: P
             <Toggle name="showLangToggle" defaultChecked={s.showLangToggle} label={t("show_lang_toggle")} />
             <Toggle name="floatingWhatsapp" defaultChecked={s.floatingWhatsapp} label={t("floating_whatsapp")} />
             <Toggle name="showVisitorId" defaultChecked={s.showVisitorId} label={t("show_visitor_id")} hint={t("whatsapp_id_hint")} />
-            <div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Not the password form below: warning someone away from a half-typed password field is
+                  noise, and there is nothing there worth keeping. */}
+              <DirtyGuard labels={dirtyLabels(t)} />
               <SubmitButton pendingText={t("saving")}>{t("save")}</SubmitButton>
             </div>
           </form>

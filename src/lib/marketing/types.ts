@@ -1,4 +1,4 @@
-import type { Delivery, EventKey, PixelConfig, Visitor } from "@/lib/types";
+import type { Delivery, DeliveryAlarm, EventKey, PixelConfig, Visitor } from "@/lib/types";
 
 export type VisitorLike = Pick<
   Visitor,
@@ -55,6 +55,26 @@ export function redactSecrets(value: unknown, secrets: string[]): unknown {
   }
 }
 
+/**
+ * Tell the two failures an owner must act on today apart from the noise.
+ *
+ * An expired token and a retired API version look identical in a red badge, but they are the only two
+ * failures that break EVERY event for EVERY tenant at once and stay broken until a human intervenes —
+ * a pinned Graph version reaching its sunset date takes the whole platform down silently and on a
+ * schedule. Everything else is a per-event problem the retry queue can chase.
+ */
+export function classifyAlarm(status: number | undefined, body: unknown): DeliveryAlarm | undefined {
+  if (status === 401) return "auth";
+  const err = (body as { error?: { code?: number; type?: string; message?: string } } | null)?.error;
+  const message = typeof err?.message === "string" ? err.message : typeof body === "string" ? body : "";
+  // Meta retires a Graph version by answering every call to it with "Unsupported post request".
+  if (/unsupported (get|post) request|unknown path components|version .*(no longer|deprecat)/i.test(message)) return "api_version";
+  // 190 is Meta's expired/invalid access token; 102 and 463 are the session variants of it.
+  if (err?.code === 190 || err?.code === 102 || err?.code === 463 || err?.type === "OAuthException") return "auth";
+  if (/access[_ ]token.*(invalid|expired)|invalid.*access[_ ]token|token has expired/i.test(message)) return "auth";
+  return undefined;
+}
+
 export async function postJson(
   ctx: SendContext,
   url: string,
@@ -74,7 +94,8 @@ export async function postJson(
     } catch {
       body = text.slice(0, 500);
     }
-    return { platform: ctx.pixel.platform, ok: res.ok, status: res.status, eventName, response: redactSecrets(truncate(body), secrets) };
+    const alarm = res.ok ? undefined : classifyAlarm(res.status, body);
+    return { platform: ctx.pixel.platform, ok: res.ok, status: res.status, eventName, response: redactSecrets(truncate(body), secrets), ...(alarm ? { alarm } : {}) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { platform: ctx.pixel.platform, ok: false, eventName, error: String(redactSecrets(message, secrets)) };

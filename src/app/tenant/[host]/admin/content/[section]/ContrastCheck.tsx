@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Live readability check for the theme editor.
@@ -24,27 +24,35 @@ function ratio(a: string, b: string): number {
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
+/** Every colour the check reads. `surface` is here because most of the page sits on it, not on `bg`. */
+const KEYS = ["primary", "accent", "bg", "surface", "text"] as const;
 
 export interface ContrastLabels {
   /** "Readability" */
   title: string;
-  /** "{pair} is hard to read ({ratio}:1). Aim for at least 4.5:1." */
+  /** "{pair} is hard to read ({ratio}:1). Aim for at least {need}:1." */
   warning: string;
   ok: string;
-  pairText: string;
-  pairPrimary: string;
-  pairAccent: string;
+  fgText: string;
+  fgPrimary: string;
+  fgAccent: string;
+  onBg: string;
+  onSurface: string;
 }
 
 export function ContrastCheck({ labels, fallback }: { labels: ContrastLabels; fallback: Record<string, string> }) {
+  const anchor = useRef<HTMLSpanElement>(null);
   const [colors, setColors] = useState<Record<string, string>>(fallback);
 
   useEffect(() => {
-    const form = document.querySelector<HTMLFormElement>("form");
+    // `document.querySelector("form")` returned the FIRST form in the document — the logout form in the
+    // admin header — so the colour inputs were never found and the listeners were bound to the wrong
+    // element. This check has therefore never once reported a real pair. Scope it to its own form.
+    const form = anchor.current?.closest("form");
     if (!form) return;
     const read = () => {
       const next: Record<string, string> = { ...fallback };
-      for (const key of ["primary", "accent", "bg", "text"]) {
+      for (const key of KEYS) {
         const input = form.querySelector<HTMLInputElement>(`input[type="color"][name="${key}"]`);
         const custom = form.querySelector<HTMLInputElement>(`input[type="checkbox"][name="${key}_custom"]`);
         if (input && custom?.checked && HEX.test(input.value)) next[key] = input.value.toLowerCase();
@@ -61,17 +69,33 @@ export function ContrastCheck({ labels, fallback }: { labels: ContrastLabels; fa
     // `fallback` is a plain object rebuilt on each server render; its values are what matter.
   }, [fallback]);
 
-  const bg = HEX.test(colors.bg ?? "") ? colors.bg : fallback.bg;
-  const pairs = [
-    { label: labels.pairText, value: ratio(colors.text ?? fallback.text, bg), need: 4.5 },
-    { label: labels.pairPrimary, value: ratio(colors.primary ?? fallback.primary, bg), need: 4.5 },
-    { label: labels.pairAccent, value: ratio(colors.accent ?? fallback.accent, bg), need: 3 },
+  const pick = (key: string) => (HEX.test(colors[key] ?? "") ? colors[key] : fallback[key]);
+  const bg = pick("bg");
+  // Every card, FAQ panel and testimonial sits on `surface`, so a readable pair against `bg` alone says
+  // nothing about most of the page.
+  const surface = pick("surface") || bg;
+  const foregrounds = [
+    { label: labels.fgText, color: pick("text"), need: 4.5 },
+    { label: labels.fgPrimary, color: pick("primary"), need: 4.5 },
+    { label: labels.fgAccent, color: pick("accent"), need: 3 },
   ];
+  const bases = [
+    { label: labels.onBg, color: bg },
+    { label: labels.onSurface, color: surface },
+  ];
+  const pairs = foregrounds.flatMap((fg) =>
+    bases
+      // A surface identical to the background is the same pair twice; report it once.
+      .filter((base, i) => i === 0 || base.color !== bg)
+      .map((base) => ({ label: `${fg.label} — ${base.label}`, value: ratio(fg.color, base.color), need: fg.need })),
+  );
   const bad = pairs.filter((p) => p.value < p.need);
 
   return (
     <div className="mb-5 rounded-xl border border-slate-200 bg-white p-3" aria-live="polite">
-      <span className="mb-2 block text-sm font-bold text-slate-800">{labels.title}</span>
+      <span ref={anchor} className="mb-2 block text-sm font-bold text-slate-800">
+        {labels.title}
+      </span>
       {bad.length === 0 ? (
         <span className="text-xs font-bold text-emerald-700">{labels.ok}</span>
       ) : (

@@ -2,7 +2,8 @@ import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading, cx } from "../../ui/primitives";
 import { GalleryFrame, GalleryOpen } from "../../ui/client/GalleryFrame";
 import { PlayBadge } from "../../ui/client/Lightbox";
-import { progressSlides, projectsOf } from "../shared/helpers";
+import { SIZES } from "../../ui/img";
+import { nthAlt, progressSlides, projectsOf } from "../shared/helpers";
 
 /** Vertical timeline: one row per step/day with date chip, label and a media thumbnail that opens the lightbox. */
 export function ProgressTimeline({ ctx }: SectionProps) {
@@ -15,7 +16,7 @@ export function ProgressTimeline({ ctx }: SectionProps) {
         <div className="grid gap-14">
           {projects.map((pr) => {
             const slides = progressSlides(ctx, pr);
-            const items = slides.map((s) => ({ id: s.id, kind: s.kind, url: s.url, posterUrl: s.posterUrl, caption: s.label }));
+            const items = slides.map((s, i) => ({ id: s.id, kind: s.kind, url: s.url, posterUrl: s.posterUrl, caption: s.label, alt: nthAlt(ctx, s.alt, i, slides.length) }));
             return (
               <GalleryFrame key={pr.id} items={items} closeLabel={ctx.ui("close")}>
                 <article>
@@ -35,11 +36,11 @@ export function ProgressTimeline({ ctx }: SectionProps) {
                           </span>
                           <div className={cx("rounded-card border border-line bg-bg p-4", left ? "sm:ms-auto" : "")}>
                             <div className={cx("flex flex-wrap items-center gap-2 text-xs", left ? "sm:justify-end" : "")}>
-                              {s.date && <span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono font-bold text-muted">{s.date}</span>}
+                              {s.date && <span className="rounded-full bg-surface-2 px-2 py-0.5 font-bold text-muted">{s.date}</span>}
                               <span className="font-heading text-base font-bold">{s.label}</span>
                             </div>
                             <GalleryOpen index={i} label={s.label} className="relative mt-3 block aspect-[16/10] w-full overflow-hidden rounded-card bg-surface-2">
-                              <Img src={s.kind === "video" ? s.posterUrl || "" : s.url} alt={s.label} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+                              <Img src={s.kind === "video" ? s.posterUrl || "" : s.url} alt={s.alt} sizes={SIZES.half} ratio="16/10" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
                               {s.kind === "video" && <PlayBadge />}
                             </GalleryOpen>
                           </div>

@@ -3,7 +3,7 @@ import type { RenderCtx, SectionKey } from "../../types";
 import type { LightboxItem } from "../../ui/client/Lightbox";
 import type { ProgressSlide } from "../../ui/client/ProgressSlideshow";
 import { effectiveTokens } from "../../ctx";
-import { isDisplayFont } from "../../fonts";
+import { arabicHeadingLeading, isDisplayFont } from "../../fonts";
 import { internationalDigits } from "@/lib/content/defaults";
 
 /**
@@ -13,6 +13,61 @@ import { internationalDigits } from "@/lib/content/defaults";
  */
 export function longTextFont(ctx: RenderCtx): "font-heading" | "font-body" {
   return isDisplayFont(effectiveTokens(ctx.def, ctx.site).headingFont) ? "font-body" : "font-heading";
+}
+
+/**
+ * Arabic line-height floor for a heading set in the site's own heading face — see `AR_LEADING`. A section
+ * adds it next to its Latin `leading-*`, which it overrides on an Arabic page.
+ */
+export function headingLeading(ctx: RenderCtx): string {
+  return arabicHeadingLeading(effectiveTokens(ctx.def, ctx.site).headingFont);
+}
+
+/**
+ * Alt text for a picture of a project. Never `""`: an empty alt declares an image decorative, and these
+ * photographs are the content of the page (WCAG 1.1.1 Level A). The authored `MediaItem.alt` wins, then
+ * the caption, then a description generated from what the project already tells us.
+ */
+export function projectAlt(ctx: RenderCtx, project: Project): string {
+  const parts = [ctx.text(project.title), ctx.text(project.location)].filter(Boolean);
+  return parts.join(" — ") || ctx.text(ctx.site.content.brand.name) || ctx.ui("photo");
+}
+
+export function mediaAlt(ctx: RenderCtx, item: MediaItem, project: Project): string {
+  return ctx.text(item.alt) || ctx.text(item.caption) || projectAlt(ctx, project);
+}
+
+/** "… — 2 من 5" for one picture out of a set, so a screen reader can tell them apart. */
+export function nthAlt(ctx: RenderCtx, base: string, i: number, total: number): string {
+  return total > 1 ? `${base} — ${i + 1} ${ctx.ui("of")} ${total}` : base;
+}
+
+/**
+ * What the hero's <h1> says. A site whose hero title has not been filled in used to render an empty <h1>
+ * in all ten hero variants — no page heading at all, for a visitor and for a search engine.
+ */
+export function heroTitle(ctx: RenderCtx): string {
+  const c = ctx.site.content;
+  return ctx.text(c.hero.title) || ctx.text(c.brand.name) || ctx.text(c.brand.tagline) || ctx.ui("nav_home");
+}
+
+/** Alt text for a hero picture, which illustrates the headline it sits beside. */
+export function heroAlt(ctx: RenderCtx): string {
+  const c = ctx.site.content;
+  return ctx.text(c.hero.title) || ctx.text(c.brand.name) || ctx.ui("photo");
+}
+
+/**
+ * A step date is stored as a bare `YYYY-MM-DD`, and every progress section printed it exactly like that —
+ * `2026-01-15` on an Arabic page, while the admin has formatted its dates with `Intl` all along. Same
+ * convention as the admin: Latin numerals inside Arabic (`ar-KW-u-nu-latn`, what Kuwaiti sites use) and
+ * Kuwait time, so a date does not slip a day on a server running in UTC.
+ */
+export function formatStepDate(ctx: RenderCtx, iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat(ctx.locale === "ar" ? "ar-KW-u-nu-latn" : "en-GB", { dateStyle: "medium", timeZone: "Asia/Kuwait" }).format(d);
 }
 
 export function projectsOf(ctx: RenderCtx, type: ProjectType): Project[] {
@@ -92,8 +147,16 @@ export function coverOf(project: Project): string | null {
 }
 
 export function lightboxItems(ctx: RenderCtx, project: Project): LightboxItem[] {
-  const items = mediaOf(project).map((m) => ({ id: m.id, kind: m.kind, url: m.url, posterUrl: m.posterUrl, caption: ctx.text(m.caption) || ctx.text(project.title) }));
-  if (!items.length && project.coverUrl) items.push({ id: `${project.id}-cover`, kind: "image", url: project.coverUrl, posterUrl: null, caption: ctx.text(project.title) });
+  const media = mediaOf(project);
+  const items: LightboxItem[] = media.map((m, i) => ({
+    id: m.id,
+    kind: m.kind,
+    url: m.url,
+    posterUrl: m.posterUrl,
+    caption: ctx.text(m.caption) || ctx.text(project.title),
+    alt: nthAlt(ctx, mediaAlt(ctx, m, project), i, media.length),
+  }));
+  if (!items.length && project.coverUrl) items.push({ id: `${project.id}-cover`, kind: "image", url: project.coverUrl, posterUrl: null, caption: ctx.text(project.title), alt: projectAlt(ctx, project) });
   return items;
 }
 
@@ -111,7 +174,8 @@ export function progressSlides(ctx: RenderCtx, project: Project): ProgressSlide[
       url: m.url,
       posterUrl: m.posterUrl,
       label: ctx.text(m.stepLabel) || ctx.text(m.caption) || `${ctx.ui("step")} ${i + 1}`,
-      date: m.stepDate,
+      date: formatStepDate(ctx, m.stepDate),
+      alt: ctx.text(m.alt) || ctx.text(m.stepLabel) || ctx.text(m.caption) || projectAlt(ctx, project),
     }));
 }
 

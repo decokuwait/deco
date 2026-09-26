@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { requireSiteAdmin, sp1, type SearchParams } from "./_lib/guard";
 import { Panel } from "./_components/Panel";
 import { Card, PageHeader, LinkButton, EmptyState, Badge, Flash } from "@/components/admin/ui";
-import { visitorStats } from "@/lib/db/visitors";
+import { searchVisitors, visitorStats } from "@/lib/db/visitors";
 import { listRecentEvents } from "@/lib/db/events";
 import { siteUrl } from "@/lib/config";
 import { PLATFORMS, STAGES, STAGE_LABELS, type SourcePlatform, type Stage } from "@/lib/types";
@@ -10,6 +11,8 @@ import { DeliverySummary, DeliveryList, sourceLabel, StageBadge } from "./_compo
 import { fmtDateTime, fmtMoney } from "./_lib/format";
 
 const SOURCES: SourcePlatform[] = [...PLATFORMS, "direct", "other"];
+/** How far back the unhandled-lead count looks before it says "200+". */
+const UNHANDLED_SCAN = 200;
 
 function Bars({ rows, total }: { rows: Array<{ key: string; label: string; n: number; badge?: React.ReactNode }>; total: number }) {
   if (!rows.length) return <p className="text-sm text-slate-500">—</p>;
@@ -40,7 +43,18 @@ export default async function DashboardPage({ params, searchParams }: { params: 
   const sp = await searchParams;
   const ctx = await requireSiteAdmin(host);
   const { t, locale, site } = ctx;
-  const [stats, events] = await Promise.all([visitorStats(site.id), listRecentEvents(site.id, 20)]);
+  // "People who messaged me and I have not dealt with yet" is the owner's actual daily to-do list, and
+  // it was not a view anywhere in the panel. A WhatsApp click does not advance the stage (nothing on the
+  // public site can know whether the conversation happened), so the queue is exactly: clicked WhatsApp,
+  // still "new". Counted from a bounded page rather than a dedicated query —
+  // the number only has to tell the owner whether there is work waiting.
+  const [stats, events, newVisitors] = await Promise.all([
+    visitorStats(site.id),
+    listRecentEvents(site.id, 20),
+    searchVisitors(site.id, { stage: "new", limit: UNHANDLED_SCAN }),
+  ]);
+  const unhandled = newVisitors.items.filter((v) => v.whatsappClicks > 0);
+  const unhandledLabel = newVisitors.total > UNHANDLED_SCAN && unhandled.length === UNHANDLED_SCAN ? `${UNHANDLED_SCAN}+` : String(unhandled.length);
 
   const cards: Array<{ label: string; value: number; tone: string }> = [
     { label: t("total"), value: stats.total, tone: "text-slate-900" },
@@ -73,6 +87,21 @@ export default async function DashboardPage({ params, searchParams }: { params: 
         }
       />
       <Flash saved={sp1(sp.saved)} error={sp1(sp.error)} savedText={t("saved")} errorText={t("error")} locale={locale} />
+
+      {unhandled.length > 0 && (
+        <Link
+          href="/admin/visitors?stage=unhandled"
+          className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 transition hover:border-amber-400"
+        >
+          <span>
+            <span className="block text-sm font-black text-amber-900">
+              {t("unhandled_leads")} · <span className="tabular-nums">{unhandledLabel}</span>
+            </span>
+            <span className="mt-0.5 block text-xs text-amber-800">{t("unhandled_leads_hint")}</span>
+          </span>
+          <span className="shrink-0 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white">{t("open_queue")}</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {cards.map((c) => (

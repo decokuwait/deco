@@ -1,6 +1,7 @@
 "use client";
 
-import { responsiveSrc } from "../img";
+import { SIZES, responsiveSrc } from "../img";
+import { intrinsic, posterSrc } from "../primitives";
 import { useEffect, useState } from "react";
 import { usePageVisible, useReducedMotion } from "./motion";
 
@@ -11,6 +12,8 @@ export interface ProgressSlide {
   posterUrl?: string | null;
   label: string;
   date?: string | null;
+  /** Required, and never "": a progress photo is what the section is about. */
+  alt: string;
 }
 
 /**
@@ -56,9 +59,9 @@ export function ProgressSlideshow({
     <div className={`overflow-hidden rounded-card bg-surface ring-1 ring-line ${className}`} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <div className="relative aspect-[4/3] bg-black sm:aspect-[16/10]" tabIndex={0} onKeyDown={(e) => (e.key === "ArrowLeft" ? go(dir === "rtl" ? 1 : -1) : e.key === "ArrowRight" ? go(dir === "rtl" ? -1 : 1) : null)}>
         {cur.kind === "video" ? (
-          <video key={cur.id} src={cur.url} poster={cur.posterUrl || undefined} controls playsInline className="h-full w-full object-contain" preload="metadata" />
+          <video key={cur.id} src={posterSrc(cur)} poster={cur.posterUrl || undefined} controls playsInline className="h-full w-full object-contain" preload="metadata" />
         ) : (
-          <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url)} alt={cur.label} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
+          <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url, SIZES.half)} {...intrinsic("16/10")} alt={cur.alt} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 pt-12 text-white">
           <div className="text-xs opacity-80">

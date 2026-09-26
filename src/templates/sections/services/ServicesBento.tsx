@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading, WhatsAppIcon } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
 import { Icon } from "../../ui/icons";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 
@@ -15,7 +16,7 @@ export function ServicesBento({ ctx }: SectionProps) {
         <SectionHeading title={ctx.text(s.title)} subtitle={ctx.text(s.subtitle)} />
         <div className="grid auto-rows-[minmax(11rem,auto)] gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="group relative min-h-[22rem] overflow-hidden rounded-card bg-secondary text-secondary-fg sm:col-span-2 lg:row-span-2">
-            <Img src={heroImg} alt={ctx.text(first.title)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            <Img src={heroImg} alt={ctx.text(first.title)} sizes={SIZES.half} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/60 to-secondary/10" />
             <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-20" />
             <div className="relative flex h-full flex-col justify-end p-6 sm:p-8">
@@ -30,7 +31,7 @@ export function ServicesBento({ ctx }: SectionProps) {
             <article key={it.id} className="group relative flex flex-col overflow-hidden rounded-card border border-line bg-bg transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl">
               {it.imageUrl ? (
                 <div className="relative aspect-[16/9] overflow-hidden">
-                  <Img src={it.imageUrl} alt={ctx.text(it.title)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <Img src={it.imageUrl} alt={ctx.text(it.title)} sizes={SIZES.quarter} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <span className="absolute bottom-3 start-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg text-primary-text shadow">
                     <Icon name={it.icon} className="h-5 w-5" />
                   </span>

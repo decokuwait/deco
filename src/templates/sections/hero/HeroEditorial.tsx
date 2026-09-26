@@ -1,5 +1,7 @@
 import type { SectionProps } from "../../types";
-import { Container, Img } from "../../ui/primitives";
+import { Container, Img, cx } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
+import { headingLeading, heroAlt, heroTitle } from "../shared/helpers";
 import { HeroBadge, HeroCtas, mainImage } from "./shared";
 
 /** Magazine layout: oversized headline, thin accent rules, a small photo and numbered stats. */
@@ -17,11 +19,11 @@ export function HeroEditorial({ ctx }: SectionProps) {
         <div className="mt-10 grid gap-10 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8 animate-fade-up">
             <HeroBadge ctx={ctx} />
-            <h1 className="mt-5 font-heading text-5xl font-black leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl">{ctx.text(h.title)}</h1>
+            <h1 className={cx("mt-5 font-heading text-5xl font-black leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
           </div>
           <div className="lg:col-span-4">
             <div className="aspect-[4/5] overflow-hidden rounded-card">
-              <Img src={mainImage(ctx)} alt={ctx.text(h.title)} className="h-full w-full object-cover" eager />
+              <Img src={mainImage(ctx)} alt={heroAlt(ctx)} sizes={SIZES.third} ratio="4/5" className="h-full w-full object-cover" eager />
             </div>
           </div>
         </div>

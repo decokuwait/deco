@@ -11,8 +11,18 @@ import { PATTERN_KEYS } from "@/templates/decor/patterns";
 import { DEFAULT_ORDER } from "@/templates/types";
 import { internationalDigits } from "@/lib/content/defaults";
 import { isNonEmbedMapUrl } from "@/lib/safe-url";
+import { contentVersion, VERSION_FIELD } from "../../_lib/version";
+import { readHoursSpec } from "../_lib/hours";
 
 const HEX = /^#[0-9a-f]{6}$/i;
+
+/** One latitude/longitude field, kept only when it is a real coordinate. */
+function coordinate(geo: unknown, key: "lat" | "lng", limit: number): string {
+  const raw = String((geo as Record<string, unknown> | undefined)?.[key] ?? "").trim();
+  if (!raw) return "";
+  const n = Number(raw);
+  return Number.isFinite(n) && Math.abs(n) <= limit ? raw.slice(0, 20) : "";
+}
 const RADII = ["none", "sm", "md", "lg", "xl", "full"];
 const BUTTONS = ["solid", "outline", "pill", "square", "glow", "underline"];
 
@@ -20,6 +30,11 @@ export async function saveSection(host: string, section: string, fd: FormData) {
   const { site } = await requireSiteAdmin(host);
   if (!isContentSection(section)) redirect("/admin/content?error=unknown_section");
   const back = `/admin/content/${section}`;
+  // Refuse before building the patch, not after. A list form carries `rows.count` and every `rows.N.id`
+  // from the moment the page was rendered, and the patch rebuilds the whole array from exactly those
+  // rows — so a second tab's save deletes the service the first tab just added and still says "saved".
+  // Nothing downstream can tell that apart from a deliberate deletion, so it has to be caught here.
+  if (readStr(fd, VERSION_FIELD, 40) !== contentVersion(site.content)) redirect(withQuery(back, { error: "content_changed" }));
   try {
     let patch: Record<string, unknown>;
     if (section === "theme") {
@@ -71,6 +86,10 @@ export async function saveSection(host: string, section: string, fd: FormData) {
         // A normal Maps link passes URL validation but Google refuses to frame it, so the site would show
         // an empty box. Say so instead of saving something that renders as nothing.
         if (isNonEmbedMapUrl(readStr(fd, "contact.mapEmbedUrl", 4000))) redirect(withQuery(back, { error: "map_not_embed" }));
+        // A coordinate is either a number inside the range of the earth or it is nothing: a half-typed
+        // "29." stored as-is would put a broken `geo` in the structured data rather than none at all.
+        contact.geo = { lat: coordinate(contact.geo, "lat", 90), lng: coordinate(contact.geo, "lng", 180) };
+        contact.hoursSpec = readHoursSpec(fd);
         patch.contact = contact;
       }
     }

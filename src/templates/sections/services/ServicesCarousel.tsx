@@ -1,5 +1,6 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, SectionHeading, WhatsAppIcon, buttonClass } from "../../ui/primitives";
+import { SIZES } from "../../ui/img";
 import { Icon } from "../../ui/icons";
 import { Carousel } from "../../ui/client/Carousel";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
@@ -16,7 +17,7 @@ export function ServicesCarousel({ ctx }: SectionProps) {
         {s.items.map((it, i) => (
           <article key={it.id} className="group relative aspect-[4/5] overflow-hidden rounded-card bg-secondary text-secondary-fg shadow-lg">
             {it.imageUrl ? (
-              <Img src={it.imageUrl} alt={ctx.text(it.title)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <Img src={it.imageUrl} alt={ctx.text(it.title)} sizes={SIZES.third} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
             ) : (
               <>
                 <div aria-hidden className="pattern-bg absolute inset-0 opacity-30" />

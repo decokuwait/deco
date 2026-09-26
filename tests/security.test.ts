@@ -5,7 +5,7 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
 if (!process.env.TEST_DATABASE_URL) process.env.PGLITE_MEMORY = "1";
 process.env.PIXEL_SECRET_KEY = "a".repeat(64);
 
-import { rateLimit, resetRateLimits } from "@/lib/rate-limit";
+import { rateLimit, rateLimitLocal, rateLimitShared, resetRateLimits } from "@/lib/rate-limit";
 import { safeUrl, safeMapEmbed, safeMediaUrl } from "@/lib/safe-url";
 import { decryptSecret, encryptSecret, secretsEncrypted } from "@/lib/secrets";
 import { getDb, resetDb } from "@/lib/db/client";
@@ -14,20 +14,21 @@ import { upsertPixel, getPixel } from "@/lib/db/pixels";
 import { createSite } from "@/lib/db/sites";
 
 describe("rate limiter", () => {
+  // The per-instance token bucket, which is now only the fast path in front of the shared counter.
   it("allows a burst up to the limit then blocks, and refills over time", () => {
     resetRateLimits();
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
-      for (let i = 0; i < 5; i++) expect(rateLimit("k", 5, 1000)).toBe(true);
-      expect(rateLimit("k", 5, 1000)).toBe(false);
-      expect(rateLimit("other", 5, 1000)).toBe(true);
+      for (let i = 0; i < 5; i++) expect(rateLimitLocal("k", 5, 1000)).toBe(true);
+      expect(rateLimitLocal("k", 5, 1000)).toBe(false);
+      expect(rateLimitLocal("other", 5, 1000)).toBe(true);
       vi.setSystemTime(new Date("2026-01-01T00:00:00.250Z"));
-      expect(rateLimit("k", 5, 1000)).toBe(true); // a quarter of the window refills one token
-      expect(rateLimit("k", 5, 1000)).toBe(false);
+      expect(rateLimitLocal("k", 5, 1000)).toBe(true); // a quarter of the window refills one token
+      expect(rateLimitLocal("k", 5, 1000)).toBe(false);
       vi.setSystemTime(new Date("2026-01-01T00:00:05Z"));
-      for (let i = 0; i < 5; i++) expect(rateLimit("k", 5, 1000)).toBe(true);
-      expect(rateLimit("k", 5, 1000)).toBe(false);
+      for (let i = 0; i < 5; i++) expect(rateLimitLocal("k", 5, 1000)).toBe(true);
+      expect(rateLimitLocal("k", 5, 1000)).toBe(false);
     } finally {
       vi.useRealTimers();
     }
@@ -93,6 +94,36 @@ describe("database security behaviours", () => {
     expect(await getUserBySessionToken(token)).toBeNull();
     expect(await getUserBySessionToken("short")).toBeNull();
   });
+  /**
+   * The counter that matters. The old limiter was a module-level Map, so on Vercel the real limit was
+   * `limit x instance_count` and a cold start reset it — which is why the durable one is tested by
+   * clearing the in-memory buckets between calls and checking the count still holds.
+   */
+  it("counts rate-limited calls in the database, not only in this instance's memory", async () => {
+    const key = `test:${Date.now()}`;
+    for (let i = 0; i < 3; i++) {
+      resetRateLimits(); // as if every call landed on a freshly started lambda
+      expect(await rateLimit(key, 3, 60)).toBe(true);
+    }
+    resetRateLimits();
+    expect(await rateLimit(key, 3, 60)).toBe(false);
+    // A different key has its own window, and the raw shared counter agrees.
+    expect(await rateLimitShared(`${key}:other`, 3, 60)).toBe(true);
+    const row = await (await getDb()).query<{ count: number }>(`select count from rate_limits where key = $1`, [key]);
+    expect(Number(row[0].count)).toBe(4);
+  });
+
+  // The window is a real window: an expired one starts the count again rather than staying blocked.
+  it("starts a new window once the old one has passed", async () => {
+    const key = `test-window:${Date.now()}`;
+    expect(await rateLimit(key, 1, 60)).toBe(true);
+    resetRateLimits();
+    expect(await rateLimit(key, 1, 60)).toBe(false);
+    await (await getDb()).query(`update rate_limits set window_start = now() - interval '2 minutes' where key = $1`, [key]);
+    resetRateLimits();
+    expect(await rateLimit(key, 1, 60)).toBe(true);
+  });
+
   it("stores pixel tokens encrypted at rest and decrypts them on read", async () => {
     const site = await createSite({ slug: "sec", name: "Sec", category: "gypsum", templateCode: "101" });
     await upsertPixel(site.id, "meta", { pixelId: "1", accessToken: "secret-token", active: true, extra: { apiSecret: "s3" } });

@@ -1,26 +1,43 @@
 "use client";
 
-import { responsiveSrc } from "../img";
+import { SIZES, responsiveSrc } from "../img";
+import { intrinsic } from "../primitives";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** Draggable before/after comparison. Works with mouse, touch and keyboard. */
+/**
+ * Draggable before/after comparison. Works with mouse, touch and keyboard.
+ *
+ * The frame used to be pinned to `dir="ltr"`, which mirrored the story for the people the site is written
+ * for: "قبل" sat top-left and "بعد" top-right, with the before photo on the left, so an Arabic reader
+ * scanning right to left met the finished room first and the ruined one second — the narrative running
+ * backwards on the most persuasive widget in the product. It now mirrors properly: `pos` is measured from
+ * the *inline* start, the before layer is clipped from there, and the labels follow with `start`/`end`.
+ */
 export function BeforeAfterSlider({
   before,
   after,
   beforeLabel,
   afterLabel,
+  beforeAlt,
+  afterAlt,
   hint,
   className = "",
   aspect = "4/3",
+  dir = "rtl",
 }: {
   before: string;
   after: string;
   beforeLabel: string;
   afterLabel: string;
+  /** Describes the photograph, not the chip on top of it — the two pictures are the content here. */
+  beforeAlt: string;
+  afterAlt: string;
   hint?: string;
   className?: string;
   aspect?: string;
+  dir?: "rtl" | "ltr";
 }) {
+  const rtl = dir === "rtl";
   const [pos, setPos] = useState(50);
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -46,20 +63,24 @@ export function BeforeAfterSlider({
     return () => ro.disconnect();
   }, []);
 
-  const update = useCallback((clientX: number) => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const x = Math.min(Math.max(clientX - r.left, 0), r.width);
-    setPos((x / r.width) * 100);
-  }, []);
+  const update = useCallback(
+    (clientX: number) => {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const from = rtl ? r.right - clientX : clientX - r.left;
+      const x = Math.min(Math.max(from, 0), r.width);
+      setPos((x / r.width) * 100);
+    },
+    [rtl],
+  );
 
   // touchAction "pan-y", not "none": "none" swallowed every touch, so a visitor who began a scroll on the
   // image could not scroll the page at all. Vertical scrolling stays with the page, horizontal drags come here.
   return (
     <div
       ref={ref}
-      dir="ltr"
+      dir={dir}
       className={`relative select-none overflow-hidden rounded-card bg-surface-2 ${className}`}
       style={{ aspectRatio: aspect, touchAction: "pan-y" }}
       onPointerDown={(e) => {
@@ -71,21 +92,16 @@ export function BeforeAfterSlider({
       onPointerUp={() => (dragging.current = false)}
       onPointerCancel={() => (dragging.current = false)}
     >
-      <img src={after} {...responsiveSrc(after)} alt={afterLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <img src={after} {...responsiveSrc(after, SIZES.half)} {...intrinsic(aspect)} alt={afterAlt} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      {/* `inset-0` plus an explicit width over-constrains an absolutely positioned box, and CSS resolves
+          that by dropping the *end* offset — so in RTL the clip and the image inside it anchor to the
+          right edge, which is exactly the inline start there. No physical offsets needed. */}
       <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-        <img src={before} {...responsiveSrc(before)} alt={beforeLabel} loading="lazy" decoding="async" className="absolute inset-0 h-full max-w-none object-cover" style={{ width: frameWidth ?? "100%" }} draggable={false} />
+        <img src={before} {...responsiveSrc(before, SIZES.half)} {...intrinsic(aspect)} alt={beforeAlt} loading="lazy" decoding="async" className="absolute inset-0 h-full max-w-none object-cover" style={{ width: frameWidth ?? "100%" }} draggable={false} />
       </div>
-      <div className="pointer-events-none absolute inset-y-0" style={{ left: `calc(${pos}% - 1px)` }}>
-        <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,.2)]" />
-        <div className="absolute top-1/2 left-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-lg">
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 7l-5 5 5 5M16 7l5 5-5 5" />
-          </svg>
-        </div>
-      </div>
-      <span className="absolute top-3 left-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">{beforeLabel}</span>
-      <span className="absolute top-3 right-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">{afterLabel}</span>
-      {hint && <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-[11px] text-white">{hint}</span>}
+      {/* The keyboard affordance was an `opacity-0` range input: a visitor could tab into it and see
+          nothing at all move or light up (WCAG 2.4.7). It now sits before the handle so that focusing it
+          rings the divider it drives, and shows itself on focus. */}
       <input
         type="range"
         min={0}
@@ -93,8 +109,19 @@ export function BeforeAfterSlider({
         value={Math.round(pos)}
         onChange={(e) => setPos(Number(e.target.value))}
         aria-label={`${beforeLabel} / ${afterLabel}`}
-        className="absolute inset-x-0 bottom-0 h-8 w-full cursor-ew-resize opacity-0"
+        className="peer absolute inset-x-0 bottom-0 h-8 w-full cursor-ew-resize opacity-0 focus-visible:opacity-100"
       />
+      <div className="pointer-events-none absolute inset-y-0 peer-focus-visible:[&>*]:ring-4 peer-focus-visible:[&>*]:ring-accent" style={{ insetInlineStart: `calc(${pos}% - 1px)` }}>
+        <div className="h-full w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,.2)]" />
+        <div className="absolute top-1/2 left-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-lg">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 7l-5 5 5 5M16 7l5 5-5 5" />
+          </svg>
+        </div>
+      </div>
+      <span className="absolute top-3 start-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">{beforeLabel}</span>
+      <span className="absolute top-3 end-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">{afterLabel}</span>
+      {hint && <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-[11px] text-white">{hint}</span>}
     </div>
   );
 }
