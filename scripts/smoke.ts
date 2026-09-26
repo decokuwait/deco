@@ -295,6 +295,16 @@ async function main() {
     const anon = await tfetch("/api/upload", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ siteId: site.id, filename: "a.png", contentType: "image/png", size: 10 }) });
     check(anon.status === 401, "anonymous upload requests are rejected");
 
+    // The failure diagnosis makes the deployment call out to Cloudflare, so it is signed-in only and
+    // CSRF-gated exactly like the route that issues the upload. On this local backend there is no bucket,
+    // so the honest answer is that nothing but the connection can have been at fault.
+    const diagAnon = await tfetch("/api/upload/diagnose", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    check(diagAnon.status === 401, "anonymous upload diagnosis is rejected");
+    const diagForm = await tfetch("/api/upload/diagnose", { method: "POST", headers: { "content-type": "text/plain", cookie: `dk_session=${adminToken}` }, body: "{}" });
+    check(diagForm.status === 415, "upload diagnosis refuses a request a foreign page could have sent");
+    const diag = await tfetch("/api/upload/diagnose", { method: "POST", headers: { "content-type": "application/json", cookie: `dk_session=${adminToken}` }, body: "{}" });
+    check(diag.status === 200 && ((await diag.json()) as { reason?: string }).reason === "network", "upload diagnosis blames nothing but the connection when there is no bucket in play");
+
     const superPages = ["/super", "/super/sites/new", `/super/sites/${site.id}`, "/super/users", "/super/templates", "/super/leads", "/super/deleted"];
     let superOk = 0;
     for (const p of superPages) {

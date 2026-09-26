@@ -189,6 +189,34 @@ export async function storageStatus(origin: string | null): Promise<StorageStatu
   };
 }
 
+/** Why a browser upload that was already issued a valid target then failed to reach the bucket. */
+export type UploadFailure = "cors_blocked" | "bucket_unreachable" | "network";
+
+/**
+ * Names the cause of an upload the browser could not complete.
+ *
+ * A cross-origin PUT that never gets a response is reported to JavaScript as one undifferentiated error,
+ * on purpose: the browser will not tell a page why a foreign server refused it. So the three causes — the
+ * bucket's CORS policy rejecting this origin, the bucket being unreachable, and the visitor's connection
+ * actually being down — all arrived in the panel as "connection lost", which sent the owner (and the
+ * person reading the report) looking at the wrong thing. The server is not subject to CORS, so it can ask
+ * the bucket the same question the browser just asked and say which of the three it was.
+ *
+ * Deliberately uncached: `storageStatus` remembers a working policy for minutes, which is right on the hot
+ * path and wrong here. This runs only after an upload has already failed, and the whole point is to learn
+ * what the bucket says now rather than what it said before the policy was last edited.
+ */
+export async function diagnoseUploadFailure(origin: string | null): Promise<UploadFailure> {
+  // No bucket means the browser was uploading to our own origin, where none of this applies.
+  if (!origin || !r2Configured()) return "network";
+  const probe = await probeCors(origin);
+  if (probe.verdict === "missing") return "cors_blocked";
+  if (probe.verdict === "unreachable") return "bucket_unreachable";
+  // The bucket answers, and answers correctly, for this exact origin: whatever stopped the upload was
+  // between this visitor and Cloudflare, so "connection lost" is the honest message after all.
+  return "network";
+}
+
 /** Presigned PUT for one object; the browser sends exactly these headers, which are part of the signature. */
 async function presignPut(key: string, contentType: string, size: number): Promise<Extract<UploadTarget, { mode: "put" }>> {
   const { PutObjectCommand } = await import("@aws-sdk/client-s3");

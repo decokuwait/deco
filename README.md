@@ -102,10 +102,21 @@ and security suites against a real Postgres (the CI `postgres` job does this and
 ### 2. Cloudflare R2 (media)
 1. Create a bucket, an API token (Object Read & Write) and enable public access (custom domain or r2.dev).
 2. Fill `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`.
-3. Add a CORS rule on the bucket so browsers can upload directly with presigned URLs:
+3. Add a CORS rule on the bucket so browsers can upload directly with presigned URLs. The file goes
+   straight from the owner's browser to Cloudflare, so the bucket — not this app — decides whether that
+   request is allowed, and **every tenant subdomain is its own origin**. Skip this and the panel's upload
+   button fails on every site while the rest of the admin works perfectly:
 ```json
 [{"AllowedOrigins":["*"],"AllowedMethods":["PUT","GET"],"AllowedHeaders":["*"],"MaxAgeSeconds":3600}]
 ```
+   `"*"` is the safe choice here rather than a lax one: a presigned URL is the credential, and it is
+   minted only for a signed-in site admin, expires in ten minutes and is signed for one key, one content
+   type and one exact byte count. Restricting origins instead means listing `https://<root>`,
+   `https://*.<root>` **and every custom domain a customer ever connects** — and the day one is missed,
+   that customer alone cannot upload.
+   Open `https://<any tenant host>/api/health` after setting it: `storage.ok` is `false` when the policy
+   does not cover that host. As a super admin, `?probe=upload` additionally performs one real presigned
+   PUT and reports whether the bucket accepts what this app signs.
 
 ### 3. Vercel
 1. Import the repo, framework Next.js. Add all variables from `.env.example`. Variables added or changed

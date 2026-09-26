@@ -507,7 +507,21 @@ export const ADMIN_UI = {
   err_content_changed: { ar: "تم تعديل هذه الصفحة من مكان آخر بعد فتحها. أعد تحميلها لترى آخر نسخة ثم أعد تعديلك — لم يُحذف شيء.", en: "This page was changed somewhere else after you opened it. Reload it to see the latest version and redo your edit — nothing was lost." },
   err_heic: { ar: "صيغة HEIC غير مدعومة. من إعدادات الآيفون: الكاميرا ← الصيغ ← «الأكثر توافقًا»، ثم أعد اختيار الصورة.", en: "HEIC photos are not supported. On iPhone: Settings → Camera → Formats → “Most Compatible”, then pick the photo again." },
   err_video_too_large: { ar: "المقطع أكبر من ٨٠ ميجابايت ولن يكتمل رفعه على بيانات الجوال. صوّر مقطعًا أقصر أو بجودة أقل.", en: "The clip is over 80 MB and will not finish uploading on mobile data. Record a shorter clip or at a lower quality." },
+  err_blocked_by_policy: { ar: "منع متصفحك الرفع إلى مساحة التخزين. هذا إعداد في الموقع وليس في جهازك — أبلغ الدعم أن سياسة الأمان تمنع connect-src نحو مساحة R2.", en: "Your browser blocked the upload to storage. This is a site configuration problem, not your device — tell support that the security policy is blocking connect-src to the R2 bucket." },
   err_derivative_failed: { ar: "تعذّر تجهيز مقاسات الصورة، جرّب مرة أخرى", en: "Could not prepare the image sizes, please try again" },
+  // The two halves of what used to be reported as "connection lost": the bucket refused the browser, or
+  // the bucket did not answer at all. Neither is the owner's device, so neither should read like it is.
+  // An unlabelled code is rendered literally, so every refusal the upload routes can answer with needs a
+  // sentence here or the owner is shown the word `quota_exceeded` and left to guess.
+  err_upload_unauthorized: { ar: "انتهت الجلسة. سجّل الدخول مرة أخرى ثم أعد رفع الملف.", en: "Your session ended. Sign in again, then upload the file once more." },
+  err_upload_forbidden: { ar: "ليس لديك صلاحية الرفع إلى هذا الموقع.", en: "You do not have permission to upload to this site." },
+  err_upload_rate_limited: { ar: "رفعت ملفات كثيرة خلال وقت قصير. انتظر قليلاً ثم تابع.", en: "Too many uploads in a short time. Wait a little, then carry on." },
+  err_quota_exceeded: { ar: "امتلأت مساحة التخزين المخصصة للموقع. احذف صوراً أو مقاطع قديمة، أو تواصل معنا لزيادة المساحة.", en: "The site's storage is full. Delete some old photos or clips, or contact us to increase the space." },
+  err_upload_empty: { ar: "الملف فارغ. اختر الصورة أو المقطع مرة أخرى.", en: "The file is empty. Pick the photo or clip again." },
+  err_content_type_mismatch: { ar: "محتوى الملف لا يطابق امتداده. أعد حفظ الصورة بصيغة JPG أو PNG ثم ارفعها.", en: "The file's contents do not match its extension. Re-save the image as JPG or PNG, then upload it." },
+  err_upload_rejected: { ar: "رفض الخادم طلب الرفع. حدّث الصفحة ثم حاول مرة أخرى.", en: "The server rejected the upload request. Refresh the page and try again." },
+  err_cors_blocked: { ar: "رفضت مساحة التخزين الرفع من هذا النطاق. الخلل في إعداد الموقع وليس في جهازك أو اتصالك — أبلغ الدعم أن سياسة CORS في حاوية R2 لا تسمح بـ PUT من هذا النطاق.", en: "Storage refused the upload from this domain. This is a site setup problem, not your device or your connection — tell support that the R2 bucket's CORS policy does not allow PUT from this domain." },
+  err_bucket_unreachable: { ar: "لم تستجب مساحة التخزين. المشكلة ليست في جهازك — انتظر قليلاً ثم أعد المحاولة، وإن تكرر الأمر فأبلغ الدعم.", en: "Storage did not respond. This is not your device — wait a moment and try again, and tell support if it keeps happening." },
   mark_stage_hint_honest: { ar: "اضغط على الحالة الجديدة. تُحفظ فوراً، وتُرسل إشارة تحويل للمنصة المذكورة أعلاه — إن وُجدت.", en: "Tap the new stage. It is saved immediately, and a conversion signal goes to the platform named above — if there is one." },
 } satisfies Record<string, LText>;
 
@@ -526,6 +540,25 @@ export function uploadErrorLabels(t: (key: AdminUiKey) => string): Record<string
     heic: t("err_heic"),
     video_too_large: t("err_video_too_large"),
     derivative_failed: t("err_derivative_failed"),
+    blocked_by_policy: t("err_blocked_by_policy"),
+    cors_blocked: t("err_cors_blocked"),
+    bucket_unreachable: t("err_bucket_unreachable"),
+    // Everything /api/upload and /api/upload/local can refuse with. These reached the panel as bare
+    // codes, which is how an owner whose site had simply run out of storage was shown `quota_exceeded`.
+    unauthorized: t("err_upload_unauthorized"),
+    forbidden: t("err_upload_forbidden"),
+    rate_limited: t("err_upload_rate_limited"),
+    quota_exceeded: t("err_quota_exceeded"),
+    size_required: t("err_upload_rejected"),
+    site_required: t("err_upload_rejected"),
+    bad_site: t("err_upload_rejected"),
+    bad_key: t("err_upload_rejected"),
+    key_not_issued: t("err_upload_rejected"),
+    use_presigned_upload: t("err_upload_rejected"),
+    cross_site: t("err_upload_rejected"),
+    bad_content_type: t("err_upload_rejected"),
+    empty: t("err_upload_empty"),
+    content_type_mismatch: t("err_content_type_mismatch"),
   };
 }
 

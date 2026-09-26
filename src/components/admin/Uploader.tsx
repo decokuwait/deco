@@ -30,16 +30,60 @@ async function requestTarget(siteId: string, file: File, widths?: number[], widt
   return (await res.json()) as TargetResponse;
 }
 
+/**
+ * Turns the browser's one opaque upload error into the cause the owner can act on.
+ *
+ * The PUT goes to the bucket, not to us, so when it never lands the browser refuses to say why — a
+ * blocked CORS preflight, an unreachable bucket and a dropped connection are one indistinguishable
+ * `onerror`. Only the first of those is the owner's own deployment to fix, and telling them "connection
+ * lost" for it costs hours. The server is not bound by CORS, so it asks the bucket for us.
+ *
+ * Any failure to get an answer keeps the original verdict: if our own origin cannot be reached either,
+ * "connection lost" was right.
+ */
+async function diagnose(): Promise<string> {
+  try {
+    const res = await fetch("/api/upload/diagnose", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!res.ok) return "network";
+    const reason = (await res.json())?.reason;
+    return typeof reason === "string" ? reason : "network";
+  } catch {
+    return "network";
+  }
+}
+
 function putFile(target: Target, file: File, onProgress: (fraction: number) => void): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(target.mode === "put" ? "PUT" : "POST", target.uploadUrl);
+    /**
+     * A request the page's own Content-Security-Policy refuses never reaches the network, and XHR
+     * reports that refusal as an ordinary `onerror` — identical to a dropped connection. The panel
+     * therefore told the owner "connection lost" while the network was perfectly fine, and the real
+     * cause (the upload goes cross-origin to the bucket, which `connect-src` has to name) was invisible
+     * from the message. The browser does fire a separate event for it, so listen for that and say which
+     * of the two actually happened.
+     */
+    let blockedByPolicy = false;
+    const onViolation = (e: SecurityPolicyViolationEvent) => {
+      if (e.effectiveDirective.startsWith("connect-src") && target.uploadUrl.startsWith(e.blockedURI.slice(0, 40))) blockedByPolicy = true;
+    };
+    document.addEventListener("securitypolicyviolation", onViolation);
+    const done = () => document.removeEventListener("securitypolicyviolation", onViolation);
+
     // Exactly once per header name: XHR merges repeated names into one comma-joined value, which
     // would no longer match what was signed. Content-Length is the browser's to set.
     for (const [header, headerValue] of uploadRequestHeaders(target.headers, file.type)) xhr.setRequestHeader(header, headerValue);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`upload ${xhr.status}`)));
-    xhr.onerror = () => reject(new Error("network"));
+    xhr.onload = () => {
+      done();
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`upload ${xhr.status}`));
+    };
+    xhr.onerror = () => {
+      done();
+      reject(new Error(blockedByPolicy ? "blocked_by_policy" : "network"));
+    };
     xhr.send(file);
   });
 }
@@ -210,7 +254,10 @@ export function Uploader({
         accepted.push(url);
         onUploaded?.(url);
       } catch (e) {
-        fail(e instanceof Error ? e.message : "error");
+        const code = e instanceof Error ? e.message : "error";
+        // "network" is the browser's word for "the upload never got a reply", which is three different
+        // faults wearing one name. Only that code is worth a round trip to find out which.
+        fail(code === "network" ? await diagnose() : code);
       }
     }
     if (accepted.length) setUrls((prev) => (multiple ? [...prev, ...accepted] : accepted.slice(-1)));

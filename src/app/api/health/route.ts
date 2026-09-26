@@ -56,7 +56,11 @@ async function isOperator(req: NextRequest): Promise<boolean> {
  * add ?probe=upload to have the server perform one real presigned PUT against the bucket.
  */
 export async function GET(req: NextRequest) {
-  if (!rateLimit(`health:${clientIp(req.headers) || "unknown"}`, 30, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  // Awaited, and in seconds. `rateLimit` is async, so the un-awaited call this replaces tested a Promise
+  // for truthiness — always true — and the limit never once refused anything: the endpoint was open to
+  // unlimited anonymous calls, each of which runs a database query and an outbound probe to Cloudflare.
+  // The window was wrong as well (`60_000` is the seconds argument, so it meant ~17 hours, not a minute).
+  if (!(await rateLimit(`health:${clientIp(req.headers) || "unknown"}`, 30, 60))) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   const headers = { "cache-control": "no-store" };
   const operator = await isOperator(req);
   const region = operator ? process.env.VERCEL_REGION || null : null;

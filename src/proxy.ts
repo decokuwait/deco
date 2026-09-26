@@ -78,9 +78,15 @@ function isPanelPath(pathname: string): boolean {
  * same-origin route, which is why every test passed: the bug only exists once R2 is configured.
  */
 function r2Origins(): string[] {
-  const out: string[] = [];
+  // Where the presigned PUT actually goes: the S3 API endpoint, not the public bucket URL.
+  //
+  // The wildcard is deliberate. The exact host is `<account>.r2.cloudflarestorage.com`, but if
+  // `R2_ACCOUNT_ID` is not readable here — a variable added after the last deploy, a runtime that does
+  // not carry it — the account-specific entry silently disappears and every upload breaks again with the
+  // same opaque error. One vendor domain is a far smaller allowance than the `https:` this would
+  // otherwise need, and `script-src` is what actually guards this page.
+  const out: string[] = ["https://*.r2.cloudflarestorage.com"];
   const account = process.env.R2_ACCOUNT_ID?.trim();
-  // Where the presigned PUT actually goes (the S3 API endpoint, not the public bucket URL).
   if (account) out.push(`https://${account}.r2.cloudflarestorage.com`);
   // The public bucket — a custom domain or r2.dev — for anything that reads a stored object back.
   const pub = process.env.R2_PUBLIC_URL?.trim();

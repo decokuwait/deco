@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import path from "node:path";
-import { createUploadTarget, keyFromUrl, localPathFor, safeFilename, buildKey, storageStatus, resetStorageChecks, ALLOWED_TYPES, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/storage";
+import { createUploadTarget, keyFromUrl, localPathFor, safeFilename, buildKey, storageStatus, resetStorageChecks, diagnoseUploadFailure, ALLOWED_TYPES, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "@/lib/storage";
 
 const SITE = "11111111-2222-3333-4444-555555555555";
 
@@ -171,5 +171,70 @@ describe("upload validation", () => {
     expect(keyFromUrl("https://media.decokuwait.com/sites/a/x.jpg")).toBe("sites/a/x.jpg");
     expect(keyFromUrl("https://evil.com/sites/a/x.jpg")).toBeNull();
     expect(keyFromUrl(null)).toBeNull();
+  });
+});
+
+/**
+ * The panel used to show one message — "connection lost" — for a bucket that refuses this domain, a bucket
+ * that never answers, and a visitor whose connection really did drop. Only the first is the owner's own
+ * deployment to fix, and it is the one that reads least like it. These assert the three stay apart.
+ */
+describe("naming why a browser upload failed", () => {
+  const R2 = {
+    R2_ACCOUNT_ID: "0123456789abcdef0123456789abcdef",
+    R2_ACCESS_KEY_ID: "AKIAFAKEFAKEFAKEFAKE",
+    R2_SECRET_ACCESS_KEY: "fakefakefakefakefakefakefakefakefakefake",
+    R2_BUCKET: "bucket",
+    R2_PUBLIC_URL: "https://pub-x.r2.dev",
+  };
+  const real = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = real;
+    for (const k of Object.keys(R2)) delete process.env[k];
+    resetStorageChecks();
+  });
+  const answerPreflight = (headers: Record<string, string> | null) => {
+    globalThis.fetch = (async () => (headers ? new Response(null, { status: 200, headers }) : Promise.reject(new Error("timeout")))) as typeof fetch;
+  };
+  const GOOD = { "access-control-allow-origin": "*", "access-control-allow-methods": "PUT, GET", "access-control-allow-headers": "content-type" };
+
+  it("blames the bucket policy when the bucket will not accept this origin", async () => {
+    Object.assign(process.env, R2);
+    answerPreflight({ "access-control-allow-origin": "https://somewhere-else.example", ...{ "access-control-allow-methods": "PUT", "access-control-allow-headers": "content-type" } });
+    expect(await diagnoseUploadFailure("https://ahmed.decokuwait.com")).toBe("cors_blocked");
+  });
+
+  it("separates a bucket that never answers from a policy that refuses", async () => {
+    Object.assign(process.env, R2);
+    answerPreflight(null);
+    expect(await diagnoseUploadFailure("https://ahmed.decokuwait.com")).toBe("bucket_unreachable");
+  });
+
+  // The honest case: the bucket answers, and answers correctly, so the fault really was the connection.
+  it("still says the connection dropped when the bucket is demonstrably fine", async () => {
+    Object.assign(process.env, R2);
+    answerPreflight(GOOD);
+    expect(await diagnoseUploadFailure("https://ahmed.decokuwait.com")).toBe("network");
+  });
+
+  // Development uploads POST to our own origin, where CORS cannot be the cause of anything. This is also
+  // the configuration every test, the smoke run and the e2e run use — which is exactly why the CORS and
+  // CSP faults reached production unnoticed, so the diagnosis must not invent a bucket fault here.
+  it("does not blame a bucket that is not being used", async () => {
+    expect(await diagnoseUploadFailure("https://ahmed.decokuwait.com")).toBe("network");
+    Object.assign(process.env, R2);
+    expect(await diagnoseUploadFailure(null)).toBe("network");
+  });
+
+  // A stale "ok" would tell an owner their bucket is fine while the policy they just broke refuses every
+  // upload. This answer is only ever produced after a failure, so it must never come from the cache.
+  it("asks the bucket again instead of trusting the cached verdict", async () => {
+    Object.assign(process.env, R2);
+    answerPreflight(GOOD);
+    expect(await storageStatus("https://ahmed.decokuwait.com")).toMatchObject({ cors: "ok" });
+    answerPreflight({ "access-control-allow-origin": "https://somewhere-else.example" });
+    // storageStatus is entitled to its cache; the diagnosis is not.
+    expect(await storageStatus("https://ahmed.decokuwait.com")).toMatchObject({ cors: "ok" });
+    expect(await diagnoseUploadFailure("https://ahmed.decokuwait.com")).toBe("cors_blocked");
   });
 });

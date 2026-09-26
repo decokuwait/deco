@@ -209,6 +209,32 @@ async function main() {
     await uploadForm.locator('button[type="submit"]').last().click();
     await page.waitForURL(/saved=media/);
     check((await page.locator('input[name^="media."][name$=".id"]').count()) > 0, "uploaded image added as project media");
+
+    // The upload that does NOT work. A presigned upload leaves for the bucket, so when it fails the
+    // browser hands the page one opaque error and refuses to say more — a blocked CORS preflight, an
+    // unreachable bucket and a dead Wi-Fi connection are indistinguishable from inside the page. The
+    // panel showed "connection lost" for all three, which described only the last one and sent the owner
+    // looking at their router while their deployment was misconfigured. Aborting the request here is
+    // exactly what the browser does to a refused preflight, so this drives the real failure path: the
+    // server is asked what happened and its answer is what the owner reads.
+    for (const [reason, sentence] of [
+      ["cors_blocked", "رفضت مساحة التخزين"],
+      ["bucket_unreachable", "لم تستجب مساحة التخزين"],
+      ["network", "انقطع الاتصال"],
+    ] as const) {
+      await page.route("**/api/upload/local**", (r) => r.abort("failed"));
+      await page.route("**/api/upload/diagnose", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ reason }) }));
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.locator("form").filter({ has: page.locator('input[name="imageUrl"]') }).last().locator('input[type="file"]').first().setInputFiles(pngPath);
+      const shown = await page
+        .locator("body")
+        .innerText()
+        .then(() => page.waitForFunction((s) => document.body.innerText.includes(s), sentence, { timeout: 15000 }).then(() => true).catch(() => false));
+      check(shown, `a failed upload diagnosed as ${reason} tells the owner so, in their own language`);
+      await page.unroute("**/api/upload/local**");
+      await page.unroute("**/api/upload/diagnose");
+    }
+    await page.reload({ waitUntil: "domcontentloaded" });
     // Alt text and the focal point are edited in the same form as everything else and saved by the one
     // "save all" button — the page no longer has four buttons that all say "حفظ".
     await page.fill('input[name="media.0.alt.en"]', "Gypsum ceiling detail");
