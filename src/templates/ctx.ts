@@ -258,6 +258,8 @@ export function buildCtx(input: {
   locale: Locale;
   visitorCode: string | null;
   preview?: boolean;
+  /** The site home page, where every section anchor is on this document. Defaults to true. */
+  home?: boolean;
 }): RenderCtx {
   const { site, def, locale } = input;
   const c = site.content;
@@ -273,5 +275,6 @@ export function buildCtx(input: {
     text,
     ui: (key: SiteUiKey) => uiLabel(site, locale, key),
     preview: !!input.preview,
+    home: input.home !== false,
   };
 }

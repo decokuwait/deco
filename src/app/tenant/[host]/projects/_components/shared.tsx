@@ -4,7 +4,7 @@ import type { RenderCtx } from "@/templates/types";
 import { Btn, Container, FOCUS_RING, Img, Section, WhatsAppIcon, cx } from "@/templates/ui/primitives";
 import { WhatsAppLink } from "@/templates/ui/client/WhatsAppLink";
 import { SIZES } from "@/templates/ui/img";
-import { coverOf, headingLeading, projectAlt } from "@/templates/sections/shared/helpers";
+import { coverPick, headingLeading, projectAlt } from "@/templates/sections/shared/helpers";
 import { whatsappLink } from "@/lib/content/defaults";
 import type { SiteUiKey } from "@/lib/i18n/site";
 
@@ -109,10 +109,11 @@ export function ProjectCard({ ctx, project, eager = false }: { ctx: RenderCtx; p
   const loc = ctx.text(project.location);
   const count = project.media.length;
   const slug = (project.slug || "").trim();
+  const cover = coverPick(project);
   const body = (
     <>
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-2">
-        <Img src={coverOf(project)} alt={projectAlt(ctx, project)} sizes={SIZES.third} eager={eager} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+      <div className="relative w-full overflow-hidden">
+        <Img src={cover.url} alt={projectAlt(ctx, project)} slot="card" focal={cover.focal} sizes={SIZES.third} eager={eager} className="transition duration-700 group-hover:scale-105" />
         <span className="absolute top-3 start-3 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-bold text-white">{ctx.ui(typeLabelKey(project.type))}</span>
         {count > 1 && <span className="absolute bottom-3 end-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-bold text-white">{count}</span>}
       </div>

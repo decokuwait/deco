@@ -2,7 +2,7 @@ import type { SectionProps } from "../../types";
 import { Container, PhoneIcon, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
 import { AR_LEADING } from "../../leading";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
-import { formatPhone } from "../shared/helpers";
+import { TAP_TARGET, formatPhone } from "../shared/helpers";
 
 /** A thin centred line of text with an outline/underline button and generous whitespace. */
 export function CtaMinimal({ ctx }: SectionProps) {
@@ -19,12 +19,12 @@ export function CtaMinimal({ ctx }: SectionProps) {
         <h2 className={cx("font-heading text-2xl font-bold leading-snug sm:text-3xl", AR_LEADING)}>{ctx.text(c.title)}</h2>
         {subtitle && <p className="mt-3 text-base text-muted sm:text-lg">{subtitle}</p>}
         <div className="mt-8 flex flex-col items-center justify-center gap-5 sm:flex-row sm:gap-8">
-          <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(style, "primary", "md")}>
+          <WhatsAppLink href={ctx.whatsappHref} className={cx(buttonClass(style, "primary", "md"), TAP_TARGET)}>
             <WhatsAppIcon />
             {ctx.text(c.buttonText) || ctx.ui("whatsapp")}
           </WhatsAppLink>
           {phone && (
-            <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex min-h-6 items-center gap-2 text-sm font-bold text-muted transition hover:text-primary-text">
+            <WhatsAppLink href={ctx.telHref} kind="call_click" className="inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-muted transition hover:text-primary-text">
               <PhoneIcon className="h-4 w-4" />
               <span dir="ltr">{formatPhone(phone)}</span>
             </WhatsAppLink>

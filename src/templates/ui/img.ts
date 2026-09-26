@@ -18,16 +18,40 @@ const DERIVATIVE = /^(.+)@(\d{2,5})w(\.[a-z0-9]{1,5})?$/i;
  * The `sizes` a picture is actually laid out at. One value cannot serve them all: the old default claimed
  * every image was half the viewport, which made a 33vw grid card and a 96px thumbnail each fetch a file
  * about three times wider than the box it lands in.
+ *
+ * ## Why these are lengths and not bare `vw` fractions
+ *
+ * `33vw` is not what a card is. `Container` is `px-4 sm:px-6 lg:px-8` inside `max-w-6xl`/`max-w-7xl`, and a
+ * grid adds a gap between every pair of columns, so a three-up card on a 1920px desktop is 400px wide while
+ * `33vw` claims 634 — enough of an overstatement to jump the browser a whole rung up the candidate ladder
+ * (1400px instead of 768px from Unsplash, 2000px instead of 1080px from an upload). On the phone plans this
+ * product is sold into, that one wrong number is the largest avoidable payload on the page, and it is on
+ * every card of every grid. The values below subtract the gutters and the gaps and cap at the container's
+ * real maximum, measured against the rendered boxes rather than assumed.
+ *
+ * ## Why they are not trimmed any further
+ *
+ * `sizes` only describes *width*, and `object-cover` binds on whichever axis is short. A 16:9 landscape
+ * dropped into a 3:4 portrait slot is scaled until its height covers, so the source width the browser
+ * actually consumes is wider than the box — and `sizes` cannot express that. Declaring a box narrower than
+ * it is would therefore show up as softness on exactly the mixed-orientation uploads the ratio work exists
+ * to accommodate. So: honest, never miserly.
  */
 export const SIZES = {
-  /** Full-bleed: a fullscreen hero, a background photo. */
+  /** Full-bleed: a fullscreen hero, a background photo that spans the viewport. */
   full: "100vw",
-  /** One of two columns on a desktop, full width below it. */
-  half: "(min-width: 1024px) 50vw, 100vw",
-  /** A three-column grid (finished projects, services). */
-  third: "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw",
-  /** A four-column grid or bento cell. */
-  quarter: "(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw",
+  /** One picture the full width of the page container (a project detail lead image). */
+  container: "(min-width: 1344px) 1216px, calc(100vw - 2rem)",
+  /** One of two columns on a desktop, full container width below it. */
+  half: "(min-width: 1344px) 608px, (min-width: 1024px) calc(50vw - 2.5rem), calc(100vw - 2rem)",
+  /** A three-column grid (finished projects, services): 3 up from `lg`, 2 up from `sm`, 1 up on a phone. */
+  third: "(min-width: 1344px) 400px, (min-width: 1024px) calc(33.3vw - 2.25rem), (min-width: 640px) calc(50vw - 2.25rem), calc(100vw - 2rem)",
+  /** A four-column grid or bento cell that is one-up on a phone (`ServicesBento`). */
+  quarter: "(min-width: 1344px) 296px, (min-width: 1024px) calc(25vw - 1.75rem), (min-width: 640px) calc(50vw - 2rem), calc(100vw - 2rem)",
+  /** A bento cell that stays two-up on a phone (`FinishedBento` is `grid-cols-2` from the smallest width). */
+  bento: "(min-width: 1344px) 296px, (min-width: 1024px) calc(25vw - 1.75rem), calc(50vw - 1.5rem)",
+  /** A testimonial portrait or team avatar. */
+  avatar: "96px",
   /** A fixed thumbnail rail. */
   thumb: "96px",
 } as const;

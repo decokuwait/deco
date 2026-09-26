@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { FOCUS_RING, Img, Video, cx } from "../primitives";
+import { RATIO } from "../ratios";
+import type { MediaItem } from "@/lib/types";
 
 export interface RevealMedia {
   kind: "image" | "video";
@@ -13,6 +15,11 @@ export interface RevealMedia {
  * Before/after reveal. The "after" layer fades in on mouse hover, and a tap / the label chips toggle it
  * explicitly (touch + keyboard). Once the visitor toggles, hover stops overriding their choice.
  * Videos render with native controls, so the full-area tap layer is only used while an image is shown.
+ *
+ * The frame is always `RATIO.compare`, and there is no prop to change it. The two photographs cross-fade
+ * in the same box, so the moment the halves disagree about their shape — or about which part of the crop
+ * survives — the swap shows as a jump. One ratio and one focal point for both layers is the only way the
+ * comparison stays a comparison, so both are decided here rather than at each call site.
  */
 export function HoverReveal({
   before,
@@ -20,8 +27,8 @@ export function HoverReveal({
   beforeLabel,
   afterLabel,
   alt,
+  focal,
   className = "",
-  aspect = "4/3",
 }: {
   before: RevealMedia | null;
   after: RevealMedia | null;
@@ -29,8 +36,9 @@ export function HoverReveal({
   afterLabel: string;
   /** Describes the two photographs; each layer prefixes it with its own state chip. Never "". */
   alt: string;
+  /** One focal point for both halves — see above. */
+  focal?: MediaItem["focal"];
   className?: string;
-  aspect?: string;
 }) {
   const [showAfter, setShowAfter] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -44,13 +52,12 @@ export function HoverReveal({
 
   return (
     <div
-      className={cx("group relative select-none overflow-hidden rounded-card bg-surface-2", className)}
-      style={{ aspectRatio: aspect }}
+      className={cx("group relative w-full select-none overflow-hidden rounded-card", RATIO.compare, className)}
       onPointerEnter={(e) => e.pointerType === "mouse" && !locked && setShowAfter(true)}
       onPointerLeave={(e) => e.pointerType === "mouse" && !locked && setShowAfter(false)}
     >
-      <Layer item={before} alt={`${beforeLabel} ${alt}`.trim()} visible={!showAfter} />
-      <Layer item={after} alt={`${afterLabel} ${alt}`.trim()} visible={showAfter} />
+      <Layer item={before} alt={`${beforeLabel} ${alt}`.trim()} visible={!showAfter} focal={focal} />
+      <Layer item={after} alt={`${afterLabel} ${alt}`.trim()} visible={showAfter} focal={focal} />
       {tapToggles && (
         <button
           type="button"
@@ -81,7 +88,7 @@ export function HoverReveal({
   );
 }
 
-function Layer({ item, alt, visible }: { item: RevealMedia | null; alt: string; visible: boolean }) {
+function Layer({ item, alt, visible, focal }: { item: RevealMedia | null; alt: string; visible: boolean; focal?: MediaItem["focal"] }) {
   return (
     <div
       aria-hidden={!visible}
@@ -94,10 +101,12 @@ function Layer({ item, alt, visible }: { item: RevealMedia | null; alt: string; 
         item.kind === "video" ? (
           <Video item={item} className="h-full w-full object-cover" />
         ) : (
-          <Img src={item.url} alt={alt} className="h-full w-full object-cover" />
+          <Img src={item.url} alt={alt} fill focal={focal} />
         )
       ) : (
-        <Img src={null} alt="" className="h-full w-full" />
+        // The missing half of a pair. `alt` still describes what should be there rather than "": the
+        // layer is aria-hidden while it is not the visible one, not decorative.
+        <Img src={null} alt={alt} fill />
       )}
     </div>
   );

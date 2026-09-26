@@ -1,7 +1,8 @@
 "use client";
 
 import { SIZES, responsiveSrc } from "../img";
-import { FOCUS_RING, intrinsic, posterSrc } from "../primitives";
+import { FOCUS_RING, cx, intrinsic, posterSrc } from "../primitives";
+import { RATIO, RATIO_ATTR, focalClass } from "../ratios";
 import { useState } from "react";
 import type { ProgressSlide } from "./ProgressSlideshow";
 
@@ -42,11 +43,13 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
           );
         })}
       </ol>
-      <div className="relative mt-4 aspect-[16/10] overflow-hidden rounded-card bg-black ring-1 ring-line">
+      {/* One box for every step (`RATIO.step`): the stage swaps its picture in place, and a per-slide
+          shape would jump the page each time the visitor picked a different step. */}
+      <div className={cx("relative mt-4 overflow-hidden rounded-card bg-black ring-1 ring-line", RATIO.step)}>
         {cur.kind === "video" ? (
           <video key={cur.id} src={posterSrc(cur)} poster={cur.posterUrl || undefined} controls playsInline preload="metadata" className="h-full w-full object-contain" />
         ) : (
-          <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url, SIZES.half)} {...intrinsic("16/10")} alt={cur.alt} loading="lazy" decoding="async" className="h-full w-full object-cover animate-fade-up" />
+          <img key={cur.id} src={cur.url} {...responsiveSrc(cur.url, SIZES.half)} {...intrinsic(RATIO_ATTR.step)} alt={cur.alt} loading="lazy" decoding="async" className={cx("h-full w-full object-cover animate-fade-up", focalClass(cur.focal))} />
         )}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4 text-white">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">
@@ -61,7 +64,7 @@ export function ProgressStepper({ slides, stepWord, dir = "rtl", className = "" 
           // an `alt=""` plus an `aria-label` said the same thing twice and left the picture undescribed
           // anywhere the label is not read out.
           <button key={s.id} type="button" onClick={() => setI(k)} className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-card ring-2 transition ${FOCUS_RING} ${k === i ? "ring-primary" : "ring-transparent opacity-70 hover:opacity-100"}`}>
-            <img src={s.kind === "video" ? s.posterUrl || s.url : s.url} {...responsiveSrc(s.kind === "video" ? s.posterUrl || s.url : s.url, SIZES.thumb)} {...intrinsic("3/2")} alt={s.label} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+            <img src={s.kind === "video" ? s.posterUrl || s.url : s.url} {...responsiveSrc(s.kind === "video" ? s.posterUrl || s.url : s.url, SIZES.thumb)} {...intrinsic(RATIO_ATTR.card)} alt={s.label} loading="lazy" decoding="async" className={cx("h-full w-full object-cover", focalClass(s.focal))} />
             {s.kind === "video" && <span className="absolute inset-0 flex items-center justify-center text-white drop-shadow">▶</span>}
           </button>
         ))}

@@ -3,7 +3,7 @@ import { Container, Img, Section, SectionHeading } from "../../ui/primitives";
 import { GalleryFrame, GalleryOpen } from "../../ui/client/GalleryFrame";
 import { PlayBadge } from "../../ui/client/Lightbox";
 import { SIZES } from "../../ui/img";
-import { coverOf, lightboxItems, projectAlt, projectsOf } from "../shared/helpers";
+import { coverPick, lightboxItems, projectAlt, projectsOf } from "../shared/helpers";
 import { ProjectMeta } from "./shared";
 
 /** Horizontal snap-scrolling strip of tall portrait cards, cinema style. */
@@ -20,11 +20,12 @@ export function FinishedFilmstrip({ ctx }: SectionProps) {
         {projects.map((pr, i) => {
           const items = lightboxItems(ctx, pr);
           const hasVideo = items.some((x) => x.kind === "video");
+          const cover = coverPick(pr);
           return (
             <GalleryFrame key={pr.id} items={items} closeLabel={ctx.ui("close")}>
               <article className="snap-item w-[72%] shrink-0 sm:w-[44%] lg:w-[26%]">
-                <GalleryOpen index={0} disabled={!items.length} label={ctx.text(pr.title)} className="group relative block aspect-[3/4] w-full overflow-hidden rounded-card text-start shadow-lg ring-1 ring-line">
-                  <Img src={coverOf(pr)} alt={projectAlt(ctx, pr)} sizes={SIZES.third} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                <GalleryOpen index={0} disabled={!items.length} label={ctx.text(pr.title)} className="group relative block w-full overflow-hidden rounded-card text-start shadow-lg ring-1 ring-line">
+                  <Img src={cover.url} alt={projectAlt(ctx, pr)} slot="cardPortrait" focal={cover.focal} sizes={SIZES.third} className="transition duration-700 group-hover:scale-105" />
                   <span className="absolute start-3 top-3 rounded-full bg-black/60 px-2.5 py-1 font-mono text-xs font-bold text-white">{String(i + 1).padStart(2, "0")}</span>
                   {hasVideo && <PlayBadge />}
                   <span className="absolute bottom-3 end-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-black">{items.length}</span>

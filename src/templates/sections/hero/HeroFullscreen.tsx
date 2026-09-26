@@ -1,8 +1,8 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, VisitorChip, cx } from "../../ui/primitives";
+import { Container, cx } from "../../ui/primitives";
 import { SIZES } from "../../ui/img";
-import { headingLeading, heroAlt, heroTitle, sectionEnabled } from "../shared/helpers";
-import { HeroBadge, HeroCtas, mainImage } from "./shared";
+import { headingLeading, heroTitle, sectionEnabled } from "../shared/helpers";
+import { HeroBadge, HeroCtas, HeroPicture } from "./shared";
 
 /** Full-viewport photo with slow Ken Burns zoom, dark gradient and centered white typography. */
 export function HeroFullscreen({ ctx }: SectionProps) {
@@ -13,15 +13,15 @@ export function HeroFullscreen({ ctx }: SectionProps) {
   return (
     <section className="tone-dark relative flex min-h-[88svh] items-end overflow-hidden bg-secondary text-white sm:items-center">
       <div className="absolute inset-0 overflow-hidden">
-        <Img src={mainImage(ctx)} alt={heroAlt(ctx)} sizes={SIZES.full} ratio="16/9" className="h-full w-full object-cover animate-ken-burns" eager />
+        <HeroPicture ctx={ctx} slot="heroFull" sizes={SIZES.full} className="h-full w-full object-cover animate-ken-burns" controlsClass="bottom-4 end-4 sm:bottom-6 sm:end-6" />
       </div>
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/60 to-secondary/20" />
-      <div aria-hidden className="pattern-bg absolute inset-0 opacity-20" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-secondary via-secondary/60 to-secondary/20" />
+      <div aria-hidden className="pattern-bg pointer-events-none absolute inset-0 opacity-20" />
       <Container className="relative py-20 text-center sm:py-28">
         <div className="mx-auto max-w-3xl animate-fade-up">
           <HeroBadge ctx={ctx} light />
-          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.12] drop-shadow-lg sm:text-6xl lg:text-7xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/85 sm:text-xl">{ctx.text(h.subtitle)}</p>
+          <h1 className={cx("mt-4 font-heading text-3xl font-black leading-[1.12] drop-shadow-lg max-[380px]:text-[1.6rem] sm:mt-5 sm:text-6xl lg:text-7xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-white/85 sm:mt-6 sm:text-xl">{ctx.text(h.subtitle)}</p>
           <HeroCtas ctx={ctx} light className="mt-9 justify-center" />
         </div>
         {stats.length > 0 && (
@@ -34,7 +34,6 @@ export function HeroFullscreen({ ctx }: SectionProps) {
             ))}
           </div>
         )}
-        <VisitorChip ctx={ctx} className="mt-6 border-white/20 bg-white/10 text-white [&_span]:text-white" />
       </Container>
       <a href="#about" aria-hidden className="absolute bottom-5 left-1/2 hidden -translate-x-1/2 animate-float text-white/70 sm:block">
         <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">

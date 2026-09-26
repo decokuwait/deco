@@ -1,6 +1,7 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
 import { AR_LEADING } from "../../leading";
+import { aboutAlt } from "../shared/helpers";
 
 /**
  * Magazine layout: oversized headline, two-column body copy with a drop cap (English) or an accent
@@ -40,7 +41,7 @@ export function AboutEditorial({ ctx }: SectionProps) {
             <figure className="float-end mb-4 ms-5 w-36 sm:w-52">
               <div className="relative">
                 <div aria-hidden className="absolute -end-2 -top-2 h-full w-full rounded-card bg-accent/20" />
-                <Img src={img} alt={ctx.text(a.title)} sizes="(min-width: 640px) 13rem, 9rem" ratio="3/4" className="relative aspect-[3/4] w-full rounded-card object-cover" />
+                <Img src={img} alt={aboutAlt(ctx)} slot="portrait" sizes="(min-width: 640px) 13rem, 9rem" className="relative rounded-card" />
               </div>
             </figure>
           )}

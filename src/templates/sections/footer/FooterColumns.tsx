@@ -1,5 +1,5 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, SocialIcon, VisitorChip, socialLinks } from "../../ui/primitives";
+import { Container, Img, SocialIcon, socialLinks } from "../../ui/primitives";
 import { formatPhone, legalLinks, navLinks } from "../shared/helpers";
 
 /** Four-column footer on the secondary colour. */
@@ -68,7 +68,7 @@ export function FooterColumns({ ctx }: SectionProps) {
             )}
             {c.contact.email && (
               <li>
-                <a href={`mailto:${c.contact.email}`} className="inline-flex min-h-6 items-center hover:text-accent">
+                <a href={`mailto:${c.contact.email}`} className="-my-2 inline-flex min-h-11 items-center hover:text-accent">
                   {c.contact.email}
                 </a>
               </li>
@@ -89,7 +89,6 @@ export function FooterColumns({ ctx }: SectionProps) {
               </a>
             ))}
           </span>
-          <VisitorChip ctx={ctx} className="border-white/20 bg-white/10 text-white [&_span]:text-white" />
         </Container>
       </div>
     </footer>

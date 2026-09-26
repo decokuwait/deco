@@ -3,6 +3,7 @@ import { Container, Section, SectionHeading, WhatsAppIcon, buttonClass, cx } fro
 import { AR_LEADING } from "../../leading";
 import { Icon } from "../../ui/icons";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
+import { TAP_TARGET } from "../shared/helpers";
 
 function lgCols(n: number) {
   if (n <= 3) return "lg:grid-cols-3";
@@ -30,7 +31,7 @@ export function ServicesIconRow({ ctx }: SectionProps) {
           ))}
         </ul>
         <div className="mt-10 text-center">
-          <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(ctx.def.tokens.buttonStyle, "primary")}>
+          <WhatsAppLink href={ctx.whatsappHref} className={cx(buttonClass(ctx.def.tokens.buttonStyle, "primary"), TAP_TARGET)}>
             <WhatsAppIcon />
             {ctx.ui("get_quote")}
           </WhatsAppLink>

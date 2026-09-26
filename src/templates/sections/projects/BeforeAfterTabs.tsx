@@ -1,8 +1,8 @@
 import type { SectionProps } from "../../types";
-import { Container, Media, Section, SectionHeading } from "../../ui/primitives";
+import { Container, Img, Media, Section, SectionHeading } from "../../ui/primitives";
 import { Tabs } from "../../ui/client/Tabs";
 import { SIZES } from "../../ui/img";
-import { beforeAfterOf, mediaAlt, projectsOf } from "../shared/helpers";
+import { beforeAfterOf, mediaAlt, pairFocal, projectsOf } from "../shared/helpers";
 import { ProjectMeta } from "./shared";
 
 /** Each project is a card with BEFORE / AFTER tabs switching the large media. */
@@ -16,9 +16,17 @@ export function BeforeAfterTabs({ ctx }: SectionProps) {
         <div className="grid gap-6 lg:grid-cols-2">
           {projects.map((pr) => {
             const { before, after } = beforeAfterOf(pr);
+            // Both panels take `slot="compare"` and the pair's one focal point, so switching tabs neither
+            // resizes the card under the visitor's finger nor re-crops the room out from under them.
+            const focal = pairFocal(before, after);
+            const panel = (item: typeof before, label: string) => (
+              <div className="overflow-hidden rounded-card">
+                {item ? <Media item={item} alt={`${label} — ${mediaAlt(ctx, item, pr)}`} slot="compare" focal={focal} sizes={SIZES.half} /> : <Img src={null} alt={label} slot="compare" />}
+              </div>
+            );
             const tabs = [
-              { id: "before", label: ctx.ui("before"), content: <div className="aspect-[4/3] overflow-hidden rounded-card bg-surface-2">{before && <Media item={before} alt={`${ctx.ui("before")} — ${mediaAlt(ctx, before, pr)}`} sizes={SIZES.half} className="h-full w-full object-cover" />}</div> },
-              { id: "after", label: ctx.ui("after"), content: <div className="aspect-[4/3] overflow-hidden rounded-card bg-surface-2">{after && <Media item={after} alt={`${ctx.ui("after")} — ${mediaAlt(ctx, after, pr)}`} sizes={SIZES.half} className="h-full w-full object-cover" />}</div> },
+              { id: "before", label: ctx.ui("before"), content: panel(before, ctx.ui("before")) },
+              { id: "after", label: ctx.ui("after"), content: panel(after, ctx.ui("after")) },
             ];
             return (
               <article key={pr.id} className="rounded-card border border-line bg-bg p-4 sm:p-5">

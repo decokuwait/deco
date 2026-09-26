@@ -1,4 +1,5 @@
 import { responsiveSrc } from "./img";
+import { RATIO, RATIO_ATTR, focalClass, type RatioSlot } from "./ratios";
 import type { CSSProperties, ReactNode } from "react";
 import type { MediaItem } from "@/lib/types";
 import type { ButtonStyle, RenderCtx } from "../types";
@@ -83,7 +84,10 @@ export const FOCUS_RING = "focus-visible:outline-2 focus-visible:outline-offset-
 
 export function buttonClass(style: ButtonStyle, variant: "primary" | "accent" | "ghost" | "light" = "primary", size: "md" | "lg" = "md") {
   const base = cx("inline-flex items-center justify-center gap-2 font-bold transition-all duration-200 select-none whitespace-nowrap", FOCUS_RING);
-  const sizes = size === "lg" ? "px-7 py-3.5 text-base sm:text-lg" : "px-5 py-2.5 text-sm sm:text-base";
+  // `md` measured 40px tall — under the 44px tap minimum, and it is the size the WhatsApp and call buttons
+  // use, i.e. the conversion actions on a phone-first site. The floor is set here rather than at each call
+  // site, which is where it kept being forgotten.
+  const sizes = size === "lg" ? "min-h-12 px-7 py-3.5 text-base sm:text-lg" : "min-h-11 px-5 py-2.5 text-sm sm:text-base";
   const shape =
     style === "pill"
       ? "rounded-full"
@@ -184,24 +188,101 @@ export function intrinsic(ratio: string | null): { width?: number; height?: numb
   return { width: 1600, height: Math.round((1600 * h) / w) };
 }
 
+export type ImgFit = "cover" | "contain";
+
+/** The named ratio slots a caller may ask for — see `src/templates/ui/ratios.ts`. */
+export type { RatioSlot };
+
 /**
- * `alt` is required, and `""` is not a description: an empty alt declares a picture decorative, and on a
- * decoration portfolio the photographs *are* the content (WCAG 1.1.1 Level A). Callers derive it from the
- * authored `MediaItem.alt`, the caption, or the project's title and location — see `mediaAlt`.
+ * The box a picture reserves, the fit that fills it and the point that survives the crop — resolved
+ * together, from one word.
+ *
+ * These used to be three independent decisions spread across a call site: an `aspect-[4/3]` class on the
+ * wrapper, a `ratio="16/9"` string on the image, and an `object-cover` somewhere in a `className`. Nothing
+ * made them agree, and each way of disagreeing has its own failure:
+ *
+ * - box 4/3 + reserved ratio 16/9 — the browser reserves one shape and CSS draws another: a jump on load.
+ * - a reserved ratio and no `object-*` — `object-fit` defaults to **`fill`**, so the photo is *stretched*
+ *   into the box. That was reachable straight from the old default (`ratio = "4/3"` and no fit class), and
+ *   it is the distortion an owner saw on any slot whose caller forgot `object-cover`.
+ * - `object-cover` and no `object-position` — the centre survives, which is the wrong part of the two
+ *   commonest decor shots: a ceiling (subject at the top) and a floor (at the bottom).
+ *
+ * Naming a slot resolves all of it from `RATIO`, `RATIO_ATTR` and `focalClass`, so they cannot disagree.
+ *
+ * `shaped` says whether this picture has a declared shape at all. Only a shaped, cropping picture takes
+ * the placeholder background: a `contain` fit letterboxes, and the bars would show the placeholder
+ * through, while `ratio={null}` is usually a transparent logo whose background must stay transparent.
+ *
+ * Exported for the handful of places that cannot use `Img` because they need a ref or a per-element class
+ * on the `<img>` itself — the hero rotator, the before/after slider, the progress steppers. They get the
+ * same box, fit and crop point from the same one word instead of copying the class string and drifting.
  */
-export function Img({ src, alt, className = "", eager = false, sizes, ratio = "4/3", style }: { src?: string | null; alt: string; className?: string; eager?: boolean; sizes?: string; ratio?: string | null; style?: CSSProperties }) {
-  if (!src) return <div className={cx("bg-surface-2", className)} style={style} aria-hidden />;
+export function imgFrame(o: { slot?: RatioSlot; fill?: boolean; ratio?: string | null; focal?: MediaItem["focal"]; fit?: ImgFit }): { box: string; attrs: { width?: number; height?: number }; shaped: boolean } {
+  return frame({ ...o, fit: o.fit ?? "cover" });
+}
+
+function frame(o: { slot?: RatioSlot; fill?: boolean; ratio?: string | null; focal?: MediaItem["focal"]; fit: ImgFit }): { box: string; attrs: { width?: number; height?: number }; shaped: boolean } {
+  const fit = o.fit === "contain" ? "object-contain" : "object-cover";
+  const where = focalClass(o.focal);
+  // A full-bleed picture takes its height from the section around it (`RATIO.heroFull` is deliberately
+  // empty), so there is no ratio to reserve — only a box to fill.
+  if (o.fill || o.slot === "heroFull") return { box: cx("h-full w-full", fit, where), attrs: {}, shaped: true };
+  if (o.slot) return { box: cx(RATIO[o.slot], "w-full", fit, where), attrs: intrinsic(RATIO_ATTR[o.slot]), shaped: true };
+  // No slot: the legacy raw-ratio path, for the few call sites whose shape is genuinely their own.
+  const ratio = o.ratio === undefined ? "4/3" : o.ratio;
+  if (ratio === null) return { box: "", attrs: {}, shaped: false };
+  return { box: cx(fit, where), attrs: intrinsic(ratio), shaped: true };
+}
+
+export interface ImgProps {
+  src?: string | null;
+  /**
+   * Required, and `""` is not a description: an empty alt declares a picture decorative, and on a
+   * decoration portfolio the photographs *are* the content (WCAG 1.1.1 Level A). Callers derive it from
+   * the authored `MediaItem.alt`, the caption, or the project title and location — see `mediaAlt`.
+   */
+  alt: string;
+  /** Names the shape this picture is for. Supplies the responsive box, the `width`/`height` and the fit. */
+  slot?: RatioSlot;
+  /** The ancestor owns the box (a full-bleed hero, an `absolute inset-0` backdrop). No ratio is reserved. */
+  fill?: boolean;
+  /** Which part of the photograph must survive the crop, as the owner authored it. */
+  focal?: MediaItem["focal"];
+  /** `cover` crops to fill, `contain` fits inside. Only a logo or a diagram wants `contain`. */
+  fit?: ImgFit;
+  className?: string;
+  eager?: boolean;
+  sizes?: string;
+  /**
+   * Escape hatch. A raw `"w/h"` string for a one-off shape, or `null` for a picture whose own proportions
+   * decide its size — a logo set with `h-10 w-auto`, where claiming a ratio it does not have sets that
+   * width wrong. `null` also opts out of the fit class and the placeholder, so the six logo call sites
+   * keep their own `object-contain` and a transparent PNG keeps its transparency. Prefer `slot`.
+   */
+  ratio?: string | null;
+  style?: CSSProperties;
+}
+
+export function Img({ src, alt, slot, fill, focal, fit = "cover", className = "", eager = false, sizes, ratio, style }: ImgProps) {
+  const f = frame({ slot, fill, ratio, focal, fit });
+  // No picture yet. On a brand-new tenant that is most of the site, so an empty slot gets the same
+  // deliberate tonal frame a loading picture shows, rather than a bare grey block that reads as breakage.
+  if (!src) return <div className={cx("img-ph img-ph-empty", f.box, className)} style={style} aria-hidden />;
   // Eager images are the LCP candidates (hero, first cards): tell the browser to fetch them first.
   return (
     <img
       src={src}
       {...responsiveSrc(src, sizes)}
-      {...intrinsic(ratio)}
+      {...f.attrs}
       alt={alt}
       loading={eager ? "eager" : "lazy"}
       fetchPriority={eager ? "high" : undefined}
       decoding="async"
-      className={className}
+      // The placeholder doubles as the image's own background, which is the only way a server-rendered
+      // <img> can degrade without JavaScript: a 404 or a slow file shows the tonal frame instead of the
+      // browser's broken-image glyph, and a picture that does arrive covers the background completely.
+      className={cx(f.box, f.shaped && fit === "cover" && "img-ph", className)}
       style={style}
     />
   );
@@ -237,10 +318,43 @@ export function Video({ item, className = "", autoPlay = false, controls = true 
 /**
  * Any media item, image or video. `alt` is required and reaches the image: this component had no alt prop
  * at all, so every gallery picture that routed through it shipped `alt=""`.
+ *
+ * `focal` comes off the item by default, which is the whole point of the admin focal picker: a section
+ * that hands `Media` an item gets the owner's framing without having to know the field exists. A caller
+ * can still override it — a thumbnail rail that wants the centre of every frame, say.
+ *
+ * The video branch takes the same box as the image branch. That matters for `slot="compare"`: the
+ * before/after slider shows any mismatch between its two halves as a jump at the handle.
  */
-export function Media({ item, alt, className = "", autoPlay = false, sizes, ratio = "4/3" }: { item: MediaItem; alt: string; className?: string; autoPlay?: boolean; sizes?: string; ratio?: string | null }) {
-  if (item.kind === "video") return <Video item={item} className={className} autoPlay={autoPlay} />;
-  return <Img src={item.url} alt={alt} className={className} sizes={sizes} ratio={ratio} />;
+export function Media({
+  item,
+  alt,
+  slot,
+  fill,
+  focal,
+  fit = "cover",
+  className = "",
+  autoPlay = false,
+  sizes,
+  ratio,
+}: {
+  item: MediaItem;
+  alt: string;
+  slot?: RatioSlot;
+  fill?: boolean;
+  focal?: MediaItem["focal"];
+  fit?: ImgFit;
+  className?: string;
+  autoPlay?: boolean;
+  sizes?: string;
+  ratio?: string | null;
+}) {
+  const where = focal === undefined ? item.focal : focal;
+  if (item.kind === "video") {
+    const f = frame({ slot, fill, ratio, focal: where, fit });
+    return <Video item={item} className={cx(f.box, className)} autoPlay={autoPlay} />;
+  }
+  return <Img src={item.url} alt={alt} slot={slot} fill={fill} focal={where} fit={fit} className={className} sizes={sizes} ratio={ratio} />;
 }
 
 export function Divider({ ctx, from = "bg", flip = false }: { ctx: RenderCtx; from?: "bg" | "surface" | "surface2" | "primary" | "secondary"; flip?: boolean }) {
@@ -302,17 +416,6 @@ export function Arrow({ className = "h-5 w-5", dir = "rtl" }: { className?: stri
     <svg viewBox="0 0 24 24" className={cx(className, dir === "rtl" && "rotate-180")} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M5 12h14M13 5l7 7-7 7" />
     </svg>
-  );
-}
-
-/** Visitor code chip rendered on the site when enabled in settings. */
-export function VisitorChip({ ctx, className = "" }: { ctx: RenderCtx; className?: string }) {
-  if (!ctx.site.content.settings.showVisitorId || !ctx.visitorCode) return null;
-  return (
-    <span className={cx("inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1 text-[11px] font-semibold text-muted", className)} dir="ltr">
-      <span className="opacity-70">{ctx.ui("visitor_id")}:</span>
-      <span className="font-mono text-fg">{ctx.visitorCode}</span>
-    </span>
   );
 }
 

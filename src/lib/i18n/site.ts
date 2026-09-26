@@ -22,7 +22,6 @@ export const SITE_UI = {
   email: { ar: "البريد الإلكتروني", en: "Email" },
   follow_us: { ar: "تابعنا", en: "Follow us" },
   rights: { ar: "جميع الحقوق محفوظة", en: "All rights reserved" },
-  visitor_id: { ar: "رقم الزائر", en: "Visitor ID" },
   lang_switch: { ar: "English", en: "العربية" },
   quick_links: { ar: "روابط سريعة", en: "Quick links" },
   years_exp: { ar: "سنوات خبرة", en: "Years of experience" },
@@ -46,6 +45,9 @@ export const SITE_UI = {
   prev_slide: { ar: "السابق", en: "Previous" },
   next_slide: { ar: "التالي", en: "Next" },
   go_to_slide: { ar: "اذهب إلى الشريحة", en: "Go to slide" },
+  // The hero rotator's own control: auto-rotating content needs a way to stop it (WCAG 2.2.2).
+  pause_slideshow: { ar: "إيقاف تبديل الصور", en: "Pause the slideshow" },
+  play_slideshow: { ar: "تشغيل تبديل الصور", en: "Play the slideshow" },
   privacy_policy: { ar: "سياسة الخصوصية", en: "Privacy policy" },
   skip_to_content: { ar: "تخطَّ إلى المحتوى", en: "Skip to content" },
   photo: { ar: "صورة من أعمالنا", en: "Photo of our work" },

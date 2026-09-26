@@ -1,7 +1,7 @@
 import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
 import { SIZES } from "../../ui/img";
-import { longTextFont } from "../shared/helpers";
+import { aboutAlt, longTextFont, nthAlt } from "../shared/helpers";
 
 function QuoteMark({ className = "" }: { className?: string }) {
   return (
@@ -18,8 +18,10 @@ export function AboutQuote({ ctx }: SectionProps) {
   const hero = ctx.site.content.hero;
   const title = ctx.text(a.title);
   const imgs = Array.from(new Set([a.imageUrl, hero.imageUrl, ...(hero.images || [])].filter((u): u is string => !!u))).slice(0, 4);
+  // Three across on a phone put each photograph in a ~110px box — a contact sheet, not a portfolio. Two
+  // until there is room for three.
   const stripCols =
-    imgs.length === 1 ? "grid-cols-1" : imgs.length === 2 ? "grid-cols-2" : imgs.length === 3 ? "grid-cols-3" : "grid-cols-2 lg:grid-cols-4";
+    imgs.length === 1 ? "grid-cols-1" : imgs.length === 2 ? "grid-cols-2" : imgs.length === 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 lg:grid-cols-4";
   return (
     <Section id="about" tone="bg" pattern className="overflow-hidden">
       <div aria-hidden className="pointer-events-none absolute start-1/2 top-0 h-64 w-64 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
@@ -55,8 +57,10 @@ export function AboutQuote({ ctx }: SectionProps) {
         {imgs.length > 0 && (
           <div className={cx("mt-12 grid gap-3 sm:mt-16 sm:gap-4", stripCols)}>
             {imgs.map((src, i) => (
-              <div key={src} className={cx("overflow-hidden rounded-card shadow-lg", imgs.length === 1 ? "aspect-[21/9]" : "aspect-[4/5]", imgs.length > 1 && i % 2 === 1 && "sm:translate-y-6")}>
-                <Img src={src} alt={ctx.text(brand.name)} sizes={SIZES.third} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+              <div key={src} className={cx("overflow-hidden rounded-card shadow-lg", imgs.length > 1 && i % 2 === 1 && "sm:translate-y-6")}>
+                {/* One photograph is a band across the column; several are tiles, and every tile in the row
+                    takes the same slot so the strip cannot go ragged as the files arrive. */}
+                <Img src={src} alt={nthAlt(ctx, aboutAlt(ctx), i, imgs.length)} slot={imgs.length === 1 ? "band" : "cardPortrait"} sizes={SIZES.third} className="transition-transform duration-700 hover:scale-105" />
               </div>
             ))}
           </div>

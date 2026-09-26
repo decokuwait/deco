@@ -109,8 +109,10 @@ export default async function TemplatePreview({ params, searchParams }: { params
           )}
         </div>
       </div>
-      {/* The toolbar above owns the top of the viewport, so the template's own sticky nav rests below it. */}
-      <div style={{ "--dk-chrome-top": "2.75rem" } as CSSProperties}>
+      {/* The toolbar above owns the top of the viewport, so the template's own sticky nav rests below it.
+          The height lives in globals.css as `--dk-preview-chrome`, because `scroll-padding-top` is resolved
+          on <html> and cannot read a variable declared on this div — `:root:has(.dk-preview)` lifts it. */}
+      <div className="dk-preview" style={{ "--dk-chrome-top": "var(--dk-preview-chrome)" } as CSSProperties}>
         <TemplateRenderer ctx={ctx} />
       </div>
     </div>

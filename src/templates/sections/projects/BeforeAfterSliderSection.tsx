@@ -2,7 +2,7 @@ import type { SectionProps } from "../../types";
 import { Container, Section, SectionHeading } from "../../ui/primitives";
 import { BeforeAfterSlider } from "../../ui/client/BeforeAfterSlider";
 import { HoverReveal } from "../../ui/client/HoverReveal";
-import { beforeAfterOf, mediaAlt, projectAlt, projectsOf } from "../shared/helpers";
+import { beforeAfterOf, mediaAlt, pairFocal, projectAlt, projectsOf } from "../shared/helpers";
 
 /** Draggable before/after comparison cards. */
 export function BeforeAfterSliderSection({ ctx }: SectionProps) {
@@ -17,6 +17,8 @@ export function BeforeAfterSliderSection({ ctx }: SectionProps) {
             const { before, after } = beforeAfterOf(pr);
             if (!before || !after) return null;
             const hasVideo = before.kind === "video" || after.kind === "video";
+            // One focal point for the pair, whichever of the two widgets renders it — see `pairFocal`.
+            const focal = pairFocal(before, after);
             return (
               <article key={pr.id} className="overflow-hidden rounded-card border border-line bg-bg">
                 {hasVideo ? (
@@ -27,6 +29,7 @@ export function BeforeAfterSliderSection({ ctx }: SectionProps) {
                     beforeLabel={ctx.ui("before")}
                     afterLabel={ctx.ui("after")}
                     alt={projectAlt(ctx, pr)}
+                    focal={focal}
                     className="rounded-none"
                   />
                 ) : (
@@ -39,6 +42,7 @@ export function BeforeAfterSliderSection({ ctx }: SectionProps) {
                     beforeAlt={`${ctx.ui("before")} — ${mediaAlt(ctx, before, pr)}`}
                     afterAlt={`${ctx.ui("after")} — ${mediaAlt(ctx, after, pr)}`}
                     hint={ctx.ui("drag_hint")}
+                    focal={focal}
                     className="rounded-none"
                   />
                 )}

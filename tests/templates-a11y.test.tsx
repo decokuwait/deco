@@ -227,7 +227,22 @@ describe("the rest of the render-side fixes", () => {
       expect(imgs.length).toBeGreaterThan(4);
       // A logo opts out with `ratio={null}` — its own proportions decide its width. Everything else
       // reserves its box before the file arrives, whether or not its section wrapped it in an aspect box.
-      for (const img of imgs) expect(img, "image with no intrinsic size").toMatch(/\bwidth="\d+" height="\d+"/);
+      // `h-full` is the second, equally valid way to have no shift: `Img` emits it for `fill`, which means
+      // an ancestor has already given this picture a definite height (a bento row, an `absolute inset-0`
+      // backdrop, a section-sized hero), so there is nothing left to reserve.
+      for (const img of imgs) expect(img, "image with neither an intrinsic size nor a box from its ancestor").toMatch(/\bwidth="\d+" height="\d+"|\bh-full\b/);
+    }
+  });
+
+  it("never lets a definite height silently kill the slot's own aspect ratio", () => {
+    // The one way to apply the ratio contract and get nothing for it: name a slot and leave `h-full` on the
+    // image (or keep the old `aspect-[…]` wrapper and fill it). A box with a definite height ignores
+    // `aspect-ratio` entirely, so the slot would be dead code and the hand-written shape would still ship.
+    for (const def of TEMPLATES) {
+      for (const img of render(def, "ar").match(/<img[^>]*>/g) ?? []) {
+        if (!/\baspect-\[/.test(img)) continue;
+        expect(img, `${def.code}: an image carries both a slot ratio and h-full`).not.toMatch(/\bh-full\b/);
+      }
     }
   });
 

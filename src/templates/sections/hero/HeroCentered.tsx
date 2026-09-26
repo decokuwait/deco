@@ -12,11 +12,11 @@ export function HeroCentered({ ctx }: SectionProps) {
     <section className="relative overflow-hidden bg-surface">
       <div aria-hidden className="pattern-bg absolute inset-0 opacity-70" />
       <div aria-hidden className="absolute left-1/2 top-0 h-[520px] w-[820px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
-      <Container className="relative pt-16 text-center sm:pt-24">
+      <Container className="relative pt-8 text-center sm:pt-16 lg:pt-24">
         <div className="mx-auto max-w-3xl animate-fade-up">
           <HeroBadge ctx={ctx} />
-          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.12] sm:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">{ctx.text(h.subtitle)}</p>
+          <h1 className={cx("mt-4 font-heading text-3xl font-black leading-[1.12] max-[380px]:text-[1.6rem] sm:mt-5 sm:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted sm:mt-6 sm:text-xl">{ctx.text(h.subtitle)}</p>
           <HeroCtas ctx={ctx} className="mt-8 justify-center" />
         </div>
       </Container>

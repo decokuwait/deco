@@ -39,8 +39,8 @@ export function ProgressTimeline({ ctx }: SectionProps) {
                               {s.date && <span className="rounded-full bg-surface-2 px-2 py-0.5 font-bold text-muted">{s.date}</span>}
                               <span className="font-heading text-base font-bold">{s.label}</span>
                             </div>
-                            <GalleryOpen index={i} label={s.label} className="relative mt-3 block aspect-[16/10] w-full overflow-hidden rounded-card bg-surface-2">
-                              <Img src={s.kind === "video" ? s.posterUrl || "" : s.url} alt={s.alt} sizes={SIZES.half} ratio="16/10" className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+                            <GalleryOpen index={i} label={s.label} className="relative mt-3 block w-full overflow-hidden rounded-card">
+                              <Img src={s.kind === "video" ? s.posterUrl || "" : s.url} alt={s.alt} slot="step" focal={s.focal} sizes={SIZES.half} className="transition duration-500 hover:scale-105" />
                               {s.kind === "video" && <PlayBadge />}
                             </GalleryOpen>
                           </div>

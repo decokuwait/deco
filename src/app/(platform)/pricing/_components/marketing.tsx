@@ -21,7 +21,7 @@ export function MarketingHeader({ active }: { active?: "home" | "pricing" }) {
     <Link
       href={href}
       aria-current={active === key ? "page" : undefined}
-      className={`rounded-full px-3 py-1.5 transition ${active === key ? "bg-white/15 text-white" : "text-white/75 hover:text-white"}`}
+      className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 transition sm:px-3 ${active === key ? "bg-white/15 text-white" : "text-white/75 hover:text-white"}`}
     >
       {label}
     </Link>
@@ -29,16 +29,20 @@ export function MarketingHeader({ active }: { active?: "home" | "pricing" }) {
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0b1220]/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-4">
-        <Link href="/" className="text-lg font-black tracking-tight sm:text-xl">
+        <Link href="/" className="min-w-0 shrink truncate text-lg font-black tracking-tight sm:text-xl">
           {APP_NAME}
         </Link>
-        <nav className="flex items-center gap-1 text-sm font-bold">
-          {link("/", "الرئيسية", "home")}
+        {/* The row is brand + four controls, which does not fit a 390px phone: the CTA — the one
+            conversion action on the page — was pushed 35px off the inline start edge. The two secondary
+            links step aside on a phone (both are in the footer, and "home" is what the brand already is),
+            and the CTA can never shrink or wrap. */}
+        <nav className="flex min-w-0 items-center gap-0.5 text-sm font-bold sm:gap-1">
+          <span className="hidden sm:contents">{link("/", "الرئيسية", "home")}</span>
           {link("/pricing", "الأسعار", "pricing")}
-          <Link href="/templates" className="rounded-full px-3 py-1.5 text-white/75 transition hover:text-white">
+          <Link href="/templates" className="hidden shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 text-white/75 transition hover:text-white min-[420px]:inline-block sm:px-3">
             القوالب
           </Link>
-          <a href="#request" className="ms-1 rounded-full bg-amber-400 px-4 py-2 text-black transition hover:bg-amber-300">
+          <a href="#request" className="ms-1 shrink-0 whitespace-nowrap rounded-full bg-amber-400 px-3 py-2 text-black transition hover:bg-amber-300 sm:px-4">
             اطلب موقعك
           </a>
         </nav>

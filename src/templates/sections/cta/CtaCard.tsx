@@ -3,6 +3,7 @@ import { Container, Img, PhoneIcon, WhatsAppIcon, buttonClass, cx } from "../../
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
 import { SIZES } from "../../ui/img";
 import { headingLeading, heroAlt } from "../shared/helpers";
+import { RATIO } from "../../ui/ratios";
 
 /** Floating card on the surface colour: hero image on one side, WhatsApp + call buttons on the other. */
 export function CtaCard({ ctx }: SectionProps) {
@@ -34,9 +35,11 @@ export function CtaCard({ ctx }: SectionProps) {
                 )}
               </div>
             </div>
-            <div className="relative order-first min-h-[220px] sm:min-h-[280px] lg:order-none lg:min-h-full">
+            {/* A fixed 220px on a phone let a photograph of a room arrive as a letterbox strip. The band
+                slot gives it a real shape stacked above the copy; on a desktop the grid row decides. */}
+            <div className={cx("relative order-first lg:order-none lg:min-h-full", RATIO.band)}>
               {img ? (
-                <Img src={img} alt={heroAlt(ctx)} sizes={SIZES.half} className="absolute inset-0 h-full w-full object-cover" />
+                <Img src={img} alt={heroAlt(ctx)} fill sizes={SIZES.half} className="absolute inset-0" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-primary text-primary-fg">
                   <div aria-hidden className="pattern-bg absolute inset-0 opacity-40" />

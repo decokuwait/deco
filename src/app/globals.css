@@ -44,11 +44,69 @@
   --t-radius: 12px;
   --t-pattern: none;
   --t-pattern-size: auto;
+
+  /* How much of the top of the viewport the sticky site header covers, for `scroll-padding-top` below.
+     Measured, not guessed: the bars are `h-16 sm:h-20` plus a hairline border (65px / 81px), and the two
+     floating variants (NavPill, NavBoxed) come to 68px / 80px once their own top offset is counted. One
+     generous value covers every variant, because over-padding only drops the target heading a little
+     further down the screen while under-padding hides it — so no nav variant has to coordinate here. */
+  --dk-header-h: 4.25rem;
+
+  /* The platform preview toolbar's height, in one place. The preview page points its own
+     `--dk-chrome-top` at this token rather than repeating the number. */
+  --dk-preview-chrome: 2.75rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --dk-header-h: 5.25rem;
+  }
+}
+
+/*
+ * The preview page sets `--dk-chrome-top` on a wrapper `<div>`, which is inside `<body>`. That is right
+ * for the sticky nav, which resolves the variable on itself — but `scroll-padding-top` is resolved on the
+ * *scrolling element*, `<html>`, which can never see a value declared lower in the tree. Measured before
+ * this rule: an anchor inside the preview landed at 80px with the header bottom at 109, so the top 29px of
+ * every section stayed behind the bar. Detect the wrapper and give the root its own copy.
+ */
+:root:has(.dk-preview) {
+  --dk-chrome-top: var(--dk-preview-chrome);
+}
+
+/* NavSplit is two stacked bars (a 36px utility strip above the main row), so it covers 100px mobile and
+   116px desktop where every other variant covers 68/84. Measured. The generous single value above is not
+   generous enough for it, and under-padding is the failure that actually hides a heading, so this variant
+   lifts the offset for itself. Same mechanism as the preview toolbar: the nav cannot set a variable that
+   `scroll-padding-top` on <html> would read, but the root can see the nav. */
+:root:has([data-dk-nav="split"]) {
+  --dk-header-h: 6.25rem;
+}
+
+@media (min-width: 640px) {
+  :root:has([data-dk-nav="split"]) {
+    --dk-header-h: 7.25rem;
+  }
 }
 
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* iOS honours the prefixed property; every other engine wants the standard one, and without it a phone
+     held in landscape inflates the body text of a long Arabic paragraph. */
+  text-size-adjust: 100%;
+  /*
+   * Every in-page anchor (#about, #services, #contact) used to land *underneath* the sticky header:
+   * `scroll-behavior: smooth` was set with no scroll padding, so the browser brought each target to y=0,
+   * which is behind the bar. Measured on 101 before this line: #services landed with its <h2> only 15px
+   * clear of the bar, and #about with the section top at 0 and the header bottom at 81.
+   *
+   * `--dk-chrome-top` is the platform preview toolbar's height when a template is being previewed (0 on a
+   * real site), so an anchor inside the preview clears the toolbar *and* the site's own nav. It only
+   * reaches this declaration because `:root:has(.dk-preview)` above lifts it to the root — see the note
+   * there for why the preview page's own copy cannot be seen from here.
+   */
+  scroll-padding-top: calc(var(--dk-chrome-top, 0px) + var(--dk-header-h) + 0.75rem);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -63,6 +121,16 @@ body {
   font-family: var(--t-font-body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+@supports (overflow: clip) {
+  body {
+    /* `overflow-x: hidden` turns body into a scroll container, which takes `position: sticky` descendants
+       out of the viewport's scroller — the documented cause of a nav bar that quietly stops sticking on
+       iOS. `clip` clips the same overflow without creating a scroller. Behind `@supports` so an engine old
+       enough to lack `clip` (iOS 15 and earlier) still gets the clipping from the rule above. */
+    overflow-x: clip;
+  }
 }
 
 /* Note: no unlayered img/video reset here. Tailwind's preflight already applies max-width:100%/height:auto
@@ -86,6 +154,44 @@ body {
 .pattern-bg {
   background-image: var(--t-pattern);
   background-size: var(--t-pattern-size);
+}
+
+/*
+ * The empty picture slot, and the same thing as an image's own background.
+ *
+ * Two problems, one surface. (1) `Img` with no `src` used to render a bare `bg-surface-2` div, and on a
+ * brand-new tenant that is most of the site — a page of flat grey blocks reads as broken, not as unfinished.
+ * (2) A server-rendered `<img>` cannot run an `onerror` handler, so a URL that 404s fell back to the
+ * browser's own broken-image glyph on whatever was behind it. Painting the placeholder as the image's
+ * *background* solves both without JavaScript and without a wrapper element: the background is there from
+ * the first paint, shows through while the file is in flight, stays if the file never arrives, and is
+ * covered completely the moment an `object-cover` picture decodes.
+ *
+ * The surface comes from the template's own tokens, so it belongs to the design rather than sitting on top
+ * of it. The mark is a fixed mid-grey at low alpha — a `url()` cannot read a custom property, and mid-grey
+ * is the one ink that reads on both a near-white and a dark `--t-surface-2`.
+ *
+ * `Img` only applies this where it can be covered: a shaped, `object-cover` picture. `fit="contain"`
+ * letterboxes and `ratio={null}` is usually a transparent logo, and either would show the mark through.
+ */
+.img-ph {
+  background-color: var(--t-surface-2);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-opacity='0.55' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2.5' y='4.5' width='19' height='15' rx='2.5'/%3E%3Cpath d='M2.5 16.2 8 11.4l4.2 3.6 3.3-2.9 6 5.4'/%3E%3Ccircle cx='8.7' cy='9.4' r='1.5'/%3E%3C/svg%3E"),
+    linear-gradient(135deg, var(--t-surface) 0%, var(--t-surface-2) 52%, var(--t-surface) 100%);
+  background-repeat: no-repeat;
+  background-position: center;
+  /* The mark scales with the slot so a thumbnail does not get a full-size icon and a hero band does not get
+     a speck, and is clamped so it never dominates a small box or looks lost in a large one. */
+  background-size:
+    clamp(1.5rem, 13%, 3.5rem) auto,
+    cover;
+}
+
+/* Only the genuinely empty slot gets the frame. An inset ring on a loaded photograph would be a hairline
+   drawn across the picture. */
+.img-ph-empty {
+  box-shadow: inset 0 0 0 1px var(--t-border);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -138,6 +244,21 @@ body {
 }
 .animate-marquee {
   animation: marquee 30s linear infinite;
+}
+/* A marquee translated towards -X scrolls away from the reader in Arabic, because the strip was laid out
+   right to left in the first place. Mirror the direction with the document, the way every logical property
+   in the templates already does. (No section uses this yet; the pair is here so the first one that does
+   does not have to discover the RTL half.) */
+@keyframes marquee-rtl {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(50%);
+  }
+}
+[dir="rtl"] .animate-marquee {
+  animation-name: marquee-rtl;
 }
 @keyframes ken-burns {
   from {
@@ -200,4 +321,37 @@ body {
    select option) would widen the whole card past a phone viewport. Let every grid cell shrink instead. */
 .admin .grid > * {
   min-width: 0;
+}
+
+/*
+ * ─── Horizontal-overflow probe (development only) ────────────────────────────────────────────────────
+ *
+ * `overflow-x: hidden` on body and `overflow-x: clip` on `.tpl` *mask* horizontal overflow: the offending
+ * element is still 40px too wide, the page just refuses to show it. That also clamps
+ * `document.documentElement.scrollWidth`, which is what `scripts/shots.ts` measures — so the overflow check
+ * in `SHOTS_STRICT=1` could not see a regression that the clipping had already swallowed.
+ *
+ * This block unmasks it and draws the boxes, and it cannot reach production rendering because every rule is
+ * scoped to a `data-dk-debug` attribute that nothing in the app ever sets.
+ *
+ * Turn it on, in the DevTools console or from Playwright:
+ *
+ *     document.documentElement.dataset.dkDebug = "overflow";
+ *
+ * Then read the page: the template root is ringed in dashed red, every element inside it carries a hairline,
+ * and anything wider than the page now sticks out past that ring instead of being cut off at it. With the
+ * clipping gone `scrollWidth > clientWidth` again, so the shots harness reports it too.
+ *
+ * Space-separated, so more probes can be added later: `dataset.dkDebug = "overflow grid"`.
+ */
+[data-dk-debug~="overflow"] body,
+[data-dk-debug~="overflow"] .tpl {
+  overflow-x: visible;
+}
+[data-dk-debug~="overflow"] .tpl {
+  outline: 2px dashed #dc2626;
+  outline-offset: -2px;
+}
+[data-dk-debug~="overflow"] .tpl * {
+  outline: 1px solid rgb(220 38 38 / 0.22);
 }

@@ -115,7 +115,7 @@ export async function loadTenantPage(hostParam: string): Promise<TenantPage | nu
       : Promise.resolve(visitorCode);
   const [pixels, trackedCode] = await Promise.all([pixelsOnce(site.id), visit]);
   visitorCode = trackedCode;
-  const ctx = buildCtx({ site: data, def, locale, visitorCode, preview: false });
+  const ctx = buildCtx({ site: data, def, locale, visitorCode, preview: false, home: false });
   const browserPixels: BrowserPixel[] = pixels.map((p) => ({
     platform: p.platform,
     pixelId: p.pixelId,

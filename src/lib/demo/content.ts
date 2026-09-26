@@ -454,7 +454,7 @@ export function demoContent(category: Category): SiteContent {
     sections: { about: true, services: true, stats: true, process: true, testimonials: true, faq: true, cta: true, order: [] },
     // `demo: true` is what makes the fabricated parts of this content legal to store: provisioning
     // refuses to write invented testimonials to a site without it. Showcase sites are also noindexed.
-    settings: { defaultLocale: "ar", showLangToggle: true, floatingWhatsapp: true, showVisitorId: true, signalMode: "source", demo: true },
+    settings: { defaultLocale: "ar", showLangToggle: true, floatingWhatsapp: true, signalMode: "source", demo: true },
   };
   return deepMerge(emptyContent(), partial);
 }

@@ -1,5 +1,5 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, SocialIcon, VisitorChip, socialLinks } from "../../ui/primitives";
+import { Container, Img, SocialIcon, socialLinks } from "../../ui/primitives";
 import { legalLinks, navLinks } from "../shared/helpers";
 
 /** One-row footer on the page background with a top border: brand, links, socials, copyright + visitor chip. */
@@ -55,7 +55,6 @@ export function FooterMinimal({ ctx }: SectionProps) {
               </a>
             ))}
           </span>
-          <VisitorChip ctx={ctx} />
         </div>
       </Container>
     </footer>

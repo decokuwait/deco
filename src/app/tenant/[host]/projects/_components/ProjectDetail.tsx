@@ -5,7 +5,7 @@ import { SIZES } from "@/templates/ui/img";
 import { GalleryFrame, GalleryOpen } from "@/templates/ui/client/GalleryFrame";
 import { PlayBadge } from "@/templates/ui/client/Lightbox";
 import { BeforeAfterSlider } from "@/templates/ui/client/BeforeAfterSlider";
-import { beforeAfterOf, formatStepDate, headingLeading, lightboxItems, mediaAlt, mediaOf, nthAlt, projectAlt } from "@/templates/sections/shared/helpers";
+import { beforeAfterOf, formatStepDate, headingLeading, lightboxItems, mediaAlt, mediaOf, nthAlt, pairFocal, projectAlt } from "@/templates/sections/shared/helpers";
 import { Breadcrumbs, HOME_HREF, LeadCta, PROJECTS_HREF, serviceHref, typeLabelKey } from "./shared";
 import { ProjectStrip } from "./ProjectsIndex";
 
@@ -42,7 +42,7 @@ function Comparison({ ctx, project }: { ctx: RenderCtx; project: Project }) {
   if (!before || !after) {
     const one = before || after;
     if (!one) return null;
-    return <Img src={one.url} alt={mediaAlt(ctx, one, project)} sizes={SIZES.full} eager className="w-full rounded-card object-cover" />;
+    return <Img src={one.url} alt={mediaAlt(ctx, one, project)} slot="compare" focal={one.focal} sizes={SIZES.full} eager className="rounded-card" />;
   }
   return (
     <figure>
@@ -55,7 +55,7 @@ function Comparison({ ctx, project }: { ctx: RenderCtx; project: Project }) {
         afterAlt={`${ctx.ui("after")} — ${mediaAlt(ctx, after, project)}`}
         hint={ctx.ui("drag_hint")}
         dir={ctx.dir}
-        aspect="16/10"
+        focal={pairFocal(before, after)}
       />
       <figcaption className="mt-3 text-sm text-muted">{projectAlt(ctx, project)}</figcaption>
     </figure>
@@ -86,13 +86,7 @@ function Timeline({ ctx, project }: { ctx: RenderCtx; project: Project }) {
               {m.kind === "video" ? (
                 <Video item={m} className="aspect-video w-full bg-black object-contain" />
               ) : (
-                <Img
-                  src={m.url}
-                  alt={nthAlt(ctx, mediaAlt(ctx, m, project), i, steps.length)}
-                  sizes={SIZES.half}
-                  eager={i === 0}
-                  className="aspect-[16/10] w-full object-cover"
-                />
+                <Img src={m.url} alt={nthAlt(ctx, mediaAlt(ctx, m, project), i, steps.length)} slot="step" focal={m.focal} sizes={SIZES.half} eager={i === 0} />
               )}
               <figcaption className="flex flex-wrap items-baseline justify-between gap-2 p-4">
                 <span className="font-heading font-bold">{label}</span>
@@ -124,20 +118,22 @@ function Gallery({ ctx, project, items }: { ctx: RenderCtx; project: Project; it
             key={m.id}
             index={indexOf(m)}
             label={mediaAlt(ctx, m, project)}
-            className={cx("group relative block aspect-[4/3] w-full overflow-hidden rounded-card border border-line bg-surface-2 text-start", FOCUS_RING)}
+            className={cx("group relative block w-full overflow-hidden rounded-card border border-line text-start", FOCUS_RING)}
           >
             {m.kind === "video" ? (
               <>
-                <Img src={m.posterUrl || null} alt={mediaAlt(ctx, m, project)} sizes={SIZES.third} className="h-full w-full object-cover" />
+                <Img src={m.posterUrl || null} alt={mediaAlt(ctx, m, project)} slot="card" focal={m.focal} sizes={SIZES.third} />
                 <PlayBadge />
               </>
             ) : (
               <Img
                 src={m.url}
                 alt={nthAlt(ctx, mediaAlt(ctx, m, project), i, items.length)}
+                slot="card"
+                focal={m.focal}
                 sizes={SIZES.third}
                 eager={i === 0 && project.type === "finished"}
-                className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                className="transition duration-700 group-hover:scale-105"
               />
             )}
           </GalleryOpen>

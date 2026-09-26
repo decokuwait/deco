@@ -53,7 +53,7 @@ export function emptyContent(): SiteContent {
     // showLangToggle now defaults OFF: it used to publish ?lang=en containing Arabic
     // body text (the i18n fallback), declared lang="en", and submit it in the sitemap.
     // The toggle is turned on once the English side is actually written.
-    settings: { defaultLocale: "ar", showLangToggle: false, floatingWhatsapp: true, showVisitorId: true, signalMode: "source", primaryPlatform: null, consentMode: "notice", demo: false },
+    settings: { defaultLocale: "ar", showLangToggle: false, floatingWhatsapp: true, signalMode: "source", primaryPlatform: null, consentMode: "notice", demo: false },
   };
 }
 

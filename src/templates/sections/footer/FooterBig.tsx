@@ -1,8 +1,8 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, PhoneIcon, SocialIcon, VisitorChip, WhatsAppIcon, buttonClass, cx, socialLinks } from "../../ui/primitives";
+import { Container, Img, PhoneIcon, SocialIcon, WhatsAppIcon, buttonClass, cx, socialLinks } from "../../ui/primitives";
 import { AR_LEADING } from "../../leading";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
-import { formatPhone, legalLinks, navLinks } from "../shared/helpers";
+import { TAP_TARGET, formatPhone, legalLinks, navLinks } from "../shared/helpers";
 import { ClockIcon, MailIcon, PinIcon } from "../contact/icons";
 
 const heading = "font-heading text-sm font-bold uppercase tracking-widest text-accent-text";
@@ -100,13 +100,13 @@ export function FooterBig({ ctx }: SectionProps) {
             {c.contact.email && (
               <li className="flex items-start gap-3">
                 <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <a href={`mailto:${c.contact.email}`} dir="ltr" className="inline-flex min-h-6 items-center transition hover:text-accent">
+                <a href={`mailto:${c.contact.email}`} dir="ltr" className="-my-2 inline-flex min-h-11 items-center transition hover:text-accent">
                   {c.contact.email}
                 </a>
               </li>
             )}
           </ul>
-          <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(btn, "accent", "md") + " mt-5 w-full"}>
+          <WhatsAppLink href={ctx.whatsappHref} className={cx(buttonClass(btn, "accent", "md"), TAP_TARGET, "mt-5 w-full")}>
             <WhatsAppIcon />
             {ctx.ui("whatsapp")}
           </WhatsAppLink>
@@ -122,7 +122,6 @@ export function FooterBig({ ctx }: SectionProps) {
               </a>
             ))}
           </span>
-          <VisitorChip ctx={ctx} className="border-secondary-fg/20 bg-secondary-fg/10 text-secondary-fg [&_span]:text-secondary-fg" />
         </Container>
       </div>
     </footer>

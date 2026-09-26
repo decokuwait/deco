@@ -199,7 +199,6 @@ export interface SiteContent {
     defaultLocale: Locale;
     showLangToggle: boolean;
     floatingWhatsapp: boolean;
-    showVisitorId: boolean;
     signalMode: SignalMode;
     /** Platform that receives the signal in `primary` mode when the visitor's source is unknown. */
     primaryPlatform: Platform | null;

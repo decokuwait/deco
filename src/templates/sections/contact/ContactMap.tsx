@@ -1,7 +1,7 @@
 import type { SectionProps } from "../../types";
 import { Container, PhoneIcon, SocialIcon, WhatsAppIcon, buttonClass, cx, socialLinks } from "../../ui/primitives";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
-import { formatPhone } from "../shared/helpers";
+import { TAP_TARGET, formatPhone, headingLeading } from "../shared/helpers";
 import { ClockIcon, MailIcon, PinIcon } from "./icons";
 import { safeMapEmbed } from "@/lib/safe-url";
 
@@ -31,14 +31,14 @@ export function ContactMap({ ctx }: SectionProps) {
       <Container className={cx("pointer-events-none relative flex", hasMap ? "min-h-[640px] items-end pb-8 pt-72 lg:items-center lg:py-20" : "min-h-[520px] items-center py-16 lg:py-20")}>
         <div className="pointer-events-auto w-full max-w-md rounded-card border border-line bg-bg/95 p-6 shadow-2xl shadow-secondary/25 backdrop-blur sm:p-8">
           {ctx.text(c.subtitle) && <span className="text-xs font-bold uppercase tracking-widest text-accent-text">{ctx.text(c.subtitle)}</span>}
-          <h2 className="mt-2 font-heading text-2xl font-extrabold sm:text-3xl">{ctx.text(c.title) || ctx.ui("nav_contact")}</h2>
+          <h2 className={cx("mt-2 font-heading text-2xl font-extrabold sm:text-3xl", headingLeading(ctx))}>{ctx.text(c.title) || ctx.ui("nav_contact")}</h2>
           <div className="mt-6 flex flex-col gap-3">
             <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(btn, "primary", "lg")}>
               <WhatsAppIcon />
               {ctx.ui("whatsapp")}
             </WhatsAppLink>
             {c.phone && (
-              <WhatsAppLink href={ctx.telHref} kind="call_click" className={buttonClass(btn, "ghost", "md")}>
+              <WhatsAppLink href={ctx.telHref} kind="call_click" className={cx(buttonClass(btn, "ghost", "md"), TAP_TARGET)}>
                 <PhoneIcon />
                 {ctx.ui("call_now")}
               </WhatsAppLink>
@@ -79,7 +79,7 @@ export function ContactMap({ ctx }: SectionProps) {
                 <MailIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" />
                 <span>
                   <span className="block text-xs font-bold text-muted">{ctx.ui("email")}</span>
-                  <a href={`mailto:${c.email}`} dir="ltr" className="inline-flex min-h-6 items-center font-semibold transition hover:text-primary-text">
+                  <a href={`mailto:${c.email}`} dir="ltr" className="-my-2 inline-flex min-h-11 items-center font-semibold transition hover:text-primary-text">
                     {c.email}
                   </a>
                 </span>

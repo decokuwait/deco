@@ -17,7 +17,6 @@ export async function saveSettings(host: string, fd: FormData) {
         defaultLocale: readStr(fd, "defaultLocale", 2) === "en" ? "en" : "ar",
         showLangToggle: readBool(fd, "showLangToggle"),
         floatingWhatsapp: readBool(fd, "floatingWhatsapp"),
-        showVisitorId: readBool(fd, "showVisitorId"),
       },
     });
   } catch (e) {

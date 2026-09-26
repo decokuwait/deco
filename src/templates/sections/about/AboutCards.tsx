@@ -2,7 +2,7 @@ import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
 import { SIZES } from "../../ui/img";
 import { AR_LEADING } from "../../leading";
-import { longTextFont } from "../shared/helpers";
+import { aboutAlt, longTextFont } from "../shared/helpers";
 import { Icon } from "../../ui/icons";
 
 const POINT_ICONS = ["check", "star", "shield", "gem", "sparkle", "crown", "ruler", "tools"];
@@ -20,8 +20,8 @@ export function AboutCards({ ctx }: SectionProps) {
           <p className="mt-5 text-lg leading-relaxed text-muted">{ctx.text(a.body)}</p>
         </div>
         {a.imageUrl && (
-          <div className="relative mt-10 aspect-[16/9] overflow-hidden rounded-card sm:aspect-[21/9]">
-            <Img src={a.imageUrl} alt={ctx.text(a.title)} sizes={SIZES.half} className="h-full w-full object-cover" />
+          <div className="relative mt-10 overflow-hidden rounded-card">
+            <Img src={a.imageUrl} alt={aboutAlt(ctx)} slot="band" sizes={SIZES.half} />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-secondary/50 to-transparent" />
           </div>
         )}

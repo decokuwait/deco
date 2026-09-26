@@ -1,7 +1,9 @@
 "use client";
 
 import { SIZES, responsiveSrc } from "../img";
-import { intrinsic } from "../primitives";
+import { cx, intrinsic } from "../primitives";
+import { RATIO, RATIO_ATTR, focalClass } from "../ratios";
+import type { MediaItem } from "@/lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
@@ -12,6 +14,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * scanning right to left met the finished room first and the ruined one second — the narrative running
  * backwards on the most persuasive widget in the product. It now mirrors properly: `pos` is measured from
  * the *inline* start, the before layer is clipped from there, and the labels follow with `start`/`end`.
+ *
+ * The frame is always `RATIO.compare`, with one focal point shared by both halves, and neither is a prop.
+ * The handle wipes one photograph across the other in the same box: if the halves were cropped to
+ * different shapes, or from different parts of the frame, the wipe would slide the room sideways as it
+ * went — the one place in the engine where a ratio is a correctness bug and not a matter of taste.
  */
 export function BeforeAfterSlider({
   before,
@@ -21,8 +28,8 @@ export function BeforeAfterSlider({
   beforeAlt,
   afterAlt,
   hint,
+  focal,
   className = "",
-  aspect = "4/3",
   dir = "rtl",
 }: {
   before: string;
@@ -33,8 +40,9 @@ export function BeforeAfterSlider({
   beforeAlt: string;
   afterAlt: string;
   hint?: string;
+  /** One focal point for both halves — see above. */
+  focal?: MediaItem["focal"];
   className?: string;
-  aspect?: string;
   dir?: "rtl" | "ltr";
 }) {
   const rtl = dir === "rtl";
@@ -81,8 +89,8 @@ export function BeforeAfterSlider({
     <div
       ref={ref}
       dir={dir}
-      className={`relative select-none overflow-hidden rounded-card bg-surface-2 ${className}`}
-      style={{ aspectRatio: aspect, touchAction: "pan-y" }}
+      className={cx("relative w-full select-none overflow-hidden rounded-card bg-surface-2", RATIO.compare, className)}
+      style={{ touchAction: "pan-y" }}
       onPointerDown={(e) => {
         dragging.current = true;
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -92,12 +100,12 @@ export function BeforeAfterSlider({
       onPointerUp={() => (dragging.current = false)}
       onPointerCancel={() => (dragging.current = false)}
     >
-      <img src={after} {...responsiveSrc(after, SIZES.half)} {...intrinsic(aspect)} alt={afterAlt} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      <img src={after} {...responsiveSrc(after, SIZES.half)} {...intrinsic(RATIO_ATTR.compare)} alt={afterAlt} loading="lazy" decoding="async" className={cx("absolute inset-0 h-full w-full object-cover", focalClass(focal))} draggable={false} />
       {/* `inset-0` plus an explicit width over-constrains an absolutely positioned box, and CSS resolves
           that by dropping the *end* offset — so in RTL the clip and the image inside it anchor to the
           right edge, which is exactly the inline start there. No physical offsets needed. */}
       <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-        <img src={before} {...responsiveSrc(before, SIZES.half)} {...intrinsic(aspect)} alt={beforeAlt} loading="lazy" decoding="async" className="absolute inset-0 h-full max-w-none object-cover" style={{ width: frameWidth ?? "100%" }} draggable={false} />
+        <img src={before} {...responsiveSrc(before, SIZES.half)} {...intrinsic(RATIO_ATTR.compare)} alt={beforeAlt} loading="lazy" decoding="async" className={cx("absolute inset-0 h-full max-w-none object-cover", focalClass(focal))} style={{ width: frameWidth ?? "100%" }} draggable={false} />
       </div>
       {/* The keyboard affordance was an `opacity-0` range input: a visitor could tab into it and see
           nothing at all move or light up (WCAG 2.4.7). It now sits before the handle so that focusing it

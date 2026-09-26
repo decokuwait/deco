@@ -2,6 +2,7 @@ import type { SectionProps } from "../../types";
 import { Container, Img, Section, cx } from "../../ui/primitives";
 import { SIZES } from "../../ui/img";
 import { AR_LEADING } from "../../leading";
+import { aboutAlt } from "../shared/helpers";
 
 /** Full-width secondary band with pattern: circular medallion image, centred story, points as pills and inline stats. */
 export function AboutBand({ ctx }: SectionProps) {
@@ -17,7 +18,7 @@ export function AboutBand({ ctx }: SectionProps) {
         <div className="relative mb-8 animate-float">
           <div aria-hidden className="absolute -inset-3 rounded-full border-2 border-dashed border-accent/50" />
           <div className="relative h-36 w-36 overflow-hidden rounded-full ring-4 ring-accent ring-offset-4 ring-offset-secondary sm:h-44 sm:w-44">
-            <Img src={img} alt={ctx.text(brand.name)} sizes={SIZES.half} className="h-full w-full object-cover" />
+            <Img src={img} alt={aboutAlt(ctx)} fill sizes={SIZES.half} />
           </div>
           {ctx.text(brand.name) && (
             <div className="absolute inset-x-0 -bottom-3 flex justify-center">

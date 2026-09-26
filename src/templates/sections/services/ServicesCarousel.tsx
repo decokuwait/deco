@@ -1,5 +1,7 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, Section, SectionHeading, WhatsAppIcon, buttonClass } from "../../ui/primitives";
+import { Container, Img, Section, SectionHeading, WhatsAppIcon, buttonClass, cx } from "../../ui/primitives";
+import { RATIO } from "../../ui/ratios";
+import { TAP_TARGET, serviceAlt } from "../shared/helpers";
 import { SIZES } from "../../ui/img";
 import { Icon } from "../../ui/icons";
 import { Carousel } from "../../ui/client/Carousel";
@@ -15,9 +17,9 @@ export function ServicesCarousel({ ctx }: SectionProps) {
       </Container>
       <Carousel prevLabel={ctx.ui("prev_slide")} nextLabel={ctx.ui("next_slide")} dotLabelTemplate={`${ctx.ui("go_to_slide")} {n} ${ctx.ui("of")} {total}`} dir={ctx.dir} autoplay={4500} itemClassName="w-[82%] sm:w-[52%] lg:w-[32%]">
         {s.items.map((it, i) => (
-          <article key={it.id} className="group relative aspect-[4/5] overflow-hidden rounded-card bg-secondary text-secondary-fg shadow-lg">
+          <article key={it.id} className={cx("group relative overflow-hidden rounded-card bg-secondary text-secondary-fg shadow-lg", RATIO.cardPortrait)}>
             {it.imageUrl ? (
-              <Img src={it.imageUrl} alt={ctx.text(it.title)} sizes={SIZES.third} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <Img src={it.imageUrl} alt={serviceAlt(ctx, it)} fill sizes={SIZES.third} className="absolute inset-0 transition-transform duration-700 group-hover:scale-105" />
             ) : (
               <>
                 <div aria-hidden className="pattern-bg absolute inset-0 opacity-30" />
@@ -39,7 +41,7 @@ export function ServicesCarousel({ ctx }: SectionProps) {
         ))}
       </Carousel>
       <Container className="mt-8 text-center">
-        <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(ctx.def.tokens.buttonStyle, "primary")}>
+        <WhatsAppLink href={ctx.whatsappHref} className={cx(buttonClass(ctx.def.tokens.buttonStyle, "primary"), TAP_TARGET)}>
           <WhatsAppIcon />
           {ctx.ui("get_quote")}
         </WhatsAppLink>

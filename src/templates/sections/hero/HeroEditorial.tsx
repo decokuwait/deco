@@ -1,8 +1,9 @@
 import type { SectionProps } from "../../types";
-import { Container, Img, cx } from "../../ui/primitives";
+import { Container, cx } from "../../ui/primitives";
 import { SIZES } from "../../ui/img";
-import { headingLeading, heroAlt, heroTitle } from "../shared/helpers";
-import { HeroBadge, HeroCtas, mainImage } from "./shared";
+import { RATIO } from "../../ui/ratios";
+import { headingLeading, heroTitle } from "../shared/helpers";
+import { HeroBadge, HeroCtas, HeroPicture } from "./shared";
 
 /** Magazine layout: oversized headline, thin accent rules, a small photo and numbered stats. */
 export function HeroEditorial({ ctx }: SectionProps) {
@@ -11,7 +12,7 @@ export function HeroEditorial({ ctx }: SectionProps) {
   const brand = ctx.site.content.brand;
   return (
     <section className="relative bg-bg">
-      <Container className="py-12 sm:py-20">
+      <Container className="pb-12 pt-6 sm:pb-20 sm:pt-12">
         <div className="flex items-center justify-between border-t-2 border-accent pt-4 text-xs font-bold uppercase tracking-[0.3em] text-muted">
           <span>{ctx.text(brand.name)}</span>
           <span>{ctx.ui("kuwait")}</span>
@@ -19,11 +20,11 @@ export function HeroEditorial({ ctx }: SectionProps) {
         <div className="mt-10 grid gap-10 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8 animate-fade-up">
             <HeroBadge ctx={ctx} />
-            <h1 className={cx("mt-5 font-heading text-5xl font-black leading-[1.02] tracking-tight sm:text-7xl lg:text-8xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
+            <h1 className={cx("mt-4 font-heading text-4xl font-black leading-[1.02] tracking-tight max-[380px]:text-3xl sm:mt-5 sm:text-7xl lg:text-8xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
           </div>
           <div className="lg:col-span-4">
-            <div className="aspect-[4/5] overflow-hidden rounded-card">
-              <Img src={mainImage(ctx)} alt={heroAlt(ctx)} sizes={SIZES.third} ratio="4/5" className="h-full w-full object-cover" eager />
+            <div className={cx("relative overflow-hidden rounded-card", RATIO.heroPortrait)}>
+              <HeroPicture ctx={ctx} slot="heroPortrait" sizes={SIZES.third} className="h-full w-full object-cover" />
             </div>
           </div>
         </div>

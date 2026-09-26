@@ -83,7 +83,7 @@ export function ContactCards({ ctx }: SectionProps) {
         {(socials.length > 0 || c.email) && (
           <div className="mt-10 flex flex-col items-center justify-center gap-5 sm:flex-row sm:gap-10">
             {c.email && (
-              <a href={`mailto:${c.email}`} className="inline-flex min-h-6 items-center gap-2 text-sm font-semibold text-muted transition hover:text-primary-text">
+              <a href={`mailto:${c.email}`} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-muted transition hover:text-primary-text">
                 <MailIcon className="h-4 w-4" />
                 <span dir="ltr">{c.email}</span>
               </a>

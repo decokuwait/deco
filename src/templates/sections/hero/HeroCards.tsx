@@ -17,15 +17,15 @@ export function HeroCards({ ctx }: SectionProps) {
   return (
     <section className="relative overflow-hidden bg-bg">
       <div aria-hidden className="pattern-bg absolute inset-0 opacity-40" />
-      <Container className="relative grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-2 lg:py-28">
+      <Container className="relative grid items-center gap-10 pb-14 pt-8 sm:gap-12 sm:pb-20 sm:pt-12 lg:grid-cols-2 lg:pb-28 lg:pt-20">
         <div className="animate-fade-up">
           <HeroBadge ctx={ctx} />
-          <h1 className={cx("mt-5 font-heading text-4xl font-black leading-[1.12] sm:text-5xl lg:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted sm:text-xl">{ctx.text(h.subtitle)}</p>
-          <HeroCtas ctx={ctx} className="mt-8" />
+          <h1 className={cx("mt-4 font-heading text-3xl font-black leading-[1.12] max-[380px]:text-[1.6rem] sm:mt-5 sm:text-5xl lg:text-6xl", headingLeading(ctx))}>{heroTitle(ctx)}</h1>
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-muted sm:mt-6 sm:text-xl">{ctx.text(h.subtitle)}</p>
+          <HeroCtas ctx={ctx} className="mt-6 sm:mt-8" />
         </div>
         <div className="relative mx-auto aspect-square w-full max-w-md" dir="ltr">
-          <div aria-hidden className="absolute inset-[12%] rounded-full bg-primary/10" />
+          <div aria-hidden className="pointer-events-none absolute inset-[12%] rounded-full bg-primary/10" />
           {imgs.map((src, i) => (
             <div key={i} className={cx("absolute aspect-[4/3] overflow-hidden rounded-card bg-surface p-2 shadow-2xl ring-1 ring-line transition duration-500 hover:z-40 hover:rotate-0 hover:scale-105", cards[i])}>
               <Img src={src} alt={nthAlt(ctx, heroAlt(ctx), i, imgs.length)} sizes={SIZES.third} className="h-full w-full rounded-[calc(var(--t-radius)-4px)] object-cover" eager={i === 1} />

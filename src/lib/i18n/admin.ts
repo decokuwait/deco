@@ -100,7 +100,6 @@ export const ADMIN_UI = {
   default_language: { ar: "اللغة الافتراضية للموقع", en: "Default site language" },
   show_lang_toggle: { ar: "إظهار زر تغيير اللغة", en: "Show language toggle" },
   floating_whatsapp: { ar: "زر واتساب عائم", en: "Floating WhatsApp button" },
-  show_visitor_id: { ar: "إظهار رقم الزائر في الموقع", en: "Show visitor ID on site" },
   whatsapp_number: { ar: "رقم واتساب (بصيغة دولية مثل 96555555555)", en: "WhatsApp number (international, e.g. 96555555555)" },
   whatsapp_message: { ar: "نص الرسالة الأولى (استخدم {id} لرقم الزائر)", en: "First message text (use {id} for the visitor ID)" },
   address: { ar: "العنوان", en: "Address" },

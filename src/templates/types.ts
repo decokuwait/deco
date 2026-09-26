@@ -120,6 +120,16 @@ export interface RenderCtx {
   ui: (key: SiteUiKey) => string;
   /** Whether this render is a template preview (no tracking, demo data). */
   preview: boolean;
+  /**
+   * Whether this render is the site's own home page, where every section anchor exists on the page.
+   *
+   * It decides whether a section link is a bare `#about` or a root-relative `/#about`, and that is not
+   * cosmetic: a root-relative hash resolves against the *origin*, so from a URL carrying a query — which
+   * is every Meta and TikTok ad click, since they all arrive with UTM parameters — `/#about` points at a
+   * different document and the browser does a full page reload instead of scrolling. On an inner page
+   * (`/projects`, `/services`) the anchor genuinely is elsewhere and the absolute form is required.
+   */
+  home: boolean;
 }
 
 export interface SectionProps {

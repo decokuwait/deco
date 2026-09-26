@@ -26,6 +26,7 @@ interface MediaRow {
   step_label: unknown;
   step_date: unknown;
   sort_order: number;
+  focal: string | null;
 }
 
 const E: LText = { ar: "", en: "" };
@@ -36,7 +37,7 @@ function projectCols(alias = "p") {
   return PROJECT_FIELDS.map((c) => `${alias}.${c}`).join(", ");
 }
 
-const MEDIA_FIELDS = ["id", "project_id", "kind", "url", "poster_url", "role", "caption", "alt", "step_label", "step_date", "sort_order"];
+const MEDIA_FIELDS = ["id", "project_id", "kind", "url", "poster_url", "role", "caption", "alt", "step_label", "step_date", "sort_order", "focal"];
 function mediaCols(alias = "m") {
   return MEDIA_FIELDS.map((c) => `${alias}.${c}`).join(", ");
 }
@@ -141,6 +142,11 @@ function mapMedia(m: MediaRow): MediaItem {
     stepLabel: parseJson<LText | null>(m.step_label, null),
     stepDate,
     order: m.sort_order,
+    // 0008 added the column and the admin has written to it since, but nothing read it back on the render
+    // path — so the three-position focal picker had no effect on any page, whatever the templates did with
+    // `MediaItem.focal`. The check constraint limits the column to these three, and anything else (or null)
+    // means centre, which is what every row had before the column existed.
+    focal: m.focal === "top" || m.focal === "center" || m.focal === "bottom" ? m.focal : null,
   };
 }
 
@@ -170,7 +176,7 @@ export interface ProjectQuery {
 const MEDIA_JSON = `coalesce((select json_agg(json_build_object(
      'id', m.id, 'project_id', m.project_id, 'kind', m.kind, 'url', m.url, 'poster_url', m.poster_url,
      'role', m.role, 'caption', m.caption, 'alt', m.alt, 'step_label', m.step_label,
-     'step_date', m.step_date, 'sort_order', m.sort_order) order by m.sort_order, m.created_at)
+     'step_date', m.step_date, 'sort_order', m.sort_order, 'focal', m.focal) order by m.sort_order, m.created_at)
    from project_media m where m.project_id = p.id), '[]'::json) as media`;
 
 /** Projects with their media in one round trip (the public page renders every published project). */

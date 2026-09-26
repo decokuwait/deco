@@ -5,6 +5,8 @@ import { AR_LEADING } from "../../leading";
 import { Icon } from "../../ui/icons";
 import { Tabs } from "../../ui/client/Tabs";
 import { WhatsAppLink } from "../../ui/client/WhatsAppLink";
+import { RATIO } from "../../ui/ratios";
+import { TAP_TARGET, serviceAlt } from "../shared/helpers";
 
 /** One tab per service; the panel shows the image, description and a WhatsApp call to action. */
 export function ServicesTabs({ ctx }: SectionProps) {
@@ -20,8 +22,8 @@ export function ServicesTabs({ ctx }: SectionProps) {
           {/* The panel stood a fixed 24rem tall whatever was in it, so a service with a short description
               — or none of its own picture, where this cell is only an icon — left most of the card empty.
               The image now drives the height and the text column sets the floor. */}
-          <div className="relative aspect-[4/3] bg-surface-2 lg:aspect-[5/4] lg:min-h-full">
-            <Img src={it.imageUrl} alt={title} sizes={SIZES.half} className="absolute inset-0 h-full w-full object-cover" />
+          <div className={cx("relative bg-surface-2 lg:min-h-full", RATIO.card)}>
+            <Img src={it.imageUrl} alt={serviceAlt(ctx, it)} fill sizes={SIZES.half} className="absolute inset-0" />
             {!it.imageUrl && (
               <span className="absolute inset-0 flex items-center justify-center text-primary-text/30">
                 <div aria-hidden className="pattern-bg absolute inset-0 opacity-60" />
@@ -39,7 +41,7 @@ export function ServicesTabs({ ctx }: SectionProps) {
             <h3 className={cx("font-heading text-2xl font-extrabold leading-tight sm:text-3xl", AR_LEADING)}>{title}</h3>
             <p className="mt-3 leading-relaxed text-muted">{ctx.text(it.description)}</p>
             <div className="mt-6">
-              <WhatsAppLink href={ctx.whatsappHref} className={buttonClass(ctx.def.tokens.buttonStyle, "primary")}>
+              <WhatsAppLink href={ctx.whatsappHref} className={cx(buttonClass(ctx.def.tokens.buttonStyle, "primary"), TAP_TARGET)}>
                 <WhatsAppIcon />
                 {ctx.ui("get_quote")}
               </WhatsAppLink>

@@ -33,7 +33,6 @@ export default async function SettingsPage({ params, searchParams }: { params: P
             </Field>
             <Toggle name="showLangToggle" defaultChecked={s.showLangToggle} label={t("show_lang_toggle")} />
             <Toggle name="floatingWhatsapp" defaultChecked={s.floatingWhatsapp} label={t("floating_whatsapp")} />
-            <Toggle name="showVisitorId" defaultChecked={s.showVisitorId} label={t("show_visitor_id")} hint={t("whatsapp_id_hint")} />
             <div className="flex flex-wrap items-center gap-3">
               {/* Not the password form below: warning someone away from a half-typed password field is
                   noise, and there is nothing there worth keeping. */}
